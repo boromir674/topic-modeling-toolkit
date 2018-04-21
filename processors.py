@@ -10,7 +10,6 @@ class Processor:
 
     def __init__(self):
         self.__mro__ = [Processor]
-        self.a = 'gav'
 
     @abstractmethod
     def process(self, data):
@@ -44,17 +43,21 @@ class StateFullProcessor(object):
     def process(self, data):
         return self.func(data)
 
+    @property
+    def get_state(self):
+        return self.state
+
 
 Processor.register(StateLessProcessor)
 Processor.register(StateFullProcessor)
 
-class StringProcessor(StateLessProcessor): pass
 
-class GeneratorProcessor(StateLessProcessor): pass
+class StringProcessor(StateLessProcessor): pass
 
 
 def lowercase(a_string):
     return a_string.lower()
+
 
 reg = re.compile(r'\s{2,}')
 
@@ -68,7 +71,7 @@ def utf8encode(a_string):
     return a_string.encode('utf-8')
 
 def lemmatize(a_string):
-    return gen_lemmatize(a_string)
+    return ' '.join(val.split('/')[0] for val in gen_lemmatize(a_string, min_length=2, max_length=20))
 
 
 class LowerCaser(StringProcessor):
@@ -91,17 +94,33 @@ class DeAccenter(StringProcessor):
         super(StringProcessor, self).__init__(deaccent)
 
 
-
-
-
-
-
-
-
-
-class MonoSpace(StringProcessor):
+class StringLemmatizer(StringProcessor):
     def __init__(self):
-        super(StringProcessor, self).__init__(lowercase)
+        super(StringProcessor, self).__init__(lemmatize)
+
+
+### GENERATOR PROCESSORS ###
+
+class GeneratorProcessor(StateLessProcessor): pass
+
+
+def min_length_filter(word_generator, min_length):
+    return (w for w in word_generator if len(w) >= min_length)
+
+def max_length_filter(word_generator, max_length):
+    return (w for w in word_generator if len(w) < max_length)
+
+
+class MinLengthFilter(GeneratorProcessor):
+    def __init__(self, min_length):
+        super(GeneratorProcessor, self).__init__(lambda x: min_length_filter(x, min_length))
+
+
+class MaxLengthFilter(GeneratorProcessor):
+    def __init__(self, max_length):
+        super(GeneratorProcessor, self).__init__(lambda x: max_length_filter(x, max_length))
+
+
 
 
 if __name__ == '__main__':
@@ -110,16 +129,25 @@ if __name__ == '__main__':
     sf = StateFullProcessor(lambda x: x + '_full')
     sp = StringProcessor(lambda x: x + 'sp')
 
-    # print sl.process('ind')
-    # print sl.a
-    # print isinstance(sl, Processor)
-    # print issubclass(sl, Processor)
-
-    print sf.process('ind')
-#    print sf.a
     print isinstance(sf, Processor)
     print issubclass(sf, Processor)
 
-    msp = MonoSpaceer()
+    msp = MonoSpacer()
 
+    print isinstance(msp, Processor)
+    print issubclass(msp, Processor)
+    print isinstance(msp, StateLessProcessor)
+    print issubclass(StateLessProcessor, Processor)
 
+    docs = [['alpha', 're', 'gav', 'gav'],
+            ['asto', 'paramithi', 're']
+            ]
+
+    generator = (w for w in docs[0])
+
+    print [_ for _ in generator]
+    mlf = MinLengthFilter(3)
+
+    g = mlf.process(generator)
+
+    print [_ for _ in g]

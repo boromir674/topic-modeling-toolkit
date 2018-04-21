@@ -28,6 +28,8 @@ class DefaultPipeline(Pipeline):
 
 def create_pipeline(settings):
     assert isinstance(settings, OrderedDict)
-    processors = [settings_value2processors[k](v) for k, v in settings.items()]
 
-    return DefaultPipeline([pr for pr in processors if pr is not None])
+    processors = [settings_value2processors[k](v) for k, v in settings.items()]
+    processors = [pr for pr in processors if pr is not None]
+
+    return DefaultPipeline(processors)

@@ -1,7 +1,7 @@
 import os
 from nltk.corpus import stopwords
 
-from processors import LowerCaser, MonoSpacer, UtfEncoder, DeAccenter
+from processors import LowerCaser, MonoSpacer, UtfEncoder, DeAccenter, StringLemmatizer
 
 root_dir = '/data/thesis'
 en_stopwords = set(stopwords.words('english'))
@@ -29,7 +29,8 @@ encode_pipeline_cfg = {
     'unicode': lambda x: bool(eval(x)),
     'deaccent': lambda x: bool(eval(x)),
     'normalize': str,
-    'min_len': int,
+    'min_length': int,
+    'max_length': int,
     'occurence_thres': int,
     'ngrams': int,
     'weight': str,
@@ -42,8 +43,9 @@ settings_value2processors = {
     'mono_space': lambda x: MonoSpacer if x else None,
     'unicode': lambda x: UtfEncoder if x else None,
     'deaccent': lambda x: DeAccenter if x else None,
-    'normalize': lambda x: Lemmatizer if x else None,
-    'min_len': lambda x: MinLenFilter(x),
+    'normalize': lambda x: StringLemmatizer if x else None,
+    'min_length': lambda x: None,
+    'max_length': lambda x: None,
     'occurence_thres': lambda x: OccurenceFilter(x),
     'ngrams': lambda x: NgramsGenerator(x),
     'weight': lambda x: FeatureComputer(x),
