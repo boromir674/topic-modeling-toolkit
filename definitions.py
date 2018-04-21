@@ -1,10 +1,10 @@
 import os
-from nltk.corpus import stopwords
 
-from processors import LowerCaser, MonoSpacer, UtfEncoder, DeAccenter, StringLemmatizer
+
+from processors import LowerCaser, MonoSpacer, UtfEncoder, DeAccenter, StringLemmatizer, MinLengthFilter, MaxLengthFilter, WordToUnigramGenerator
 
 root_dir = '/data/thesis'
-en_stopwords = set(stopwords.words('english'))
+
 
 data_root_dir = '/data/thesis/data'
 pre = 'pickles'
@@ -31,7 +31,8 @@ encode_pipeline_cfg = {
     'normalize': str,
     'min_length': int,
     'max_length': int,
-    'occurence_thres': int,
+    'no_below': int,
+    'no_above': float,
     'ngrams': int,
     'weight': str,
     'format': str
@@ -39,15 +40,20 @@ encode_pipeline_cfg = {
 
 
 settings_value2processors = {
-    'lowercase': lambda x: LowerCaser if x else None,
-    'mono_space': lambda x: MonoSpacer if x else None,
-    'unicode': lambda x: UtfEncoder if x else None,
-    'deaccent': lambda x: DeAccenter if x else None,
-    'normalize': lambda x: StringLemmatizer if x else None,
-    'min_length': lambda x: None,
-    'max_length': lambda x: None,
-    'occurence_thres': lambda x: OccurenceFilter(x),
-    'ngrams': lambda x: NgramsGenerator(x),
-    'weight': lambda x: FeatureComputer(x),
-    'format': lambda x: DataFormater(x)
+    'lowercase': lambda x: LowerCaser() if x else None,
+    'mono_space': lambda x: MonoSpacer() if x else None,
+    'unicode': lambda x: UtfEncoder() if x else None,
+    'deaccent': lambda x: DeAccenter() if x else None,
+    'normalize': lambda x: StringLemmatizer() if x else None,
+    'min_length': lambda x: MinLengthFilter(x),
+    'max_length': lambda x: MaxLengthFilter(x),
+    'no_below': lambda x: None,
+    'no_above': lambda x: None,
+    # 'occurence_thres': lambda x: OccurenceFilter(x),
+    # 'ngrams': lambda x: NgramsGenerator(x),
+    # 'weight': lambda x: FeatureComputer(x),
+    # 'format': lambda x: DataFormater(x)
+    'ngrams': lambda x: WordToUnigramGenerator(x),
+    'weight': lambda x: None,
+    'format': lambda x: None
 }

@@ -1,8 +1,11 @@
 import re
 from abc import ABCMeta, abstractmethod
 
-from gensim.utils import deaccent as gen_deaccen
+from gensim.utils import deaccent as gen_deaccent
 from gensim.utils import lemmatize as gen_lemmatize
+
+from nltk.corpus import stopwords
+en_stopwords = set(stopwords.words('english'))
 
 
 class Processor:
@@ -71,8 +74,13 @@ def utf8encode(a_string):
     return a_string.encode('utf-8')
 
 def lemmatize(a_string):
-    return ' '.join(val.split('/')[0] for val in gen_lemmatize(a_string, min_length=2, max_length=20))
+    return ' '.join(val.split('/')[0] for val in gen_lemmatize(a_string, stopwords=en_stopwords, min_length=2, max_length=50))
 
+def lemmatize_and_tokenize(a_string):
+    return [val.split('/')[0] for val in gen_lemmatize(a_string, stopwords=en_stopwords, min_length=2, max_length=50)]
+
+def lemmatize_token(a_string):
+    return gen_lemmatize(a_string, stopwords=en_stopwords, min_length=2, max_length=50).split('/')[0]
 
 class LowerCaser(StringProcessor):
     def __init__(self):
@@ -98,17 +106,54 @@ class StringLemmatizer(StringProcessor):
     def __init__(self):
         super(StringProcessor, self).__init__(lemmatize)
 
+### MUTATOR ###
+
+
+class StringToGenerator(StateLessProcessor): pass
 
 ### GENERATOR PROCESSORS ###
+
 
 class GeneratorProcessor(StateLessProcessor): pass
 
 
+def gen_ngrams(word_generator, degree):
+    assert degree > 1
+    gen_empty = False
+    total = 0
+    queue = []
+    while total < degree:
+        queue.append(word_generator.next())
+        total += 1
+    yield '_'.join(queue)
+    total = 1  # total unigrams generated
+    while not gen_empty:
+        try:
+            del queue[0]
+            queue.append(word_generator.next())
+            yield '_'.join(queue)
+            total += 1
+        except StopIteration:
+            print 'Generated {} unigrams'.format(total)
+            gen_empty = True
+
+
+def ngrams_convertion(word_generator, degree):
+    if degree == 1:
+        return word_generator
+    else:
+        return (_ for _ in gen_ngrams(word_generator, degree))
+
+
 def min_length_filter(word_generator, min_length):
+    if min_length < 2:
+        min_length = 2
     return (w for w in word_generator if len(w) >= min_length)
 
 def max_length_filter(word_generator, max_length):
-    return (w for w in word_generator if len(w) < max_length)
+    if max_length > 50:
+        max_length = 50
+    return (w for w in word_generator if len(w) <= max_length)
 
 
 class MinLengthFilter(GeneratorProcessor):
@@ -121,6 +166,9 @@ class MaxLengthFilter(GeneratorProcessor):
         super(GeneratorProcessor, self).__init__(lambda x: max_length_filter(x, max_length))
 
 
+class WordToUnigramGenerator(GeneratorProcessor):
+    def __init__(self, degree):
+        super(GeneratorProcessor, self).__init__(lambda x: ngrams_convertion(x, degree))
 
 
 if __name__ == '__main__':
@@ -144,10 +192,14 @@ if __name__ == '__main__':
             ]
 
     generator = (w for w in docs[0])
+    bfg = WordToUnigramGenerator(5)
+    ng = bfg.process(generator)
 
-    print [_ for _ in generator]
-    mlf = MinLengthFilter(3)
+    print [_ for _ in ng]
 
-    g = mlf.process(generator)
-
-    print [_ for _ in g]
+    # print [_ for _ in generator]
+    # mlf = MinLengthFilter(3)
+    #
+    # g = mlf.process(generator)
+    #
+    # print [_ for _ in g]
