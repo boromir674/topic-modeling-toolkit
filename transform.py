@@ -67,7 +67,7 @@ class PipeHandler(object):
             # dct.add_documents([[_ for _ in gen]])
             self.dct.add_documents([us])
             # print [_ for _ in gen][:10]
-        # dct.filter_extremes()
+        self.dct.filter_extremes(no_below=a_pipe.settings['no_below'], no_above=a_pipe.settings['no_above'])
 
 
 if __name__ == '__main__':
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     ph = PipeHandler()
     pipe = ph.create_pipeline(args.config)
     print pipe
-    ph.pipe_files(pipe)
+    ph.pipe_files(pipe, nb_sample=10)
 
     # pipeline_settings = configfile2dict(os.path.join(root_dir, 'code', args.config), 'preprocessing')
     # for k, v in pipeline_settings.items():
