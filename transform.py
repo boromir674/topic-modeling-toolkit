@@ -78,11 +78,13 @@ class PipeHandler(object):
             sum_toks += len(toks)
             self.dct.add_documents([toks])
             # print [_ for _ in gen][:10]
+
         print 'SUM generators\' tokens', sum_toks, self.dct.num_pos, len(self.dct.items())
         self.dct.filter_extremes(no_below=a_pipe.settings['no_below'], no_above=a_pipe.settings['no_above'])
         print 'SUM tokens', self.dct.num_pos, len(self.dct.items())
         self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
         print 'Corpus size:', sum(len(_) for _ in self.corpus)
+
         if a_pipe.settings['weight'] == 'counts':
             # self.writer.fake_headers(self.dct.num_docs, self.dct.num_pos, self.dct.num_nnz)
             print 'type1', type(self.corpus[0]), type(self.corpus[0])

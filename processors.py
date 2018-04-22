@@ -188,13 +188,25 @@ class WordToUnigramGenerator(GeneratorProcessor):
 
 
 # ### Disk Writer Processors
-#
-# class DiskWriteprocessor(StateLessProcessor): pass
-#
-#
-# class UciFormatWriter(DiskWriteprocessor):
-#     def __init__(self, fname):
-#         super(DiskWriteprocessor, self).__init__()
+
+class StateFullDiskWriter(StateFullProcessor): pass
+
+
+class UciFormatWriter(StateFullDiskWriter):
+    """Ingests one doc vector at a time"""
+    def __init__(self, fname):
+        self.doc_num = 1
+        super(StateFullDiskWriter, self).__init__(lambda x: write_vector(fname, x, self.doc_num))
+
+    def process(self, data):
+        _ = super(StateFullDiskWriter, self).process(data)
+        self.doc_num += 1
+        return _
+
+
+def write_vector(fname, doc_vector, doc_num):
+    with open(fname, 'a') as f:
+        f.writelines(map(lambda x: '{} {} {}'.format(doc_num, x[0], x[1]), doc_vector))
 
 
 if __name__ == '__main__':
