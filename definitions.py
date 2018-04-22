@@ -1,7 +1,7 @@
 import os
 
 
-from processors import LowerCaser, MonoSpacer, UtfEncoder, DeAccenter, StringLemmatizer, MinLengthFilter, MaxLengthFilter, WordToUnigramGenerator
+from processors import LowerCaser, MonoSpacer, UtfEncoder, DeAccenter, StringLemmatizer, MinLengthFilter, MaxLengthFilter, WordToUnigramGenerator, UciFormatWriter
 
 root_dir = '/data/thesis'
 
@@ -54,6 +54,7 @@ settings_value2processors = {
     # 'weight': lambda x: FeatureComputer(x),
     # 'format': lambda x: DataFormater(x)
     'ngrams': lambda x: WordToUnigramGenerator(x),
-    'weight': lambda x: x,
+    # 'weight': lambda x: x,
+    'weight': lambda x: UciFormatWriter() if x == 'tfidf' else x,
     'format': lambda x: None
 }

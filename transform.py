@@ -40,7 +40,7 @@ class PipeHandler(object):
         self.model = None
         self.corpus = None
         self.nb_docs = 0
-        self.writer = UciWriter('/data/thesis/data/uci1')
+        self.writer = UciWriter('/data/thesis/data/cnuci')
 
     def create_pipeline(self, pipeline_cfg):
         pipe_settings = configfile2dict(os.path.join(root_dir, 'code', pipeline_cfg), 'preprocessing')
@@ -64,7 +64,7 @@ class PipeHandler(object):
         doc_gens = []
         sum_toks = 0
         for i, doc in enumerate(self.gen_docs('posts')):
-            if i == nb_sample - 1:
+            if i == nb_sample:
                 break
             # print doc
             doc = a_pipe.partial_pipe(doc, 0, 3)
@@ -99,13 +99,14 @@ class PipeHandler(object):
             self.writer.write_corpus(self.writer.fname, self.corpus)
         elif a_pipe.settings['weight'] == 'tfidf':
             self.model = TfidfModel(self.corpus)
-            self.writer.fake_headers(self.dct.num_docs, self.dct.num_pos, self.dct.num_nnz)
+            # self.writer.fake_headers(self.dct.num_docs, self.dct.num_pos, self.dct.num_nnz)
             c2 = map(lambda x: self.model[x], self.corpus)
             print 'type2', type(c2), type(c2[0])
             print 'len2:', len(c2), len(c2[0])
 
-            self.writer.write_corpus(self.writer.fname, c2)
-
+            # self.writer.write_corpus(self.writer.fname, c2)
+            for vec in c2:
+                a_pipe[-1][1].process(vec)
 
 if __name__ == '__main__':
     args = get_cl_arguments()

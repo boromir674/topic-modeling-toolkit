@@ -46,6 +46,9 @@ class StateFullProcessor(object):
         self.__mro__ = [Processor]
         self.func = a_function
 
+    def __str__(self):
+        return type(self).__name__
+
     def process(self, data):
         return self.func(data)
 
@@ -189,24 +192,28 @@ class WordToUnigramGenerator(GeneratorProcessor):
 
 # ### Disk Writer Processors
 
-class StateFullDiskWriter(StateFullProcessor): pass
+class StateLessDiskWriter(StateLessProcessor): pass
 
 
-class UciFormatWriter(StateFullDiskWriter):
+class UciFormatWriter(StateLessDiskWriter):
     """Ingests one doc vector at a time"""
-    def __init__(self, fname):
+    def __init__(self, fname='/data/thesis/data/tfuci'):
         self.doc_num = 1
-        super(StateFullDiskWriter, self).__init__(lambda x: write_vector(fname, x, self.doc_num))
+        super(StateLessDiskWriter, self).__init__(lambda x: write_vector(fname, x, self.doc_num))
+
+    def __str__(self):
+        return super(StateLessDiskWriter, self).__str__()
 
     def process(self, data):
-        _ = super(StateFullDiskWriter, self).process(data)
+        _ = super(StateLessDiskWriter, self).process(data)
         self.doc_num += 1
         return _
 
 
 def write_vector(fname, doc_vector, doc_num):
     with open(fname, 'a') as f:
-        f.writelines(map(lambda x: '{} {} {}'.format(doc_num, x[0], x[1]), doc_vector))
+        # f.writelines(map(lambda x: '{} {} {:.8f}\n'.format(doc_num, x[0], x[1]), doc_vector))
+        f.writelines(map(lambda x: '{} {} {}\n'.format(doc_num, x[0], x[1]), doc_vector))
 
 
 if __name__ == '__main__':
