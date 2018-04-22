@@ -33,6 +33,9 @@ class StateLessProcessor(object):
         self.__mro__ = [Processor]
         self.func = a_function
 
+    def __str__(self):
+        return type(self).__name__
+
     def process(self, data):
         return self.func(data)
 
@@ -106,6 +109,7 @@ class StringLemmatizer(StringProcessor):
     def __init__(self):
         super(StringProcessor, self).__init__(lemmatize)
 
+
 ### MUTATOR ###
 
 
@@ -159,16 +163,38 @@ def max_length_filter(word_generator, max_length):
 class MinLengthFilter(GeneratorProcessor):
     def __init__(self, min_length):
         super(GeneratorProcessor, self).__init__(lambda x: min_length_filter(x, min_length))
+        self.min_length = min_length
+
+    def __str__(self):
+        return super(GeneratorProcessor, self).__str__() + '(' + str(self.min_length) + ')'
 
 
 class MaxLengthFilter(GeneratorProcessor):
     def __init__(self, max_length):
         super(GeneratorProcessor, self).__init__(lambda x: max_length_filter(x, max_length))
+        self.max_length = max_length
+
+    def __str__(self):
+        return super(GeneratorProcessor, self).__str__() + '(' + str(self.max_length) + ')'
 
 
 class WordToUnigramGenerator(GeneratorProcessor):
     def __init__(self, degree):
         super(GeneratorProcessor, self).__init__(lambda x: ngrams_convertion(x, degree))
+        self.degree = degree
+
+    def __str__(self):
+        return super(GeneratorProcessor, self).__str__() + '(' + str(self.degree) + ')'
+
+
+# ### Disk Writer Processors
+#
+# class DiskWriteprocessor(StateLessProcessor): pass
+#
+#
+# class UciFormatWriter(DiskWriteprocessor):
+#     def __init__(self, fname):
+#         super(DiskWriteprocessor, self).__init__()
 
 
 if __name__ == '__main__':

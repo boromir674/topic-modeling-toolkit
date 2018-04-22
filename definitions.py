@@ -54,6 +54,6 @@ settings_value2processors = {
     # 'weight': lambda x: FeatureComputer(x),
     # 'format': lambda x: DataFormater(x)
     'ngrams': lambda x: WordToUnigramGenerator(x),
-    'weight': lambda x: None,
+    'weight': lambda x: x,
     'format': lambda x: None
 }

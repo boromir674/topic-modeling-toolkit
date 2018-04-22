@@ -8,6 +8,8 @@ from pipeline import DefaultPipeline
 from definitions import nb_docs, root_dir, encode_pipeline_cfg, cat2files
 import pandas as pd
 from gensim.corpora import Dictionary
+from gensim.models.tfidfmodel import TfidfModel
+from gensim.corpora.ucicorpus import UciWriter
 
 
 def configfile2dict(config_path, section):
@@ -35,6 +37,10 @@ def transform(category, config_path):
 class PipeHandler(object):
     def __init__(self):
         self.dct = Dictionary()
+        self.model = None
+        self.corpus = None
+        self.nb_docs = 0
+        self.writer = UciWriter('/data/thesis/data/uci-file')
 
     def create_pipeline(self, pipeline_cfg):
         pipe_settings = configfile2dict(os.path.join(root_dir, 'code', pipeline_cfg), 'preprocessing')
@@ -49,35 +55,56 @@ class PipeHandler(object):
                 for i, (_, df_entry) in enumerate(pd.read_pickle(pickle_file).iterrows()):
                     if num_docs and i >= num_docs:
                         break
-                    print '{} doc'.format(i)
+                    # print '{} doc'.format(i)
                     yield df_entry['text'].encode('utf-8')
+                    self.nb_docs += 1
+        print 'Generated {} documents'.format(self.docs)
 
     def pipe_files(self, a_pipe, nb_sample=3):
+        doc_gens = []
         for i, doc in enumerate(self.gen_docs('posts')):
             if i == nb_sample - 1:
                 break
             # print doc
-            doc = a_pipe.partial_pipe(doc, 0, 4)
+            doc = a_pipe.partial_pipe(doc, 0, 3)
             # print doc.split(' ')
-            gen = (w for w in doc.split(' '))
-            gen = a_pipe.partial_pipe(gen, 5, 7)
-            # print [_ for _ in gen]
-            us  = [_ for _ in gen]
-            # print us
-            # dct.add_documents([[_ for _ in gen]])
-            self.dct.add_documents([us])
+            gen1 = (w for w in doc.split(' '))
+            gen1 = a_pipe.partial_pipe(gen1, 5, 7)
+            gen2 = (w for w in doc.split(' '))
+            gen2 = a_pipe.partial_pipe(gen2, 5, 7)
+            doc_gens.append(gen2)
+            self.dct.add_documents([[_ for _ in gen1]])
             # print [_ for _ in gen][:10]
+
         self.dct.filter_extremes(no_below=a_pipe.settings['no_below'], no_above=a_pipe.settings['no_above'])
+        self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
+        if a_pipe.settings['weight'] == 'counts':
+            pass
+        elif a_pipe.settings['weight'] == 'tfidf':
+            self.model = TfidfModel(self.corpus)
+        self.writer.write_headers()
+        if a_pipe.settings['weight'] == 'counts':
+            self.writer.write_corpus(self.writer.fname, self.corpus)
+        elif a_pipe.settings['weight'] == 'tfidf':
+            self.writer.write_corpus(self.writer.fname, map(lambda x: self.model[x], self.corpus))
 
 
 if __name__ == '__main__':
     args = get_cl_arguments()
     print 'Arguments given:', args
 
+    if args.sample == 'all':
+        nb_docs = float('inf')
+    else:
+        nb_docs = eval(args.sample)
+
     ph = PipeHandler()
     pipe = ph.create_pipeline(args.config)
-    print pipe
-    ph.pipe_files(pipe, nb_sample=60)
+    print '\n', pipe, '\n'
+    ph.pipe_files(pipe, nb_sample=nb_docs)
+
+    print 'nb docs:', ph.dct.num_docs
+    print 'num_words:', ph.dct.num_nnz, ph.dct.num_pos
 
     # pipeline_settings = configfile2dict(os.path.join(root_dir, 'code', args.config), 'preprocessing')
     # for k, v in pipeline_settings.items():
