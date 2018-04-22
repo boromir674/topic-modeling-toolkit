@@ -40,7 +40,7 @@ class PipeHandler(object):
         self.model = None
         self.corpus = None
         self.nb_docs = 0
-        self.writer = UciWriter('/data/thesis/data/uci-file')
+        self.writer = UciWriter('/data/thesis/data/uci1')
 
     def create_pipeline(self, pipeline_cfg):
         pipe_settings = configfile2dict(os.path.join(root_dir, 'code', pipeline_cfg), 'preprocessing')
@@ -62,6 +62,7 @@ class PipeHandler(object):
 
     def pipe_files(self, a_pipe, nb_sample=3):
         doc_gens = []
+        sum_toks = 0
         for i, doc in enumerate(self.gen_docs('posts')):
             if i == nb_sample - 1:
                 break
@@ -73,20 +74,28 @@ class PipeHandler(object):
             gen2 = (w for w in doc.split(' '))
             gen2 = a_pipe.partial_pipe(gen2, 5, 7)
             doc_gens.append(gen2)
-            self.dct.add_documents([[_ for _ in gen1]])
+            toks = [_ for _ in gen1]
+            sum_toks += len(toks)
+            self.dct.add_documents([toks])
             # print [_ for _ in gen][:10]
-
+        print 'SUM generators\' tokens', sum_toks, self.dct.num_pos, len(self.dct.items())
         self.dct.filter_extremes(no_below=a_pipe.settings['no_below'], no_above=a_pipe.settings['no_above'])
+        print 'SUM tokens', self.dct.num_pos, len(self.dct.items())
         self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
+        print 'Corpus size:', sum(len(_) for _ in self.corpus)
         if a_pipe.settings['weight'] == 'counts':
-            pass
-        elif a_pipe.settings['weight'] == 'tfidf':
-            self.model = TfidfModel(self.corpus)
-        self.writer.write_headers()
-        if a_pipe.settings['weight'] == 'counts':
+            # self.writer.fake_headers(self.dct.num_docs, self.dct.num_pos, self.dct.num_nnz)
+            print 'type1', type(self.corpus[0]), type(self.corpus[0])
+            print 'len1:', len(self.corpus), len(self.corpus[0])
             self.writer.write_corpus(self.writer.fname, self.corpus)
         elif a_pipe.settings['weight'] == 'tfidf':
-            self.writer.write_corpus(self.writer.fname, map(lambda x: self.model[x], self.corpus))
+            self.model = TfidfModel(self.corpus)
+            self.writer.fake_headers(self.dct.num_docs, self.dct.num_pos, self.dct.num_nnz)
+            c2 = map(lambda x: self.model[x], self.corpus)
+            print 'type2', type(c2), type(c2[0])
+            print 'len2:', len(c2), len(c2[0])
+
+            self.writer.write_corpus(self.writer.fname, c2)
 
 
 if __name__ == '__main__':
