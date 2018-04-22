@@ -79,11 +79,18 @@ class PipeHandler(object):
             self.dct.add_documents([toks])
             # print [_ for _ in gen][:10]
 
-        print 'SUM generators\' tokens', sum_toks, self.dct.num_pos, len(self.dct.items())
+        print '{} tokens in all generators'.format(sum_toks)
+        print '{} items in dictionary'.format(len(self.dct.items()))
+        print 'num_pos', self.dct.num_pos
+        print 'nnz', self.dct.num_nnz
+
         self.dct.filter_extremes(no_below=a_pipe.settings['no_below'], no_above=a_pipe.settings['no_above'])
-        print 'SUM tokens', self.dct.num_pos, len(self.dct.items())
+        print '{} items in dictionary'.format(len(self.dct.items()))
+        print 'num_pos', self.dct.num_pos
+        print 'nnz', self.dct.num_nnz
+
         self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
-        print 'Corpus size:', sum(len(_) for _ in self.corpus)
+        print '{} tokens in bow corpus'.format(sum(len(_) for _ in self.corpus))
 
         if a_pipe.settings['weight'] == 'counts':
             # self.writer.fake_headers(self.dct.num_docs, self.dct.num_pos, self.dct.num_nnz)
@@ -115,7 +122,7 @@ if __name__ == '__main__':
     ph.pipe_files(pipe, nb_sample=nb_docs)
 
     print 'nb docs:', ph.dct.num_docs
-    print 'num_words:', ph.dct.num_nnz, ph.dct.num_pos
+    print 'num_words:', ph.dct.num_nnz, 'pos:', ph.dct.num_pos
 
     # pipeline_settings = configfile2dict(os.path.join(root_dir, 'code', args.config), 'preprocessing')
     # for k, v in pipeline_settings.items():
