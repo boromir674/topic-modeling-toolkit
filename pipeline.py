@@ -1,6 +1,7 @@
 from collections import OrderedDict
 
 from definitions import settings_value2processors
+from processors import StringToTokenGenerator, MonoSpacer, StringProcessor, GeneratorProcessor
 
 
 class Pipeline(object):
@@ -11,6 +12,10 @@ class Pipeline(object):
         self.processors_names = tuple([processor_name for processor_name, v in settings.items() if settings_value2processors[processor_name](v) is not None])
         self.processors = tuple([settings_value2processors[processor_name](v) for processor_name, v in settings.items() if settings_value2processors[processor_name](v) is not None])
         assert len(self.processors_names) == len(self.processors)
+        if any(isinstance(x, MonoSpacer) for x in self.processors):
+            self.str2gen_processor = StringToTokenGenerator(' ')
+        else:
+            raise SupportedTokenizerNotFoundException('The single \'space\' \s implemented tokenizer requires the presence of a MonoSpacer processor in the pipeline')
 
     def __len__(self):
         return len(self.processors)
@@ -29,6 +34,18 @@ class Pipeline(object):
 
     def pipe_through(self, data):
         res = data
+        i = 0
+        el = self.processors[i]
+        while isinstance(el, StringProcessor):
+            res = el.process(res)
+            i += 1
+            el = self.processors[i]
+        res = self.str2gen_processor.process(res)
+        while isinstance(el, GeneratorProcessor):
+            res = el.process(res)
+            i += 1
+            el = self.processors[i]
+
         for pro in self.processors:
             res = pro.process(res)
         return res
@@ -58,3 +75,8 @@ class DefaultPipeline(Pipeline):
 #     processors = [pr for pr in processors if pr is not None]
 #
 #     return DefaultPipeline(processors)
+
+
+class SupportedTokenizerNotFoundException(Exception):
+    def __init__(self, msg):
+        super(Exception, self).__init__(msg)

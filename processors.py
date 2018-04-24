@@ -114,12 +114,20 @@ class StringLemmatizer(StringProcessor):
 
 
 ### MUTATOR ###
-
-
 class StringToGenerator(StateLessProcessor): pass
 
-# class StringToTokenGenerator(StringToGenerator):
-#     def __init__(self):
+
+def string2tokengenerator(a_string, splitter):
+    return (_ for _ in a_string.split(splitter))
+
+
+class StringToTokenGenerator(StringToGenerator):
+    def __init__(self, splitter):
+        self.splitter = splitter
+        super(StringToGenerator).__init__(lambda x: string2tokengenerator(x, splitter))
+
+    def __str__(self):
+        return super(StringToGenerator, self).__str__() + '(' + str(self.splitter) + ')'
 
 
 ### GENERATOR PROCESSORS ###
