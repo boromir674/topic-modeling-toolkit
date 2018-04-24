@@ -12,9 +12,13 @@ class Pipeline(object):
         self.processors_names = tuple([processor_name for processor_name, v in settings.items() if settings_value2processors[processor_name](v) is not None])
         self.processors = tuple([settings_value2processors[processor_name](v) for processor_name, v in settings.items() if settings_value2processors[processor_name](v) is not None])
         assert len(self.processors_names) == len(self.processors)
+        if not check_processors_pipeline(self):
+            print self
+            raise ProcessorsOrderNotSoundException('the first n components of the pipeline have to be StringProcessors and the following m GeneratorProcessors wtih n,m>0')
         if any(isinstance(x, MonoSpacer) for x in self.processors):
             self.str2gen_processor = StringToTokenGenerator(' ')
         else:
+            print self
             raise SupportedTokenizerNotFoundException('The single \'space\' \s implemented tokenizer requires the presence of a MonoSpacer processor in the pipeline')
 
     def __len__(self):
@@ -45,9 +49,7 @@ class Pipeline(object):
             res = el.process(res)
             i += 1
             el = self.processors[i]
-
-        for pro in self.processors:
-            res = pro.process(res)
+        # print 'Piped data from first {} processors'.format(i)
         return res
 
     def partial_pipe(self, data, start, end):
@@ -57,26 +59,33 @@ class Pipeline(object):
         return res
 
 
+def check_processors_pipeline(pipe):
+    assert isinstance(pipe, Pipeline)
+    i = 0
+    proc = pipe[i][1]
+    while isinstance(proc, StringProcessor):
+        i += 1
+        proc = pipe[i][1]
+    if i == 0:
+        return False
+    l1 = i
+    while isinstance(proc, GeneratorProcessor):
+        i += 1
+        proc = pipe[i][1]
+    if i == l1:
+        return False
+    return True
+
+
 class DefaultPipeline(Pipeline):
     pass
-    # def __init__(self, settings):
-    #     self.text_processors = []
-    #     self.filters = []
-    #     self.tokenizer = None
-
-    # def pipe(self, doc):
-    #     pass
-
-#
-# def create_pipeline(settings):
-#
-#
-#     processors = [settings_value2processors[k](v) for k, v in settings.items()]
-#     processors = [pr for pr in processors if pr is not None]
-#
-#     return DefaultPipeline(processors)
 
 
 class SupportedTokenizerNotFoundException(Exception):
+    def __init__(self, msg):
+        super(Exception, self).__init__(msg)
+
+
+class ProcessorsOrderNotSoundException(Exception):
     def __init__(self, msg):
         super(Exception, self).__init__(msg)
