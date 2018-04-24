@@ -1,10 +1,11 @@
 import re
 from abc import ABCMeta, abstractmethod
 
+import pandas as pd
+from nltk.corpus import stopwords
 from gensim.utils import deaccent as gen_deaccent
 from gensim.utils import lemmatize as gen_lemmatize
 
-from nltk.corpus import stopwords
 en_stopwords = set(stopwords.words('english'))
 
 
@@ -60,13 +61,12 @@ class StateFullProcessor(object):
 Processor.register(StateLessProcessor)
 Processor.register(StateFullProcessor)
 
-
+### STRING PROCESSORS ###
 class StringProcessor(StateLessProcessor): pass
 
 
 def lowercase(a_string):
     return a_string.lower()
-
 
 reg = re.compile(r'\s{2,}')
 
@@ -113,7 +113,7 @@ class StringLemmatizer(StringProcessor):
         super(StringProcessor, self).__init__(lemmatize)
 
 
-### MUTATOR ###
+### MUTATORS ###
 class StringToGenerator(StateLessProcessor): pass
 
 
@@ -124,14 +124,55 @@ def string2tokengenerator(a_string, splitter):
 class StringToTokenGenerator(StringToGenerator):
     def __init__(self, splitter):
         self.splitter = splitter
-        super(StringToGenerator).__init__(lambda x: string2tokengenerator(x, splitter))
+        super(StringToGenerator, self).__init__(lambda x: string2tokengenerator(x, splitter))
 
     def __str__(self):
         return super(StringToGenerator, self).__str__() + '(' + str(self.splitter) + ')'
 
 
-### GENERATOR PROCESSORS ###
+def category2generator(category, cat2files, num_docs=None):
+    def gen_text():
+        total_docs = 0
+        for cat in category.split('+'):
+            for fi, pickle_file in enumerate(cat2files[cat]):
+                print '{}: Working with \'{}\' file'.format(fi, pickle_file)
+                for (_, df_entry) in pd.read_pickle(pickle_file).iterrows():
+                    if num_docs and total_docs >= num_docs:
+                        break
+                    yield df_entry['text']
+                    total_docs += 1
+        print 'Generated {} documents'.format(total_docs)
+    return (_ for _ in gen_text())
 
+
+class StringToTextGenerator(StringToGenerator):
+    def __init__(self, category2files, num_docs=None):
+        self.failed = []
+        self.category2files = category2files
+        self.nb_processed = 0
+        if num_docs:
+            self.nb_docs = num_docs
+        else:
+            self.nb_docs = 'all'
+        super(StringToGenerator, self).__init__(lambda x: (_ for _ in self.gen_text(x)))
+
+    def __str__(self):
+        return super(StringToGenerator, self).__str__() + '(' + str(self.nb_docs) + ')'
+
+    def gen_text(self, category):
+        nb = self.nb_docs
+        if self.nb_docs == 'all':
+            nb = None
+        gen = category2generator(category, self.category2files, num_docs=nb)
+        for i, text in enumerate(gen):
+            if type(text) not in (str, unicode):
+                self.failed.append((i, type(text)))
+            else:
+                yield text
+                self.nb_processed += 1
+
+
+### GENERATOR PROCESSORS ###
 
 class GeneratorProcessor(StateLessProcessor): pass
 
@@ -202,7 +243,7 @@ class WordToUnigramGenerator(GeneratorProcessor):
         return super(GeneratorProcessor, self).__str__() + '(' + str(self.degree) + ')'
 
 
-# ### Disk Writer Processors
+### DISK WRITER PROCESSORS
 
 class StateLessDiskWriter(StateLessProcessor): pass
 
@@ -226,8 +267,6 @@ class UciFormatWriter(StateLessDiskWriter):
 
 def write_vector(fname, doc_vector, doc_num):
     with open(fname, 'a') as f:
-        # print doc_vector
-        # f.writelines(map(lambda x: '{} {} {:.8f}\n'.format(doc_num, x[0], x[1]), doc_vector))
         f.writelines(map(lambda x: '{} {} {}\n'.format(doc_num, x[0], x[1]), doc_vector))
 
 
