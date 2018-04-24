@@ -3,13 +3,14 @@ import sys
 import argparse
 import ConfigParser
 from collections import OrderedDict
-
-from pipeline import DefaultPipeline
-from definitions import nb_docs, root_dir, encode_pipeline_cfg, cat2files
 import pandas as pd
 from gensim.corpora import Dictionary
 from gensim.models.tfidfmodel import TfidfModel
 from gensim.corpora.ucicorpus import UciWriter
+
+from pipeline import DefaultPipeline
+from definitions import nb_docs, root_dir, encode_pipeline_cfg, cat2files, get_id
+from processors import StringToTextGenerator
 
 
 def configfile2dict(config_path, section):
@@ -26,16 +27,14 @@ def get_cl_arguments():
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
-    args = parser.parse_args()
-    return args
-
-
-def transform(category, config_path):
-    pipe_settings = configfile2dict(os.path.join(root_dir, 'code', config_path), 'preprocessing')
+    return parser.parse_args()
 
 
 class PipeHandler(object):
     def __init__(self):
+        self.str2text_proc = None
+        self.text_generator = None
+        self.doc_gen_stats = {'corpus-tokens': 0}
         self.dct = Dictionary()
         self.model = None
         self.corpus = None
@@ -47,36 +46,19 @@ class PipeHandler(object):
         print pipe_settings
         return DefaultPipeline(pipe_settings)
 
-    def gen_docs(self, category, nb_files=None, num_docs=None):
-        for category in category.split('+'):
-            for fi, pickle_file in enumerate(cat2files[category]):
-                if nb_files and fi >= nb_files:
-                    break
-                print '{}: Working with \'{}\' file'.format(fi, pickle_file)
-                for i, (_, df_entry) in enumerate(pd.read_pickle(pickle_file).iterrows()):
-                    if num_docs and i >= num_docs:
-                        break
-                    # print '{} doc'.format(i)
-                    yield df_entry['text'].encode('utf-8')
-                    self.nb_docs += 1
-        print 'Generated {} documents'.format(self.docs)
+    def set_doc_gen(self, category, num_docs=None):
+        self.str2text_proc = StringToTextGenerator(cat2files, num_docs=num_docs)
+        self.text_generator = self.str2text_proc.process(category)
 
-    def pipe_files(self, a_pipe, nb_sample=3):
+    def pipe_files(self, a_pipe):
         doc_gens = []
         doc_gens2 = []
         sum_toks = 0
-        for i, doc in enumerate(self.gen_docs('posts')):
-            if i == nb_sample:
-                break
-            # print doc
-            doc = a_pipe.partial_pipe(doc, 0, 3)
-            # print doc.split(' ')
-            gen1 = (w for w in doc.split(' '))
-            gen1 = a_pipe.partial_pipe(gen1, 5, 7)
-            gen2 = (w for w in doc.split(' '))
-            gen2 = a_pipe.partial_pipe(gen2, 5, 7)
-            gen3 = (w for w in doc.split(' '))
-            gen3 = a_pipe.partial_pipe(gen3, 5, 7)
+        for i, doc in enumerate(self.text_generator):
+            gen1 = a_pipe.pipe_through(doc)
+            gen2 = a_pipe.pipe_through(doc)
+            gen3 = a_pipe.pipe_through(doc)
+
             doc_gens.append(gen2)
             doc_gens2.append(gen3)
             toks = [_ for _ in gen1]
