@@ -89,22 +89,25 @@ class PipeHandler(object):
         if a_pipe.settings['weight'] == 'counts':
 
             # self.writer.fake_headers(self.dct.num_docs, self.dct.num_pos, self.dct.num_nnz)
-            print 'type1', type(self.corpus[0]), type(self.corpus[0])
-            print 'len1:', len(self.corpus), len(self.corpus[0])
+            # print 'type1', type(self.corpus[0]), type(self.corpus[0])
+            # print 'len1:', len(self.corpus), len(self.corpus[0])
 
             for vec in self.corpus:
+                self.doc_gen_stats['corpus-tokens'] += len(vec)
                 a_pipe[-1][1].process(vec)
         elif a_pipe.settings['weight'] == 'tfidf':
             self.model = TfidfModel(self.corpus)
             # self.writer.fake_headers(self.dct.num_docs, self.dct.num_pos, self.dct.num_nnz)
             c2 = map(lambda x: self.model[x], self.corpus)
-            print 'type2', type(c2), type(c2[0])
-            print 'len2:', len(c2), len(c2[0])
+            # print 'type2', type(c2), type(c2[0])
+            # print 'len2:', len(c2), len(c2[0])
 
             # self.writer.write_corpus(self.writer.fname, c2)
             for vec in c2:
+                self.doc_gen_stats['corpus-tokens'] += len(vec)
                 a_pipe[-1][1].process(vec)
 
+        self.doc_gen_stats.update({'docs-gen': self.str2text_proc.nb_processed, 'docs-failed': len(self.str2text_proc.failed)})
 
 
 if __name__ == '__main__':
@@ -117,14 +120,16 @@ if __name__ == '__main__':
         nb_docs = eval(args.sample)
 
     ph = PipeHandler()
+
+    ph.set_doc_gen(args.category, nb_docs)
     pipe = ph.create_pipeline(args.config)
     print '\n', pipe, '\n'
-    ph.pipe_files(pipe, nb_sample=nb_docs)
 
-    print 'nb docs:', ph.dct.num_docs
-    print 'num_words:', ph.dct.num_nnz, 'pos:', ph.dct.num_pos
+    print get_id(pipe.settings)
+    ph.pipe_files(pipe)
 
-    # pipeline_settings = configfile2dict(os.path.join(root_dir, 'code', args.config), 'preprocessing')
-    # for k, v in pipeline_settings.items():
-    #     print k, v
-    # print
+    print 'nb docs gen:', ph.doc_gen_stats['docs-gen']
+    print 'nb docs failed:', ph.doc_gen_stats['docs-failed']
+    print ph.str2text_proc.failed
+    print 'unique words:', len(ph.dct.items())
+    print 'total words:', ph.doc_gen_stats['corpus-tokens']
