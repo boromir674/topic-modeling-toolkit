@@ -40,10 +40,11 @@ class PipeHandler(object):
         self.model = None
         self.corpus = None
         self.nb_docs = 0
-        self.writer = UciWriter('/data/thesis/data/cnuci')
+        self.writer = UciWriter('/data/thesis/data/cnguci')
 
     def create_pipeline(self, pipeline_cfg):
         pipe_settings = configfile2dict(os.path.join(root_dir, 'code', pipeline_cfg), 'preprocessing')
+        print pipe_settings
         return DefaultPipeline(pipe_settings)
 
     def gen_docs(self, category, nb_files=None, num_docs=None):
@@ -62,6 +63,7 @@ class PipeHandler(object):
 
     def pipe_files(self, a_pipe, nb_sample=3):
         doc_gens = []
+        doc_gens2 = []
         sum_toks = 0
         for i, doc in enumerate(self.gen_docs('posts')):
             if i == nb_sample:
@@ -73,14 +75,19 @@ class PipeHandler(object):
             gen1 = a_pipe.partial_pipe(gen1, 5, 7)
             gen2 = (w for w in doc.split(' '))
             gen2 = a_pipe.partial_pipe(gen2, 5, 7)
+            gen3 = (w for w in doc.split(' '))
+            gen3 = a_pipe.partial_pipe(gen3, 5, 7)
             doc_gens.append(gen2)
+            doc_gens2.append(gen3)
             toks = [_ for _ in gen1]
             sum_toks += len(toks)
             self.dct.add_documents([toks])
             # print [_ for _ in gen][:10]
 
-        print '{} tokens in all generators'.format(sum_toks)
+        self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens2]
+        print '{} tokens in all generators\n'.format(sum_toks)
         print '{} items in dictionary'.format(len(self.dct.items()))
+        print 'total words in corpus: {}'.format(sum(len(_) for _ in self.corpus))
         print 'num_pos', self.dct.num_pos
         print 'nnz', self.dct.num_nnz
 
@@ -90,13 +97,21 @@ class PipeHandler(object):
         print 'nnz', self.dct.num_nnz
 
         self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
-        print '{} tokens in bow corpus'.format(sum(len(_) for _ in self.corpus))
+        print 'total words in corpus: {}\n'.format(sum(len(_) for _ in self.corpus))
+        # print '{} tokens in bow corpus'.format(sum(len(_) for _ in self.corpus))
+
+        with open(a_pipe.processors[-1].fname, 'w') as f:
+            f.writelines('{}\n{}\n{}\n'.format(self.dct.num_docs, len(self.dct.items()), sum(len(_) for _ in self.corpus)))
+        self.writer.write_corpus(self.writer.fname, self.corpus)
 
         if a_pipe.settings['weight'] == 'counts':
+
             # self.writer.fake_headers(self.dct.num_docs, self.dct.num_pos, self.dct.num_nnz)
             print 'type1', type(self.corpus[0]), type(self.corpus[0])
             print 'len1:', len(self.corpus), len(self.corpus[0])
-            self.writer.write_corpus(self.writer.fname, self.corpus)
+
+            for vec in self.corpus:
+                a_pipe[-1][1].process(vec)
         elif a_pipe.settings['weight'] == 'tfidf':
             self.model = TfidfModel(self.corpus)
             # self.writer.fake_headers(self.dct.num_docs, self.dct.num_pos, self.dct.num_nnz)
@@ -107,6 +122,8 @@ class PipeHandler(object):
             # self.writer.write_corpus(self.writer.fname, c2)
             for vec in c2:
                 a_pipe[-1][1].process(vec)
+
+
 
 if __name__ == '__main__':
     args = get_cl_arguments()

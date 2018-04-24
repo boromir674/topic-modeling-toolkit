@@ -55,6 +55,6 @@ settings_value2processors = {
     # 'format': lambda x: DataFormater(x)
     'ngrams': lambda x: WordToUnigramGenerator(x),
     # 'weight': lambda x: x,
-    'weight': lambda x: UciFormatWriter() if x == 'tfidf' else x,
+    'weight': lambda x: UciFormatWriter(),  # if x == 'tfidf' else x,
     'format': lambda x: None
 }
