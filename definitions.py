@@ -1,5 +1,5 @@
 import os
-
+from collections import OrderedDict
 
 from processors import LowerCaser, MonoSpacer, UtfEncoder, DeAccenter, StringLemmatizer, MinLengthFilter, MaxLengthFilter, WordToUnigramGenerator, UciFormatWriter
 
@@ -44,17 +44,26 @@ settings_value2processors = {
     'mono_space': lambda x: MonoSpacer() if x else None,
     'unicode': lambda x: UtfEncoder() if x else None,
     'deaccent': lambda x: DeAccenter() if x else None,
-    'normalize': lambda x: StringLemmatizer() if x else None,
-    'min_length': lambda x: MinLengthFilter(x),
-    'max_length': lambda x: MaxLengthFilter(x),
+    'normalize': lambda x: StringLemmatizer() if x == 'lemmatize' else None,
+    'min_length': lambda x: MinLengthFilter(x) if x else None,
+    'max_length': lambda x: MaxLengthFilter(x) if x else None,
     'no_below': lambda x: x,
     'no_above': lambda x: x,
-    # 'occurence_thres': lambda x: OccurenceFilter(x),
-    # 'ngrams': lambda x: NgramsGenerator(x),
-    # 'weight': lambda x: FeatureComputer(x),
-    # 'format': lambda x: DataFormater(x)
-    'ngrams': lambda x: WordToUnigramGenerator(x),
-    # 'weight': lambda x: x,
+    'ngrams': lambda x: WordToUnigramGenerator(x) if x else None,
     'weight': lambda x: UciFormatWriter(),  # if x == 'tfidf' else x,
     'format': lambda x: None
 }
+
+
+def get_id(pipe_settings):
+    assert isinstance(pipe_settings, OrderedDict)
+
+    def tuple2string(pipeline_component, value):
+        if type(value) == bool:
+            if value:
+                return pipeline_component
+            else:
+                return ''
+        else:
+            return '{}-{}'.format(pipeline_component, value)
+    return '_'.join(tuple2string(pipeline_component, value) for pipeline_component, value in pipe_settings.items() if tuple2string(pipeline_component, value))
