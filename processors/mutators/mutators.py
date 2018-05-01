@@ -1,4 +1,5 @@
 import pandas as pd
+from gensim.corpora import Dictionary
 from processors.processor import StateLessProcessor, PostUpdateSFProcessor
 
 
@@ -11,9 +12,14 @@ class DefaultTokenGeneratorTolist(TokenGeneratorToList):
         super(TokenGeneratorToList, self).__init__(lambda x: [_ for _ in x])
 
 
+class ListToGenerator(StateLessProcessor):
+    def __init__(self):
+        super(StateLessProcessor, self).__init__(lambda x: (_ for _ in x[0]))
+
+
 class GensimDictTokenGeneratorToListProcessor(PostUpdateSFProcessor):
     def __init__(self):
-        super(PostUpdateSFProcessor, self).__init__(lambda x: [_ for _ in x], Dictionary(), 'add_documents')
+        super(PostUpdateSFProcessor, self).__init__(lambda x: [[_ for _ in x]], Dictionary(), 'add_documents')
 
 
 class CategoryToTextGenerator(StateLessProcessor):
