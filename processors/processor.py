@@ -1,7 +1,4 @@
-import re
 from abc import ABCMeta, abstractmethod
-import pandas as pd
-from gensim.corpora import Dictionary
 
 
 class MetaProcessor:
@@ -66,8 +63,7 @@ class StateFullProcessor(Processor):
     def __init__(self, func, state, callback):
         self.state = state
         self.callback = callback
-
-        super(Processor, self).__init__(func)
+        super(StateFullProcessor, self).__init__(func)
 
     def __str__(self):
         return type(self).__name__ + '(' + str(self.state) + ')'
@@ -91,40 +87,26 @@ class PreUpdateSFProcessor(StateFullProcessor):
         self.update(data)
         return super(StateFullProcessor, self).process(data)
 
-### MUTATORS ###
-
-
-
-
-class PrimitiveTypeStateStringProcessor(StateFullProcessor):
-    def __init__(self, param):
-        super(StateFullProcessor, self).__init__()
-
 
 if __name__ == '__main__':
 
     sl = StateLessProcessor(lambda x: x + '_less')
-    # sf = StateFullProcessor(lambda x: x + '_full')
-    sp = StringProcessor(lambda x: x + 'sp')
-
-
-    msp = MonoSpacer()
+    sf = StateFullProcessor(lambda x: x + '_full', [1, 2], 'append')
+    sf = PreUpdateSFProcessor(lambda x: x + '_full', [1, 2], 'append')
 
     print isinstance(sl, Processor)
     print isinstance(sl, MetaProcessor)
-    print isinstance(sp, Processor)
-    print isinstance(sp, MetaProcessor)
+    print isinstance(sf, Processor)
+    print isinstance(sf, MetaProcessor)
 
-    gdp = GensimDictGeneratorToListProcessor()
-    # print issubclass(msp, Processor)
-    # print issubclass(StateLessProcessor, Processor)
+    # print sl.process('gav')
 
-    docs = [['alpha', 're', 'gav', 'gav'],
-            ['asto', 'paramithi', 're']
-            ]
+    print sf.state
+    print sf.process('gav')
+    print sf.state
 
-    generator = (w for w in docs[0])
-    bfg = WordToNgramGenerator(2)
-    ng = bfg.process(generator)
-
-    print [_ for _ in ng]
+    sf.update(100)
+    print
+    print sf.state
+    print sf.process('gav')
+    print sf.state
