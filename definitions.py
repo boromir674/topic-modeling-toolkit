@@ -7,9 +7,10 @@ from processors.disk_writer_processors import UciFormatWriter
 
 
 root_dir = '/data/thesis'
-
-
 data_root_dir = '/data/thesis/data'
+bows_dir = '/data/thesis/data/ucis'
+words_dir = '/data/thesis/data/words'
+
 pre = 'pickles'
 
 categories = ('posts', 'comments', 'reactions', 'users')
@@ -28,14 +29,14 @@ nb_docs = float('inf')
 
 encode_pipeline_cfg = {
     'lowercase': lambda x: bool(eval(x)),
-    'mono_space': lambda x: bool(eval(x)),
+    'monospace': lambda x: bool(eval(x)),
     'unicode': lambda x: bool(eval(x)),
     'deaccent': lambda x: bool(eval(x)),
     'normalize': str,
-    'min_length': int,
-    'max_length': int,
-    'no_below': int,
-    'no_above': float,
+    'minlength': int,
+    'maxlength': int,
+    'nobelow': int,
+    'noabove': float,
     'ngrams': int,
     'weight': str,
     'format': str
@@ -44,28 +45,18 @@ encode_pipeline_cfg = {
 
 settings_value2processors = {
     'lowercase': lambda x: LowerCaser() if x else None,
-    'mono_space': lambda x: MonoSpacer() if x else None,
+    'monospace': lambda x: MonoSpacer() if x else None,
     'unicode': lambda x: UtfEncoder() if x else None,
     'deaccent': lambda x: DeAccenter() if x else None,
     'normalize': lambda x: StringLemmatizer() if x == 'lemmatize' else None,
-    'min_length': lambda x: MinLengthFilter(x) if x else None,
-    'max_length': lambda x: MaxLengthFilter(x) if x else None,
-    'no_below': lambda x: x if x else None,
-    'no_above': lambda x: x if x else None,
+    'minlength': lambda x: MinLengthFilter(x) if x else None,
+    'maxlength': lambda x: MaxLengthFilter(x) if x else None,
+    'nobelow': lambda x: x if x else None,
+    'noabove': lambda x: x if x else None,
     'ngrams': lambda x: WordToNgramGenerator(x) if x else None,
-    'weight': lambda x: UciFormatWriter(),  # if x == 'tfidf' else x,
-    'format': lambda x: None
+    'weight': lambda x: x if x else None,  # if x == 'tfidf' else x,
+    'format': lambda x: UciFormatWriter() if x == 'uci' else None
 }
-
-# def tuple2strings(pipe_component_name, value):
-#     if type(value) == bool:
-#         print pipe_component_name
-#         if value:
-#             return [pipe_component_name]
-#         else:
-#             return []
-#     else:
-#         return [pipe_component_name, str(value)]
 
 
 def tuple2string(pipeline_component, value):
@@ -86,22 +77,7 @@ def get_id(pipe_settings):
     return '_'.join(tuple2string(pipeline_component, value) for pipeline_component, value in pipe_settings.items() if tuple2string(pipeline_component, value))
 
 
-# def get_id(pipe_settings):
-#     assert isinstance(pipe_settings, OrderedDict)
-#
-#     def strings2string(string_list):
-#         if string_list[0] == 'format':
-#             return string_list[1]
-#         else:
-#             return '-'.join(string_list)
-#     return '_'.join(strings2string(tuple2string(pipeline_component, value)) for pipeline_component, value in pipe_settings.items() if value)
-#     # return '_'.join(strings2string(tuple2string(pipeline_component, value) for pipeline_component, value in pipe_settings.items() if tuple2string(pipeline_component, value)))
-
-
 def get_id1(pipeline):
-    # assert isinstance(pipeline, Pipeline)
-    # ids = ['{}-{}'.format(pr_name, proc) for pr_name, proc in pipeline if type(proc) in (int, float) else proc.to_id()]
-    # return '_'.join(ids)
     b = ''
     for pr_name, proc in pipeline:
         b += '_'

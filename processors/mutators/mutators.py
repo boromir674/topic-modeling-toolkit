@@ -60,5 +60,5 @@ def category2generator(category, cat2files, num_docs=None):
                         break
                     yield df_entry['text']
                     total_docs += 1
-        print 'Generated {} documents'.format(total_docs)
+        print 'Yielded {} documents'.format(total_docs)
     return (_ for _ in gen_text())

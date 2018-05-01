@@ -21,7 +21,7 @@ class Pipeline(object):
         self.token_gen2list_index = 0
         if not self.check_processors_pipeline():
             print self
-            raise ProcessorsOrderNotSoundException('the first n components of the pipeline have to be StringProcessors and the following m GeneratorProcessors wtih n,m>0')
+            raise ProcessorsOrderNotSoundException('the first n components of the pipeline have to be StringProcessors and the following m GeneratorProcessors with n,m>0')
         if any(isinstance(x, MonoSpacer) for x in self.processors):
             self.str2gen_processor = StringToTokenGenerator(' ')
         else:
@@ -52,41 +52,15 @@ class Pipeline(object):
 
     def inject_connectors(self):
         assert (self.str2gen_processor_index != 0 and self.token_gen2list_index != 0)
-        self.insert(self.str2gen_processor_index, self.str2gen_processor, 'string2token_generator_coverter')
+        self.insert(self.str2gen_processor_index, self.str2gen_processor, 'str2token_gen')
         self.insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
         self.insert(self.token_gen2list_index + 2, ListToGenerator(), 'list2generator')
 
     def pipe_through(self, data):
         for proc in self.processors[:-1]:
             if isinstance(proc, Processor):
-                # print proc
-                # print type(data)
                 data = proc.process(data)
         return data
-
-        # res = data
-        # i = 0
-        # el = self.processors[i]
-        # while isinstance(el, StringProcessor):
-        #     res = el.process(res)
-        #     i += 1
-        #     el = self.processors[i]
-        # res = self.str2gen_processor.process(res)
-        #
-        # while isinstance(el, GeneratorProcessor):
-        #     res = el.process(res)
-        #     i += 1
-        #     el = self.processors[i]
-        # # print 'Piped data from first {} processors'.format(i)
-        # res = self.token_gen2list.process(res)
-        #
-        # return res
-
-    def partial_pipe(self, data, start, end):
-        res = data
-        for pro in self.processors[start:end]:
-            res = pro.process(res)
-        return res
 
     def check_processors_pipeline(self):
         i = 0
