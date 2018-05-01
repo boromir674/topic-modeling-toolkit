@@ -8,11 +8,10 @@ import pandas as pd
 import ConfigParser
 from gensim.corpora import Dictionary
 from gensim.models.tfidfmodel import TfidfModel
-# from gensim.corpora.ucicorpus import UciWriter
 
-from pipeline import DefaultPipeline, Pipeline
-from definitions import nb_docs, root_dir, data_root_dir, bows_dir, words_dir, encode_pipeline_cfg, cat2files, get_id, get_id1
-from processors.mutators.mutators import CategoryToTextGenerator
+from patm import Pipeline
+from patm.definitions import root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, collections_dir
+from processors.mutators import CategoryToTextGenerator
 
 
 class PipeHandler(object):
@@ -24,18 +23,17 @@ class PipeHandler(object):
         self.model = None
         self.corpus = None
         self.nb_docs = 0
-        # self.writer = UciWriter('/data/thesis/data/cnguci')
 
     def create_pipeline(self, pipeline_cfg):
-        pipe_settings = configfile2dict(os.path.join(root_dir, 'code', pipeline_cfg), 'preprocessing')
+        pipe_settings = cfg2pipe_settings(os.path.join(root_dir, 'code', pipeline_cfg), 'preprocessing')
         print pipe_settings
-        return DefaultPipeline(pipe_settings)
+        return Pipeline(pipe_settings)
 
     def set_doc_gen(self, category, num_docs=None):
         self.cat2textgen_proc = CategoryToTextGenerator(cat2files, num_docs=num_docs)
         self.text_generator = self.cat2textgen_proc.process(category)
 
-    def preprocess(self, a_pipe):
+    def preprocess(self, a_pipe, collection):
         self.doc_gen_stats['corpus-tokens'] = 0
         doc_gens = []
         for i, doc in enumerate(self.text_generator):
@@ -65,7 +63,8 @@ class PipeHandler(object):
         self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
         print 'total bow tuples in corpus: {}\n'.format(sum(len(_) for _ in self.corpus))
 
-        a_pipe[-1][1].fname = os.path.join(bows_dir, self.get_bow_file_name(a_pipe))
+        idd = self.get_dataset_id(a_pipe)
+        a_pipe[-1][1].fname = os.path.join(collections_dir, collection, 'docbow')
 
         with open(a_pipe.processors[-1].fname, 'w') as f:
             f.writelines('{}\n{}\n{}\n'.format(self.dct.num_docs, len(self.dct.items()), sum(len(_) for _ in self.corpus)))
@@ -83,7 +82,7 @@ class PipeHandler(object):
 
         self.doc_gen_stats.update({'docs-gen': self.cat2textgen_proc.nb_processed, 'docs-failed': len(self.cat2textgen_proc.failed)})
 
-        dest = os.path.join(words_dir, self.get_words_file_name(a_pipe))
+        dest = os.path.join(collections_dir, self.get_words_file_name(a_pipe))
         if not os.path.isfile(dest):
             with open(dest, 'w') as f:
                 f.write('\n'.join(map(lambda x: '{}'.format(x[1]), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0)))))
@@ -102,17 +101,24 @@ class PipeHandler(object):
         ri = idd.rfind('_')
         return str(self.cat2textgen_proc.nb_processed) + '_' + idd[:ri] + '.' + idd[ri + 1:]
 
+    def get_dataset_id(self, a_pipe):
+        assert isinstance(a_pipe, Pipeline)
+        idd = get_id(a_pipe.settings)
+        ri = idd.rfind('_')
+        return str(self.cat2textgen_proc.nb_processed) + '_' + idd[:ri] + '.' + idd[ri + 1:]
 
-def configfile2dict(config_path, section):
+
+def cfg2pipe_settings(config_path, section):
     config = ConfigParser.ConfigParser()
     config.read(config_path)
-    return OrderedDict([(pipeline_component, encode_pipeline_cfg[pipeline_component](value)) for pipeline_component, value in config.items(section)])
+    return OrderedDict([(setting_name, encode_pipeline_cfg[setting_name](value)) for setting_name, value in config.items(section)])
 
 
 def get_cl_arguments():
     parser = argparse.ArgumentParser(prog='transform.py', description='Transforms pickled panda.DataFrame\'s into Vowpal Wabbit format', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('category', help='the category of data to use')
     parser.add_argument('config', help='the .cfg file to use for constructing a pipeline')
+    parser.add_argument('collection', help='a given name for the collection')
     parser.add_argument('--sample', metavar='nb_docs', default='all', help='the number of documents to consider. Defaults to all documents')
     if len(sys.argv) == 1:
         parser.print_help()
@@ -136,7 +142,7 @@ if __name__ == '__main__':
     print '\n', pipe, '\n'
     # print get_id(pipe.settings)
     # print get_id1(pipe)
-    ph.preprocess(pipe)
+    ph.preprocess(pipe, args.collection)
 
     print 'nb docs gen:', ph.doc_gen_stats['docs-gen']
     print 'nb docs failed:', ph.doc_gen_stats['docs-failed']
