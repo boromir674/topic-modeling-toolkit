@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import argparse
 from operator import itemgetter
@@ -10,7 +11,7 @@ from gensim.models.tfidfmodel import TfidfModel
 # from gensim.corpora.ucicorpus import UciWriter
 
 from pipeline import DefaultPipeline, Pipeline
-from definitions import nb_docs, root_dir, encode_pipeline_cfg, cat2files, get_id, get_id1
+from definitions import nb_docs, root_dir, data_root_dir, bows_dir, words_dir, encode_pipeline_cfg, cat2files, get_id, get_id1
 from processors.mutators.mutators import CategoryToTextGenerator
 
 
@@ -37,46 +38,34 @@ class PipeHandler(object):
     def preprocess(self, a_pipe):
         self.doc_gen_stats['corpus-tokens'] = 0
         doc_gens = []
-        sum_toks = 0
         for i, doc in enumerate(self.text_generator):
-            gen = a_pipe.pipe_through(doc)
-            # print toks
-
-            doc_gens.append(gen)
+            doc_gens.append(a_pipe.pipe_through(doc))
 
         self.dct = a_pipe[a_pipe.processors_names.index('dict-builder')][1].state
         # self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
         # print '{} tokens in all generators\n'.format(sum_toks)
         # print 'total bow tuples in corpus: {}'.format(sum(len(_) for _ in self.corpus))
-        print '{} items in dictionary'.format(len(self.dct.items()))
         print 'num_pos', self.dct.num_pos
         print 'nnz', self.dct.num_nnz
-
+        print '{} items in dictionary'.format(len(self.dct.items()))
         print '\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0))[:10]))
-        # print self.dct.id2token[1]
-        # print self.dct.token2id[u'shot']
-        print '---------'
-        self.dct.filter_extremes(no_below=a_pipe.settings['no_below'], no_above=a_pipe.settings['no_above'])
-        print '\n'.join(['{}: {}'.format(k, v) for k, v in self.dct.iteritems()][:10])
-        # print self.dct.id2token[1]
-        # print self.dct.token2id[u'shot']
-        # print [(k, v) for k, v in self.dct.items()][:10]
+
+        print 'filter extremes'
+        self.dct.filter_extremes(no_below=a_pipe.settings['nobelow'], no_above=a_pipe.settings['noabove'])
         print '{} items in dictionary'.format(len(self.dct.items()))
-        print 'num_pos', self.dct.num_pos
-        print 'nnz', self.dct.num_nnz
-        print '---------'
+        # print '\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0))[:10]))
+        # print '\n'.join(['{}: {}'.format(k, v) for k, v in self.dct.iteritems()][:10])
+
+        print 'compactify'
         self.dct.compactify()
-        print '\n'.join(['{}: {}'.format(k, v) for k, v in self.dct.iteritems()][:10])
-        # print self.dct.id2token[1]
-        # print self.dct.token2id[u'shot']
         print '{} items in dictionary'.format(len(self.dct.items()))
-        print 'num_pos', self.dct.num_pos
-        print 'nnz', self.dct.num_nnz
+        # print '\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0))[:10]))
+        # print '\n'.join(['{}: {}'.format(k, v) for k, v in self.dct.iteritems()][:10]
 
         self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
         print 'total bow tuples in corpus: {}\n'.format(sum(len(_) for _ in self.corpus))
 
-        a_pipe[-1][1].fname = os.path.join(root_dir, 'data', self.get_file_path(a_pipe))
+        a_pipe[-1][1].fname = os.path.join(bows_dir, self.get_bow_file_name(a_pipe))
 
         with open(a_pipe.processors[-1].fname, 'w') as f:
             f.writelines('{}\n{}\n{}\n'.format(self.dct.num_docs, len(self.dct.items()), sum(len(_) for _ in self.corpus)))
@@ -94,7 +83,20 @@ class PipeHandler(object):
 
         self.doc_gen_stats.update({'docs-gen': self.cat2textgen_proc.nb_processed, 'docs-failed': len(self.cat2textgen_proc.failed)})
 
-    def get_file_path(self, a_pipe):
+        dest = os.path.join(words_dir, self.get_words_file_name(a_pipe))
+        if not os.path.isfile(dest):
+            with open(dest, 'w') as f:
+                f.write('\n'.join(map(lambda x: '{}'.format(x[1]), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0)))))
+                print 'Created \'{}\' file'.format(dest)
+        else:
+            print 'File \'{}\' already exists'.format(dest)
+
+    def get_words_file_name(self, a_pipe):
+        assert isinstance(a_pipe, Pipeline)
+        idd = re.sub('_weight-[a-zA-Z]+', '', get_id(a_pipe.settings))
+        return str(self.cat2textgen_proc.nb_processed) + '_' + idd.replace('_uci', '.words')
+
+    def get_bow_file_name(self, a_pipe):
         assert isinstance(a_pipe, Pipeline)
         idd = get_id(a_pipe.settings)
         ri = idd.rfind('_')
