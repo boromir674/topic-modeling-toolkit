@@ -6,6 +6,7 @@ from processors.generator_processors import GeneratorProcessor
 from processors.mutators.mutators import CategoryToTextGenerator
 from processors.string2generator import StringToTokenGenerator
 from processors import Processor
+from processors.mutators.mutators import GensimDictTokenGeneratorToListProcessor, ListToGenerator
 
 
 class Pipeline(object):
@@ -52,13 +53,14 @@ class Pipeline(object):
     def inject_connectors(self):
         assert (self.str2gen_processor_index != 0 and self.token_gen2list_index != 0)
         self.insert(self.str2gen_processor_index, self.str2gen_processor, 'string2token_generator_coverter')
-        # self.insert(self.token_gen2list_index, self.token_gen2token_list_processor)
+        self.insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
+        self.insert(self.token_gen2list_index + 2, ListToGenerator(), 'list2generator')
 
     def pipe_through(self, data):
-        for proc in self.processors:
+        for proc in self.processors[:-1]:
             if isinstance(proc, Processor):
-                print proc
-                print type(data)
+                # print proc
+                # print type(data)
                 data = proc.process(data)
         return data
 
