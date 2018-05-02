@@ -88,8 +88,9 @@ class PipeHandler(object):
                 print 'Created \'{}\' file'.format(vocab_file)
         else:
             print 'File \'{}\' already exists'.format(vocab_file)
-
-        return UciDataset(self.get_dataset_id(a_pipe), docword_file, vocab_file)
+        uci_dataset = UciDataset(self.get_dataset_id(a_pipe), docword_file, vocab_file)
+        uci_dataset.save()
+        return uci_dataset
 
     def get_words_file_name(self, a_pipe):
         assert isinstance(a_pipe, Pipeline)
