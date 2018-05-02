@@ -9,9 +9,9 @@ import ConfigParser
 from gensim.corpora import Dictionary
 from gensim.models.tfidfmodel import TfidfModel
 
-from patm import Pipeline
-from patm.definitions import root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, collections_dir
+from patm import Pipeline, UciDataset
 from processors.mutators import CategoryToTextGenerator
+from patm.definitions import root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, collections_dir
 
 
 class PipeHandler(object):
@@ -63,13 +63,12 @@ class PipeHandler(object):
         self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
         print 'total bow tuples in corpus: {}\n'.format(sum(len(_) for _ in self.corpus))
 
-        idd = self.get_dataset_id(a_pipe)
-        a_pipe[-1][1].fname = os.path.join(collections_dir, collection, 'docbow')
+        docword_file = os.path.join(collections_dir, collection, 'docword.{}.txt'.format(collection))
+        a_pipe[-1][1].fname = docword_file
 
         with open(a_pipe.processors[-1].fname, 'w') as f:
             f.writelines('{}\n{}\n{}\n'.format(self.dct.num_docs, len(self.dct.items()), sum(len(_) for _ in self.corpus)))
 
-        # self.writer.write_corpus(self.writer.fname, self.corpus)
         if a_pipe.settings['weight'] == 'counts':
             for vec in self.corpus:
                 self.doc_gen_stats['corpus-tokens'] += len(vec)
@@ -82,13 +81,15 @@ class PipeHandler(object):
 
         self.doc_gen_stats.update({'docs-gen': self.cat2textgen_proc.nb_processed, 'docs-failed': len(self.cat2textgen_proc.failed)})
 
-        dest = os.path.join(collections_dir, self.get_words_file_name(a_pipe))
-        if not os.path.isfile(dest):
-            with open(dest, 'w') as f:
+        vocab_file = os.path.join(collections_dir, collection, 'vocab.{}.txt'.format(collection))
+        if not os.path.isfile(vocab_file):
+            with open(vocab_file, 'w') as f:
                 f.write('\n'.join(map(lambda x: '{}'.format(x[1]), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0)))))
-                print 'Created \'{}\' file'.format(dest)
+                print 'Created \'{}\' file'.format(vocab_file)
         else:
-            print 'File \'{}\' already exists'.format(dest)
+            print 'File \'{}\' already exists'.format(vocab_file)
+
+        return UciDataset(self.get_dataset_id(a_pipe), docword_file, vocab_file)
 
     def get_words_file_name(self, a_pipe):
         assert isinstance(a_pipe, Pipeline)
@@ -142,10 +143,11 @@ if __name__ == '__main__':
     print '\n', pipe, '\n'
     # print get_id(pipe.settings)
     # print get_id1(pipe)
-    ph.preprocess(pipe, args.collection)
+    uci_dt = ph.preprocess(pipe, args.collection)
 
     print 'nb docs gen:', ph.doc_gen_stats['docs-gen']
     print 'nb docs failed:', ph.doc_gen_stats['docs-failed']
     print ph.cat2textgen_proc.failed
     print 'unique words:', len(ph.dct.items())
     print 'total words:', ph.doc_gen_stats['corpus-tokens']
+    print
