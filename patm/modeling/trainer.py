@@ -1,6 +1,7 @@
 import os
 import artm
 
+from .utils import get_model_factory
 from ..definitions import collections_dir
 
 
@@ -13,7 +14,7 @@ class ModelTrainer(object):
 
     @property
     def model_factory(self):
-        return get_model_factory()
+        return get_model_factory(self.dictionary)
 
     def train(self, model, collection_passes):
         """
@@ -22,6 +23,7 @@ class ModelTrainer(object):
         :param nb_topics:
         :return:
         """
+        # model = self.model_factory.create_model()
         model.fit_offline(self.batch_vectorizer, num_collection_passes=collection_passes)
         # print model.score_tracker['sp'].value
         # print model.score_tracker['my_fisrt_perplexity_score'].last_value

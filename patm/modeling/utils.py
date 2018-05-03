@@ -9,6 +9,9 @@ dicts2model_factory = {}
 def get_model_factory(dictionary):
     if dictionary not in dicts2model_factory:
         dicts2model_factory[dictionary] = ModelFactory(dictionary)
+        print 'using new oblect'
+    else:
+        print 'using existing object'
     return dicts2model_factory[dictionary]
 
 
@@ -41,7 +44,7 @@ class ModelFactory(object):
 
     def create_model(self, cfg_file):
         settings = cfg2model_settings(cfg_file)
-        print settings
+        # print settings
         model = artm.ARTM(num_topics=settings['learning']['nb_topics'], dictionary=self.dict)
         for reg_setting_name, value in settings['regularizers'].iteritems():
             model.regularizers.add(self.regularizer2constructor[reg_setting_name](value))
