@@ -34,6 +34,10 @@ class PipeHandler(object):
         self.text_generator = self.cat2textgen_proc.process(category)
 
     def preprocess(self, a_pipe, collection):
+        target_folder = os.path.join(collections_dir, collection)
+        if not os.path.exists(target_folder):
+            os.makedirs(target_folder)
+            print 'Created \'{}\' as target directory for persisting'.format(target_folder)
         self.doc_gen_stats['corpus-tokens'] = 0
         doc_gens = []
         for i, doc in enumerate(self.text_generator):
@@ -88,8 +92,10 @@ class PipeHandler(object):
                 print 'Created \'{}\' file'.format(vocab_file)
         else:
             print 'File \'{}\' already exists'.format(vocab_file)
-        uci_dataset = UciDataset(self.get_dataset_id(a_pipe), docword_file, vocab_file)
+
+        uci_dataset = UciDataset(collection, self.get_dataset_id(a_pipe), docword_file, vocab_file)
         uci_dataset.save()
+        print uci_dataset
         return uci_dataset
 
     def get_words_file_name(self, a_pipe):

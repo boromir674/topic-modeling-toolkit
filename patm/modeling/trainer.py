@@ -1,7 +1,6 @@
 import os
 import artm
 
-from utils import ModelFactory
 from ..definitions import collections_dir
 
 
@@ -12,6 +11,10 @@ class ModelTrainer(object):
         self.batch_vectorizer = None
         self.dictionary = artm.Dictionary()
 
+    @property
+    def model_factory(self):
+        return get_model_factory()
+
     def train(self, model, collection_passes):
         """
         :param collection_passes: number of passes over the whole collection
@@ -19,9 +22,7 @@ class ModelTrainer(object):
         :param nb_topics:
         :return:
         """
-
         model.fit_offline(self.batch_vectorizer, num_collection_passes=collection_passes)
-
         # print model.score_tracker['sp'].value
         # print model.score_tracker['my_fisrt_perplexity_score'].last_value
         # print model.score_tracker['sparsity_phi_score'].value  # .last_value
@@ -29,8 +30,6 @@ class ModelTrainer(object):
         # saved_top_tokens = model.score_tracker['top_tokens_score'].last_tokens
         # for topic_name in model.topic_names:
         #     print saved_top_tokens[topic_name]
-
-        # return model
 
 
 class TrainerFactory(object):
@@ -64,11 +63,10 @@ class TrainerFactory(object):
             return mod_tr
 
 
-if __name__ == '__main__':
-    tf = TrainerFactory()
-    trainer = tf.create_trainer('plsa', 'n1c')
-    md_factory = ModelFactory(trainer.dictionary)
-    model_inst = md_factory.create_model('/data/thesis/code/train.cfg')
-    trainer.train(model_inst, 50)
-    print model_inst.num_document_passes
-
+# if __name__ == '__main__':
+    # tf = TrainerFactory()
+    # trainer = tf.create_trainer('plsa', 'n1c')
+    # md_factory = ModelFactory(trainer.dictionary)
+    # model_inst = md_factory.create_model('/data/thesis/code/train.cfg')
+    # trainer.train(model_inst, 50)
+    # print model_inst.num_document_passes
