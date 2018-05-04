@@ -12,6 +12,23 @@ class ModelTrainer(object):
         self.col_root = collection_dir
         self.batch_vectorizer = None
         self.dictionary = artm.Dictionary()
+        self.observers = []
+
+    def register(self, observer):
+        if observer not in self.observers:
+            self.observers.append(observer)
+
+    def unregister(self, observer):
+        if observer in self.observers:
+            self.observers.remove(observer)
+
+    def unregister_all(self):
+        if self.observers:
+            del self.observers[:]
+
+    def update_observers(self, *args, **kwargs):
+        for observer in self.observers:
+            observer.update(*args, **kwargs)
 
     @property
     def model_factory(self):
@@ -35,6 +52,7 @@ class ModelTrainer(object):
         # saved_top_tokens = model.score_tracker['top_tokens_score'].last_tokens
         # for topic_name in model.topic_names:
         #     print saved_top_tokens[topic_name]
+        self.update_observers(model)
 
 
 class TrainerFactory(object):
