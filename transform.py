@@ -19,7 +19,7 @@ class PipeHandler(object):
         self.cat2textgen_proc = None
         self.text_generator = None
         self.doc_gen_stats = {}
-        self.dct = Dictionary()
+        self.dct = None
         self.model = None
         self.corpus = None
         self.nb_docs = 0

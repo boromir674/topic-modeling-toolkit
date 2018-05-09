@@ -1,4 +1,4 @@
 from .trainer import TrainerFactory
-from .utils import get_model_factory, cfg2model_settings
+from .model_factory import get_model_factory, cfg2model_settings
 
 trainer_factory = TrainerFactory()

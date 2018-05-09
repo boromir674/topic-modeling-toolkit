@@ -3,6 +3,8 @@ from collections import OrderedDict
 
 import artm
 
+from ..evaluation.scorer_factory import ArtmScorerFactory
+
 dicts2model_factory = {}
 
 

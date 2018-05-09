@@ -1,14 +1,15 @@
 import os
 import artm
 
-from .utils import get_model_factory
+from .model_factory import get_model_factory
 from ..definitions import collections_dir
+from ..evaluation.scorer_factory import ArtmScorerFactory
 
 
 class ModelTrainer(object):
-    def __init__(self, model_type, collection):
+    def __init__(self, model_type, collection_dir):
         self.type = model_type
-        self.col_name = collection
+        self.col_root = collection_dir
         self.batch_vectorizer = None
         self.dictionary = artm.Dictionary()
 
@@ -23,6 +24,8 @@ class ModelTrainer(object):
         :param nb_topics:
         :return:
         """
+
+
         # model = self.model_factory.create_model()
         model.fit_offline(self.batch_vectorizer, num_collection_passes=collection_passes)
         # print model.score_tracker['sp'].value
@@ -43,7 +46,7 @@ class TrainerFactory(object):
             os.makedirs(collection_dir)
         batches = [_ for _ in os.listdir(collection_dir) if '.batch' in _]
         if model_type == 'plsa':
-            mod_tr = ModelTrainer(model_type, collection)
+            mod_tr = ModelTrainer(model_type, collections_dir)
             if batches:
                 mod_tr.batch_vectorizer = artm.BatchVectorizer(collection_name=collection,
                                                                data_path=collection_dir,
