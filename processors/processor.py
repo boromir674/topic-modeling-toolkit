@@ -90,23 +90,27 @@ class PreUpdateSFProcessor(StateFullProcessor):
 
 if __name__ == '__main__':
 
+    s = Processor(lambda x: x + '_proc')
+    # a = s.process('gav')
+    # print a
+    print isinstance(s, MetaProcessor)
     sl = StateLessProcessor(lambda x: x + '_less')
-    sf = StateFullProcessor(lambda x: x + '_full', [1, 2], 'append')
-    sf = PreUpdateSFProcessor(lambda x: x + '_full', [1, 2], 'append')
+    # sf = StateFullProcessor(lambda x: x + '_full', [1, 2], 'append')
+    # sf = PreUpdateSFProcessor(lambda x: x + '_full', [1, 2], 'append')
+    #
+    # print isinstance(sl, Processor)
 
-    print isinstance(sl, Processor)
-    print isinstance(sl, MetaProcessor)
-    print isinstance(sf, Processor)
-    print isinstance(sf, MetaProcessor)
-
-    # print sl.process('gav')
-
-    print sf.state
-    print sf.process('gav')
-    print sf.state
-
-    sf.update(100)
-    print
-    print sf.state
-    print sf.process('gav')
-    print sf.state
+    # print isinstance(sf, Processor)
+    # print isinstance(sf, MetaProcessor)
+    #
+    # # print sl.process('gav')
+    #
+    # print sf.state
+    # print sf.process('gav')
+    # print sf.state
+    #
+    # sf.update(100)
+    # print
+    # print sf.state
+    # print sf.process('gav')
+    # print sf.state
