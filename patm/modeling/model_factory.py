@@ -44,17 +44,20 @@ class ModelFactory(object):
             'topic-selection': lambda x: artm.TopicSelectionThetaRegularizer(name=x)
         }
 
-    def create_model(self, cfg_file):
+    def create_model(self, cfg_file, output_dir):
         settings = cfg2model_settings(cfg_file)
         # print settings
+        scorers = []
         model = artm.ARTM(num_topics=settings['learning']['nb_topics'], dictionary=self.dict)
         for reg_setting_name, value in settings['regularizers'].iteritems():
             model.regularizers.add(self.regularizer2constructor[reg_setting_name](value))
 
         for score_setting_name, value in settings['scores'].iteritems():
             model.scores.add(self.score2constructor[score_setting_name](value))
+            scorers.append(scorer_factory.create_scorer(value))
 
         model.num_document_passes = settings['learning']['document_passes']
+
         return model, settings['learning']['collection_passes']
 
 

@@ -48,8 +48,8 @@ def max_length_filter(word_generator, max_length):
 
 class MinLengthFilter(GeneratorProcessor):
     def __init__(self, min_length):
-        super(GeneratorProcessor, self).__init__(lambda x: min_length_filter(x, min_length))
         self.min_length = min_length
+        super(GeneratorProcessor, self).__init__(lambda x: min_length_filter(x, self.min_length))
 
     def __str__(self):
         return super(GeneratorProcessor, self).__str__() + '(' + str(self.min_length) + ')'
@@ -60,8 +60,8 @@ class MinLengthFilter(GeneratorProcessor):
 
 class MaxLengthFilter(GeneratorProcessor):
     def __init__(self, max_length):
-        super(GeneratorProcessor, self).__init__(lambda x: max_length_filter(x, max_length))
         self.max_length = max_length
+        super(GeneratorProcessor, self).__init__(lambda x: max_length_filter(x, self.max_length))
 
     def __str__(self):
         return super(GeneratorProcessor, self).__str__() + '(' + str(self.max_length) + ')'

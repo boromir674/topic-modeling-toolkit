@@ -13,6 +13,7 @@ class Pipeline(object):
     def __init__(self, settings):
         assert isinstance(settings, OrderedDict)
         self.settings = settings
+        print settings
         self.processors_names = [processor_name for processor_name, v in settings.items() if settings_value2processors[processor_name](v) is not None]
         self.processors = [settings_value2processors[processor_name](v) for processor_name, v in settings.items() if settings_value2processors[processor_name](v) is not None]
         assert len(self.processors_names) == len(self.processors)

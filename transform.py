@@ -119,6 +119,9 @@ class PipeHandler(object):
 def cfg2pipe_settings(config_path, section):
     config = ConfigParser.ConfigParser()
     config.read(config_path)
+
+    print 'ADW'
+    print config.items(section)
     return OrderedDict([(setting_name, encode_pipeline_cfg[setting_name](value)) for setting_name, value in config.items(section)])
 
 

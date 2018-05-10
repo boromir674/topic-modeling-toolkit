@@ -1,6 +1,24 @@
 import os
 import cPickle as pickle
 
+split_tags = ('train', 'dev', 'test')
+
+
+class Dataset(object):
+    def __init__(self, name, _id):
+        self.name = name
+        self.id = _id
+
+    def set_splits(self, splits):
+        """
+        :param splits: possible keys: {train, dev, test}
+        :type splits: dict
+        :return:
+        """
+        assert all(splits.keys() in split_tags)
+        assert sum(splits.values()) == 1
+        self.splits = splits
+
 
 class UciDataset(object):
 
@@ -33,6 +51,7 @@ class UciDataset(object):
         except RuntimeError as e:
             print(e)
             print("Failed to save dataset wtih id '{}'".format(weedataset_id))
+
 
 
 

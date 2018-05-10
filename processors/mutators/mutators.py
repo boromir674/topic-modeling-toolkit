@@ -1,6 +1,6 @@
 import pandas as pd
 from gensim.corpora import Dictionary
-from processors.processor import StateLessProcessor, PostUpdateSFProcessor
+from processors.processor import StateLessProcessor, PostUpdateSFProcessor, ElementCountingProcessor
 
 
 class TokenGeneratorToList(StateLessProcessor):
@@ -9,12 +9,17 @@ class TokenGeneratorToList(StateLessProcessor):
 
 class DefaultTokenGeneratorTolist(TokenGeneratorToList):
     def __init__(self):
-        super(TokenGeneratorToList, self).__init__(lambda x: [_ for _ in x])
+        super(DefaultTokenGeneratorTolist, self).__init__(lambda x: [_ for _ in x])
 
 
 class ListToGenerator(StateLessProcessor):
     def __init__(self):
-        super(StateLessProcessor, self).__init__(lambda x: (_ for _ in x[0]))
+        super(ListToGenerator, self).__init__(lambda x: (_ for _ in x[0]))
+
+
+class ListWithCountingToGenerator(ElementCountingProcessor):
+    def __init__(self):
+        super(ListWithCountingToGenerator, self).__init__(lambda x: (_ for _ in x[0]))
 
 
 class GensimDictTokenGeneratorToListProcessor(PostUpdateSFProcessor):

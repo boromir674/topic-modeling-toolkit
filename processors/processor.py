@@ -59,6 +59,16 @@ class StateLessProcessor(Processor):
     pass
 
 
+class ElementCountingProcessor(StateLessProcessor):
+    def __init__(self, func):
+        self.nb_elems = 0
+        super(StateLessProcessor, self).__init__(func)
+
+    def process(self, data):
+        self.nb_elems += len(data)
+        return super(StateLessProcessor, self).process(data)
+
+
 class StateFullProcessor(Processor):
     def __init__(self, func, state, callback):
         self.state = state
