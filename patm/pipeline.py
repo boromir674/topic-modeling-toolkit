@@ -36,7 +36,7 @@ class Pipeline(object):
 
     def __str__(self):
         b = 'Pipeline\nlen: {}\n'.format(len(self))
-        b += '\n'.join('{}: {}'.format(pr_name, pr_instance) for pr_name, pr_instance in zip(self.processors_names, self.processors) if pr_instance)
+        b += '\n'.join('{}: {}'.format(pr_name, pr_instance) for pr_name, pr_instance in zip(self.processors_names, self.processors))
         return b
 
     def __getitem__(self, item):
