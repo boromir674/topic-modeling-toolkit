@@ -30,7 +30,7 @@ class PipeHandler(object):
         return Pipeline(pipe_settings)
 
     def set_doc_gen(self, category, num_docs=None):
-        self.cat2textgen_proc = CategoryToTextGenerator(cat2files, num_docs=num_docs)
+        self.cat2textgen_proc = CategoryToTextGenerator(cat2files, sample_docs=num_docs)
         self.text_generator = self.cat2textgen_proc.process(category)
 
     def preprocess(self, a_pipe, collection):
@@ -150,6 +150,7 @@ if __name__ == '__main__':
 
     ph.set_doc_gen(args.category, nb_docs)
     pipe = ph.create_pipeline(args.config)
+    print '\n', ph.cat2textgen_proc
     print '\n', pipe, '\n'
     # print get_id(pipe.settings)
     # print get_id1(pipe)
