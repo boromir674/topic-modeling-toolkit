@@ -8,6 +8,10 @@ class Dataset(object):
     def __init__(self, name, _id):
         self.name = name
         self.id = _id
+        self.splits = None
+        self.datapoints = dict([(tag, {}) for tag in split_tags])
+        # doc_id >= 1
+        # datapoint[doc_id] = {class:'ney-york-times'}
 
     def set_splits(self, splits):
         """
@@ -15,7 +19,7 @@ class Dataset(object):
         :type splits: dict
         :return:
         """
-        assert all(splits.keys() in split_tags)
+        assert all(splits.keys()) in split_tags
         assert sum(splits.values()) == 1
         self.splits = splits
 
