@@ -15,7 +15,9 @@ from patm.definitions import root_dir, data_root_dir, encode_pipeline_cfg, cat2f
 
 
 class PipeHandler(object):
-    def __init__(self):
+    def __init__(self, category, sample=None):
+        self.category = category
+        self.sample = sample
         self.cat2textgen_proc = None
         self.text_generator = None
         self.doc_gen_stats = {}
@@ -29,11 +31,12 @@ class PipeHandler(object):
         print pipe_settings
         return Pipeline(pipe_settings)
 
-    def set_doc_gen(self, category, num_docs=None):
+    def set_doc_gen(self, category, num_docs=None, labels=False):
         self.cat2textgen_proc = CategoryToTextGenerator(cat2files, sample_docs=num_docs)
         self.text_generator = self.cat2textgen_proc.process(category)
 
-    def preprocess(self, a_pipe, collection):
+    def preprocess(self, a_pipe, collection, labels=False):
+        self.set_doc_gen(self.category, num_docs=self.sample, labels=labels)
         target_folder = os.path.join(collections_dir, collection)
         if not os.path.exists(target_folder):
             os.makedirs(target_folder)
@@ -119,9 +122,6 @@ class PipeHandler(object):
 def cfg2pipe_settings(config_path, section):
     config = ConfigParser.ConfigParser()
     config.read(config_path)
-
-    print 'ADW'
-    print config.items(section)
     return OrderedDict([(setting_name, encode_pipeline_cfg[setting_name](value)) for setting_name, value in config.items(section)])
 
 
@@ -131,6 +131,7 @@ def get_cl_arguments():
     parser.add_argument('config', help='the .cfg file to use for constructing a pipeline')
     parser.add_argument('collection', help='a given name for the collection')
     parser.add_argument('--sample', metavar='nb_docs', default='all', help='the number of documents to consider. Defaults to all documents')
+    parser.add_argument('--labels', action='store_true', help='whether or not to load outlet labels per document if present. Defaults to not use labels')
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
@@ -139,14 +140,14 @@ def get_cl_arguments():
 
 if __name__ == '__main__':
     args = get_cl_arguments()
-    print 'Arguments given:', args
+    # print 'Arguments given:', args
 
     if args.sample == 'all':
         nb_docs = float('inf')
     else:
         nb_docs = eval(args.sample)
 
-    ph = PipeHandler()
+    ph = PipeHandler(args.category)
 
     ph.set_doc_gen(args.category, nb_docs)
     pipe = ph.create_pipeline(args.config)
@@ -154,7 +155,7 @@ if __name__ == '__main__':
     print '\n', pipe, '\n'
     # print get_id(pipe.settings)
     # print get_id1(pipe)
-    uci_dt = ph.preprocess(pipe, args.collection)
+    uci_dt = ph.preprocess(pipe, args.collection, labels=args.labels)
 
     print 'nb docs gen:', ph.doc_gen_stats['docs-gen']
     print 'nb docs failed:', ph.doc_gen_stats['docs-failed']

@@ -95,3 +95,6 @@ class CategoryToTextNPosterIdGenerator(CategoryToFieldGenerator):
                 self.missing_poster_id.append({'enum': i, 'type': type(fields), 'index': fields['index']})
             else:
                 yield fields
+
+
+class DictGenToStringGenProcessor(Sta)
