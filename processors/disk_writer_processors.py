@@ -4,7 +4,7 @@ from processor import StateLessProcessor
 class StateLessDiskWriter(StateLessProcessor):
     """Ingests one doc vector at a time"""
     def __init__(self, fname, func):
-        self.doc_num = 0
+        self.doc_num = 1
         self.fname = fname
         super(StateLessProcessor, self).__init__(func)
 
@@ -22,29 +22,47 @@ class StateLessDiskWriter(StateLessProcessor):
 
 class UciFormatWriter(StateLessDiskWriter):
     def __init__(self, fname='/data/thesis/data/myuci'):
-        super(UciFormatWriter, self).__init__(fname, lambda x: write_vector(self.fname, map(lambda word_id_weight_tuple: (word_id_weight_tuple[0]+1, word_id_weight_tuple[1]), x), self.doc_num))
+        # super(UciFormatWriter, self).__init__(fname, lambda x: write_uci(self.fname, map(lambda word_id_weight_tuple: (word_id_weight_tuple[0]+1, word_id_weight_tuple[1]), x), self.doc_num))
+        super(UciFormatWriter, self).__init__(fname, lambda x: write_uci(self.fname, x, self.doc_num))
         # + 1 to align with the uci format, which states that the minimum word_id = 1; implemented with map-lambda combo on every element of a document vector
 
     def to_id(self):
         return 'uci'
 
 
-def write_vector(fname, doc_vector, doc_num):
+def write_uci(fname, doc_vector, doc_num):
     with open(fname, 'a') as f:
         f.writelines(map(lambda x: '{} {} {}\n'.format(doc_num, x[0], x[1]), doc_vector))
 
 
-# class VowpalFormatWriter(StateLessDiskWriter):
-#     def __init__(self, fname='/data/thesis/data/myvowpal'):
-#         super(VowpalFormatWriter, self).__init__(fname, lambda x: write_vector(self.fname, map(lambda word_id_weight_tuple: (word_id_weight_tuple[0]+1, word_id_weight_tuple[1]), x), self.doc_num))
-#         # + 1 to align with the uci format, which states that the minimum word_id = 1; implemented with map-lambda combo on every element of a document vector
-#
-#     def to_id(self):
-#         return 'vowpal'
+class VowpalFormatWriter(StateLessDiskWriter):
+    def __init__(self, fname='/data/thesis/data/myvowpal'):
+        super(VowpalFormatWriter, self).__init__(fname, lambda x: write_vowpal(self.fname, x, self.doc_num))
 
-def write_vector1(fname, doc_vector, doc_num):
+    def to_id(self):
+        return 'vowpal'
+
+
+def write_vowpal(fname, doc_vector, doc_num, class_labels):
+    """
+    Dumps a doument as a single line in the specified target file path in the "Vowpal Wabbit" format\n
+    :param fname: path to target file
+    :type fname: str
+    :param doc_vector: the representation of a document; an iterable of (token, frequency) tuples; eg [('gav', 1), ('alpha', 4)]
+    :type doc_vector: iterable
+    :param doc_num: number to represent document number in queue; eg 1,2,3,4,5 ... D
+    :type doc_num: int
+    :param class_labels: keys are class "category" (i.e. 'author') and values are the actuall class the document belongs to (i.e. 'Ivan Sokolov')
+    :type class_labels: dict
+    """
     with open(fname, 'a') as f:
-        f.write('doc{} {} ')
+        f.write('doc{} {} {}'.format(
+            doc_num,
+            ' '.join(map(lambda x: '{}{}'.format(x[0], freq2string.get(x[1], ':{}'.format(x[1]))), doc_vector)),
+            ' '.join(map(lambda x: '|{} {}'.format(x[0], x[1]), class_labels.items()))
+        ))
 
 
-        f.writelines(map(lambda x: 'doc{} {} {}\n'.format(doc_num, x[0], x[1]), doc_vector))
+freq2string = {
+    1: '',
+}
