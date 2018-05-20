@@ -21,6 +21,9 @@ class StateLessDiskWriter(StateLessProcessor):
 
 
 class UciFormatWriter(StateLessDiskWriter):
+    """
+    Injests a doc_vector at a time. For example [('2', 1), ('15', 4), ('18', 5), ('11', 3)]
+    """
     def __init__(self, fname='/data/thesis/data/myuci'):
         # super(UciFormatWriter, self).__init__(fname, lambda x: write_uci(self.fname, map(lambda word_id_weight_tuple: (word_id_weight_tuple[0]+1, word_id_weight_tuple[1]), x), self.doc_num))
         super(UciFormatWriter, self).__init__(fname, lambda x: write_uci(self.fname, x, self.doc_num))
@@ -36,8 +39,11 @@ def write_uci(fname, doc_vector, doc_num):
 
 
 class VowpalFormatWriter(StateLessDiskWriter):
+    """
+    Injests a (doc_vector, classes_ditct) at a time. For example ([('gav', 1), ('alpha', 4)], {'author': 'Ivan Sokolov'})
+    """
     def __init__(self, fname='/data/thesis/data/myvowpal'):
-        super(VowpalFormatWriter, self).__init__(fname, lambda x: write_vowpal(self.fname, x, self.doc_num))
+        super(VowpalFormatWriter, self).__init__(fname, lambda x: write_vowpal(self.fname, x[0], self.doc_num, x[1]))
 
     def to_id(self):
         return 'vowpal'
