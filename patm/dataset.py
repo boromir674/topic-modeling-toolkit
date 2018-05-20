@@ -5,11 +5,15 @@ split_tags = ('train', 'dev', 'test')
 
 
 class Dataset(object):
-    def __init__(self, name, _id):
+    def __init__(self, name, _id, collection_length):
         self.name = name
         self.id = _id
+        self.col_len = collection_length
         self.splits = None
         self.datapoints = dict([(tag, {}) for tag in split_tags])
+
+    def add(self, other):
+        pass
         # doc_id >= 1
         # datapoint[doc_id] = {class:'ney-york-times'}
 

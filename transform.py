@@ -68,7 +68,10 @@ class PipeHandler(object):
         # print '\n'.join(['{}: {}'.format(k, v) for k, v in self.dct.iteritems()][:10]
 
         self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
+        for i, j in enumerate(self.corpus):
+            print i, len(j)
         print 'total bow tuples in corpus: {}\n'.format(sum(len(_) for _ in self.corpus))
+        print 'corpus len (nb_docs):', len(self.corpus), 'empty docs', len([_ for _ in self.corpus if not _])
 
         docword_file = os.path.join(collections_dir, collection, 'docword.{}.txt'.format(collection))
         a_pipe[-1][1].fname = docword_file
@@ -153,8 +156,6 @@ if __name__ == '__main__':
     pipe = ph.create_pipeline(args.config)
     print '\n', ph.cat2textgen_proc
     print '\n', pipe, '\n'
-    # print get_id(pipe.settings)
-    # print get_id1(pipe)
     uci_dt = ph.preprocess(pipe, args.collection, labels=args.labels)
 
     print 'nb docs gen:', ph.doc_gen_stats['docs-gen']

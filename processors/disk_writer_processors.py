@@ -41,3 +41,10 @@ def write_vector(fname, doc_vector, doc_num):
 #
 #     def to_id(self):
 #         return 'vowpal'
+
+def write_vector1(fname, doc_vector, doc_num):
+    with open(fname, 'a') as f:
+        f.write('doc{} {} ')
+
+
+        f.writelines(map(lambda x: 'doc{} {} {}\n'.format(doc_num, x[0], x[1]), doc_vector))
