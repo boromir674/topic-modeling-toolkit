@@ -12,9 +12,14 @@ class DefaultTokenGeneratorTolist(TokenGeneratorToList):
         super(DefaultTokenGeneratorTolist, self).__init__(lambda x: [_ for _ in x])
 
 
+class OneElemListOfListToGenerator(StateLessProcessor):
+    def __init__(self):
+        super(OneElemListOfListToGenerator, self).__init__(lambda x: (_ for _ in x[0]))
+
+
 class ListToGenerator(StateLessProcessor):
     def __init__(self):
-        super(ListToGenerator, self).__init__(lambda x: (_ for _ in x[0]))
+        super(ListToGenerator, self).__init__(lambda x: (_ for _ in x))
 
 
 class ListWithCountingToGenerator(ElementCountingProcessor):

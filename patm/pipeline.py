@@ -5,7 +5,7 @@ from processors.string_processors import MonoSpacer, StringProcessor
 from processors.generator_processors import GeneratorProcessor
 from processors.string2generator import StringToTokenGenerator
 from processors import Processor
-from processors.mutators import GensimDictTokenGeneratorToListProcessor, ListToGenerator, CategoryToTextGenerator
+from processors.mutators import GensimDictTokenGeneratorToListProcessor, OneElemListOfListToGenerator, CategoryToTextGenerator
 
 
 class Pipeline(object):
@@ -23,12 +23,11 @@ class Pipeline(object):
             print self
             raise ProcessorsOrderNotSoundException('the first n components of the pipeline have to be StringProcessors and the following m GeneratorProcessors with n,m>0')
         if any(isinstance(x, MonoSpacer) for x in self.processors):
+            # self.insert(0, StringToTokenGenerator(' '), 'single-space-tokenizer')
             self.str2gen_processor = StringToTokenGenerator(' ')
         else:
             print self
             raise SupportedTokenizerNotFoundException('The implemented \'single-space\' tokenizer requires the presence of a MonoSpacer processor in the pipeline')
-        # self.token_gen2list = DefaultTokenGeneratorTolist()
-        # self.token_gen2token_list_processor = GensimDictGeneratorToListProcessor()
         self.inject_connectors()
 
     def __len__(self):

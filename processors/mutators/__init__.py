@@ -1,1 +1,1 @@
-from .mutators import DefaultTokenGeneratorTolist, ListToGenerator, GensimDictTokenGeneratorToListProcessor, CategoryToTextGenerator
+from .mutators import DefaultTokenGeneratorTolist, OneElemListOfListToGenerator, GensimDictTokenGeneratorToListProcessor, CategoryToTextGenerator
