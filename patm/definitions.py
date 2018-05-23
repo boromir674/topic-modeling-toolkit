@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 from processors.string_processors import LowerCaser, MonoSpacer, UtfEncoder, DeAccenter, StringLemmatizer
 from processors.generator_processors import MinLengthFilter, MaxLengthFilter, WordToNgramGenerator
-from processors.disk_writer_processors import UciFormatWriter
+from processors.disk_writer_processors import UciFormatWriter, VowpalFormatWriter
 
 
 root_dir = '/data/thesis'
@@ -53,8 +53,8 @@ settings_value2processors = {
     'nobelow': lambda x: x if x else None,
     'noabove': lambda x: x if x else None,
     'ngrams': lambda x: WordToNgramGenerator(x) if x else None,
-    'weight': lambda x: x if x else None,  # if x == 'tfidf' else x,
-    'format': lambda x: UciFormatWriter() if x == 'uci' else None
+    'weight': lambda x: x if x else None,
+    'format': lambda x: {'uci': UciFormatWriter(), 'vowpal': VowpalFormatWriter()}[x] if x else None
 }
 
 
