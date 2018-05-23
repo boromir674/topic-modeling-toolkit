@@ -9,13 +9,13 @@ import ConfigParser
 from gensim.corpora import Dictionary
 from gensim.models.tfidfmodel import TfidfModel
 
+from patm.modeling import get_posts_generator
 from patm import Pipeline, UciDataset, get_pipeline
-from patm.modeling import ge
 from patm.definitions import root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, collections_dir
 
 
 class PipeHandler(object):
-    def __init__(self, category, sample=None):
+    def __init__(self, category, sample='all'):
         self.category = category
         self.sample = sample
         self.cat2textgen_proc = None
@@ -31,8 +31,8 @@ class PipeHandler(object):
         print pipe_settings
         return get_pipeline(pipe_settings['format'], pipe_settings)
 
-    def set_doc_gen(self, category, num_docs=None, labels=False):
-        self.cat2textgen_proc = get(cat2files, sample_docs=num_docs)
+    def set_doc_gen(self, category, num_docs='all', labels=False):
+        self.cat2textgen_proc = get_posts_generator(nb_docs=num_docs)
         self.text_generator = self.cat2textgen_proc.process(category)
 
     def preprocess(self, a_pipe, collection, labels=False):
