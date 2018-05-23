@@ -53,8 +53,6 @@ class Pipeline(object):
     def inject_connectors(self):
         assert (self.str2gen_processor_index != 0 and self.token_gen2list_index != 0)
         self.insert(self.str2gen_processor_index, self.str2gen_processor, 'str2token_gen')
-        self.insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
-        self.insert(self.token_gen2list_index + 2, ListToGenerator(), 'list2generator')
 
     def pipe_through(self, data):
         for proc in self.processors[:-1]:
@@ -81,8 +79,24 @@ class Pipeline(object):
         return True
 
 
-class DefaultPipeline(Pipeline):
-    pass
+class UciOutputPipeline(Pipeline):
+    def inject_connectors(self):
+        super(UciOutputPipeline, self).inject_connectors()
+        self.insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
+        self.insert(self.token_gen2list_index + 2, OneElemListOfListToGenerator(), 'list2generator')
+
+
+class VowpalOutputPipeline(Pipeline):
+    def inject_connectors(self):
+        super(VowpalOutputPipeline, self).inject_connectors()
+        self.insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
+        self.insert(self.token_gen2list_index + 2, OneElemListOfListToGenerator(), 'list2generator')
+
+
+def get_pipeline(pipe_type, settings):
+    if pipe_type == 'uci': return UciOutputPipeline(settings)
+    if pipe_type == 'vowpal': return VowpalOutputPipeline(settings)
+    return None
 
 
 class SupportedTokenizerNotFoundException(Exception):

@@ -9,7 +9,7 @@ import ConfigParser
 from gensim.corpora import Dictionary
 from gensim.models.tfidfmodel import TfidfModel
 
-from patm import Pipeline, UciDataset
+from patm import Pipeline, UciDataset, get_pipeline
 from processors.mutators import CategoryToTextGenerator
 from patm.definitions import root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, collections_dir
 
@@ -29,7 +29,7 @@ class PipeHandler(object):
     def create_pipeline(self, pipeline_cfg):
         pipe_settings = cfg2pipe_settings(os.path.join(root_dir, 'code', pipeline_cfg), 'preprocessing')
         print pipe_settings
-        return Pipeline(pipe_settings)
+        return get_pipeline(pipe_settings['format'], pipe_settings)
 
     def set_doc_gen(self, category, num_docs=None, labels=False):
         self.cat2textgen_proc = CategoryToTextGenerator(cat2files, sample_docs=num_docs)
