@@ -94,7 +94,13 @@ class PipeHandler(object):
         vocab_file = os.path.join(collections_dir, collection, 'vocab.{}.txt'.format(collection))
         if not os.path.isfile(vocab_file):
             with open(vocab_file, 'w') as f:
-                f.write('\n'.join(map(lambda x: '{}'.format(x[1]), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0)))))
+                for gram_id, gram_string in self.dct.iteritems():
+                    try:
+                        f.write('{}\n'.format(gram_string.encode('utf-8')))
+                    except UnicodeEncodeError as e:
+                        # f.write('\n'.join(map(lambda x: '{}'.format(str(x[1])), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0)))))
+                        print 'FAILED', type(gram_string), gram_string
+                        sys.exit(1)
                 print 'Created \'{}\' file'.format(vocab_file)
         else:
             print 'File \'{}\' already exists'.format(vocab_file)
@@ -145,14 +151,13 @@ if __name__ == '__main__':
     args = get_cl_arguments()
     # print 'Arguments given:', args
 
-    if args.sample == 'all':
-        nb_docs = float('inf')
-    else:
-        nb_docs = eval(args.sample)
+    nb_docs = args.sample
+    if nb_docs != 'all':
+        nb_docs = int(nb_docs)
 
-    ph = PipeHandler(args.category)
+    ph = PipeHandler(args.category, sample=nb_docs)
 
-    ph.set_doc_gen(args.category, nb_docs)
+    # ph.set_doc_gen(args.category, nb_docs)
     pipe = ph.create_pipeline(args.config)
     print '\n', ph.cat2textgen_proc
     print '\n', pipe, '\n'
