@@ -10,7 +10,7 @@ from gensim.corpora import Dictionary
 from gensim.models.tfidfmodel import TfidfModel
 
 from patm import Pipeline, UciDataset, get_pipeline
-from processors.mutators import CategoryToTextGenerator
+from patm.modeling import ge
 from patm.definitions import root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, collections_dir
 
 
@@ -32,7 +32,7 @@ class PipeHandler(object):
         return get_pipeline(pipe_settings['format'], pipe_settings)
 
     def set_doc_gen(self, category, num_docs=None, labels=False):
-        self.cat2textgen_proc = CategoryToTextGenerator(cat2files, sample_docs=num_docs)
+        self.cat2textgen_proc = get(cat2files, sample_docs=num_docs)
         self.text_generator = self.cat2textgen_proc.process(category)
 
     def preprocess(self, a_pipe, collection, labels=False):

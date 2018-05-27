@@ -5,7 +5,7 @@ from processors.string_processors import MonoSpacer, StringProcessor
 from processors.generator_processors import GeneratorProcessor
 from processors.string2generator import StringToTokenGenerator
 from processors import Processor
-from processors.mutators import GensimDictTokenGeneratorToListProcessor, OneElemListOfListToGenerator, CategoryToTextGenerator
+from processors.mutators import GensimDictTokenGeneratorToListProcessor, OneElemListOfListToGenerator
 
 
 class Pipeline(object):

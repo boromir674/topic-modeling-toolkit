@@ -2,7 +2,7 @@ from configparser import ConfigParser
 from collections import OrderedDict
 
 import artm
-
+from .topic_model import TopicModel, TrainSpecs
 from ..evaluation.scorer_factory import ArtmScorerFactory
 
 dicts2model_factory = {}
@@ -44,6 +44,12 @@ class ModelFactory(object):
         }
 
     def create_model(self, cfg_file, output_dir):
+        """
+        Creates an artm model instance based on the input config file.\n
+        :param cfg_file:
+        :param output_dir:
+        :return:
+        """
         settings = cfg2model_settings(cfg_file)
         scorers = []
         model = artm.ARTM(num_topics=settings['learning']['nb_topics'], dictionary=self.dict)
@@ -54,9 +60,11 @@ class ModelFactory(object):
 
         for score_setting_name, value in settings['scores'].iteritems():
             model.scores.add(self.score2constructor[score_setting_name](value))
-            scorers.append(scorer_factory.create_scorer(value)) 
+            scorers.append(scorer_factory.create_scorer(value))
 
-        return model, settings['learning']['collection_passes']
+        tm = TopicModel(model)
+        specs = TrainSpecs({'collection_passes': settings['learning']['collection_passes']})
+        return tm, specs
 
 
 def cfg2model_settings(cfg_file):
@@ -75,3 +83,4 @@ section2encoder = {
 if __name__ == '__main__':
     sett = cfg2model_settings('/data/thesis/code/train.cfg')
     print sett
+
