@@ -41,7 +41,7 @@ class StringToFieldsGenerator(StateLessProcessor):
         super(StringToFieldsGenerator, self).__init__(lambda x: self.get_gen(x))
 
     def __str__(self):
-        return '{}(docs:{}) -> \{{}\}'.format(type(self).__name__, self.nb_docs, ', '.join(self.fields))
+        return '{}(docs:{}) -> [{}]'.format(type(self).__name__, self.nb_docs, ', '.join(self.fields))
 
     def get_gen(self, a_string):
         raise NotImplementedError

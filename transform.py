@@ -44,7 +44,7 @@ class PipeHandler(object):
         self.doc_gen_stats['corpus-tokens'] = 0
         doc_gens = []
         for i, doc in enumerate(self.text_generator):
-            doc_gens.append(a_pipe.pipe_through(doc))
+            doc_gens.append(a_pipe.pipe_through(doc['text']))
 
         self.dct = a_pipe[a_pipe.processors_names.index('dict-builder')][1].state
         # self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
@@ -68,8 +68,8 @@ class PipeHandler(object):
         # print '\n'.join(['{}: {}'.format(k, v) for k, v in self.dct.iteritems()][:10]
 
         self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
-        for i, j in enumerate(self.corpus):
-            print i, len(j)
+        # for i, j in enumerate(self.corpus):
+        #     print i, len(j)
         print 'total bow tuples in corpus: {}\n'.format(sum(len(_) for _ in self.corpus))
         print 'corpus len (nb_docs):', len(self.corpus), 'empty docs', len([_ for _ in self.corpus if not _])
 
