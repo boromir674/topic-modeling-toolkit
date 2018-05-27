@@ -47,7 +47,6 @@ class AbstractEvaluator(object):
 #         pass
 
 
-
 MetaEvaluator.register(AbstractEvaluator)
 
 

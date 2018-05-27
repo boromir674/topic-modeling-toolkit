@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 import artm
 from .topic_model import TopicModel, TrainSpecs
-from ..evaluation.scorer_factory import ArtmScorerFactory
+from ..evaluation.scorer_factory import get_scorers_factory
 
 dicts2model_factory = {}
 
@@ -40,14 +40,6 @@ class ModelFactory(object):
         :param str output_dir: the top level directory to use for dumping files related to training
         :return: tuple of initialized model and
         :rtype: patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs
-        """
-        """
-        
-        :param str label: a unique identifier
-        :param str cfg_file:
-        :param str output_dir:
-        :rtype: patm.modeling.topic_model.TopicModel
-        :return:
         """
         settings = cfg2model_settings(cfg_file)
         scorers = {}

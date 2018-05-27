@@ -31,9 +31,12 @@ class ArtmScorer(AbstractEvaluator):
 
 
 class ArtmScorerFactory(object):
-    def __init__(self, model, scorers_dict):
-        self._model = model
-        self.scorers = scorers_dict
+    def __init__(self, scorers):
+        """
+        :param scorers: a mapping of 'scorers' types to 'scorers' names. This structure can be parsed out of the 'scores' section of a 'train.cfg'
+        :type scorers: dict
+        """
+        self.scorers = scorers
 
     def create_scorer(self, name):
         assert name in self.scorers.values()
@@ -41,6 +44,7 @@ class ArtmScorerFactory(object):
 
 
 # TODO change this suspicious code
+scorer_factories = {}
 def get_scorers_factory(scorers):
     key = '.'.join(sorted(scorers.values()))
     if key not in scorer_factories:
