@@ -1,7 +1,5 @@
 from abc import ABCMeta, abstractmethod
 
-from ..utils import dump_to_disk
-
 
 class MetaEvaluator:
     __metaclass__ = ABCMeta

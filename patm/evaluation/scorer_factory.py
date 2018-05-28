@@ -24,9 +24,10 @@ class ArtmScorer(AbstractEvaluator):
 
     def evaluate(self, model):
         return {attr: model.score_tracker[self.name].__getattribute__(attr).value for attr in sorted(self._attrs)}
+        # return {attr: model.score_tracker[self.name].__getattribute__('last_{}'.format(attr)) for attr in sorted(self._attrs)}
 
     @property
-    def atttributes(self):
+    def attributes(self):
         return self._attrs
 
 
@@ -40,7 +41,7 @@ class ArtmScorerFactory(object):
 
     def create_scorer(self, name):
         assert name in self.scorers.values()
-        return ArtmScorer(mame, tuple(scorer_type2_reportables[{v: k for k, v in self.scorers.items()}[name]]))
+        return ArtmScorer(name, tuple(scorer_type2_reportables[{v: k for k, v in self.scorers.items()}[name]]))
 
 
 # TODO change this suspicious code

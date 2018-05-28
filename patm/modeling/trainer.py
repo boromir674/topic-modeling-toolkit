@@ -1,8 +1,9 @@
 import os
 import artm
 
-from .model_factory import get_model_factory
+from patm.utils import cfg2model_settings
 from ..definitions import collections_dir
+from .model_factory import get_model_factory
 from ..evaluation.scorer_factory import ArtmScorerFactory
 
 

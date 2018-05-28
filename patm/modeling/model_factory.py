@@ -1,9 +1,8 @@
-from configparser import ConfigParser
-from collections import OrderedDict
-
 import artm
 from .topic_model import TopicModel, TrainSpecs
 from ..evaluation.scorer_factory import get_scorers_factory
+from patm.utils import cfg2model_settings
+
 
 dicts2model_factory = {}
 
@@ -61,18 +60,6 @@ class ModelFactory(object):
 
         return tm, specs
 
-
-def cfg2model_settings(cfg_file):
-    config = ConfigParser()
-    config.read(cfg_file)
-    return OrderedDict([(section.encode('utf-8'), OrderedDict([(setting_name.encode('utf-8'), section2encoder[section](value)) for setting_name, value in config.items(section) if value])) for section in config.sections()])
-
-
-section2encoder = {
-    'learning': int,
-    'regularizers': str,
-    'scores': str
-}
 
 
 if __name__ == '__main__':
