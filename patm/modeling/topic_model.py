@@ -114,6 +114,12 @@ class TopicModel(object):
             b += ' | '.join('{} {}'.format(topic_name2tokens[name][i], (max_token_lens[j] - len(topic_name2tokens[name][i])) * ' ') for j, name in enumerate(self.artm_model.topic_names)) + '\n'
         return b, max_token_lens
 
+    def get_top_tokens(self, topic_names='all', nb_tokens=10):
+        if topic_names == 'all':
+            topic_names = self.model.topic_names
+        toks = self.model.score_tracker[self.evaluators['top-tokens'].name].last_value
+        return [toks[topic_name] for topic_name in topic_names]
+
 
 class TrainSpecs(Mapping):
     def __init__(self, *args, **kwargs):

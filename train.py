@@ -53,7 +53,8 @@ if __name__ == '__main__':
 
     model_trainer.train(topic_model.model, train_specs)
 
-    experiment.make_plots()
+    experiment.save_results('train-res.pkl')
+    # experiment.make_plots()
 
     # model2, collection_passes = model_trainer.model_factory.create_model(args.config)
     # mdl_trg = trainer_factory.create_trainer('plsa', 'n1c')

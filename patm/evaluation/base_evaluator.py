@@ -30,9 +30,6 @@ class AbstractEvaluator(object):
     def __str__(self):
         return self.name
 
-    def evaluate(self, data):
-        return self.method(data)
-
 
 # class SplitEvaluator(AbstractEvaluator):
 #     def __init__(self, dataset, method):

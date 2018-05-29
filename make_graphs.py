@@ -1,7 +1,9 @@
 #!usr/bin/python3
 
 import os
+import sys
 import argparse
+import pickle
 import matplotlib as mlp
 import matplotlib.pyplot as plt
 
@@ -9,10 +11,22 @@ plt.ion()
 from easyplot import EasyPlot
 
 
+collections_dir = '/data/thesis/data/collections'
+
+
+def load_results(path_file):
+    with open(path_file, 'rb') as results_file:
+        results = pickle.load(results_file)
+    assert 'collection_passes' in results and 'trackables' in results, 'root_dir' in results
+    return results
+
+
 class GraphMaker(object):
+
     def __init__(self, plot_dir):
         self.plot = {
-            'perplexity': lambda x: create_perplexity_graph(x)
+            'perplexity': lambda x: create_perplexity_graph(x),
+            'all': lambda x: create_graphs(x)
         }
         self._max_digits_prepend = 2
         self._inds = {key: 1 for key in self.plot.keys()}
@@ -32,8 +46,14 @@ class GraphMaker(object):
             print('Created \'{}\' directory'.format(self.gr_dir))
 
     def save_plot(self, graph_type, results):
-        self.eplot = self.plot[graph_type](results)
-        self._save_plot(graph_type)
+        assert graph_type in self.plot or graph_type == 'all'
+        if graph_type == 'all':
+            graphs = create_graphs(results)
+            for gr in graphs:
+                self._save_plot(gr[1], gr[0])
+        else:
+            plot = self.plot[graph_type](results)
+            self._save_plot(graph_type, plot)
 
     def _iter_prepend(self, int_num):
         nb_digits = len(str(int_num))
@@ -42,33 +62,45 @@ class GraphMaker(object):
         return '{}{}'.format((self._max_digits_prepend - nb_digits) * '0', int_num)
 
     def _get_target_name(self, graph_type):
+        if graph_type not in self._inds:
+            self._inds[graph_type] = 1
         return os.path.join(self.gr_dir, '{}_{}.png'.format(graph_type, self._iter_prepend(self._inds[graph_type])))
 
-    def _save_plot(self, graph_type):
+    def _save_plot(self, graph_type, eplot):
         target_name = self._get_target_name(graph_type)
         while os.path.exists(target_name):
             self._inds[graph_type] += 1
             target_name = self._get_target_name(graph_type)
-        self.eplot.kwargs['fig'].savefig(target_name)
+        eplot.kwargs['fig'].savefig(target_name)
+        print('Saved figure as', target_name)
         self._inds[graph_type] += 1
 
-#
-#
-# def create_coherence_plot(results):
-#
-#     eplot = EasyPlot(x, results['trackables'], 'b-o', label='y1 != x**2', showlegend=True, xlabel='x', ylabel='y', title='title',
-#                      grid='on')
 
-# def create_plot(results):
-#
+#     eplot = EasyPlot(x, results['trackables'], 'b-o', label='y1 != x**2', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
 #     eplot.iter_plot(x, y_dict, linestyle=linestyle_dict, marker=marker_dict, label=labels_dict, linewidth=3, ms=10, showlegend=True, grid='on')
 
 
 def create_perplexity_graph(results):
-    if perplexity not in results['trackables']:
+    if 'perplexity' not in results['trackables']:
         raise NoDataGivenPlotCreationException("Key 'perplexity' not found in the result keys: {}".format(', '.join(results['trackables'].keys())))
     struct = results['trackables']['perplexity']
+    print(len(results['trackables']['perplexity']['value']))
     return EasyPlot(range(len(struct['value'])), struct['value'], 'b-o', label='perplexity', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
+
+
+def create_graphs(results):
+    grs = []
+    for eval_name, sub_score2values in results['trackables'].items():
+        for sub_score, values in sub_score2values.items():
+            sub_plot_name = eval_name+'-'+sub_score
+            try:
+                grs.append((EasyPlot(range(len(values)), values, 'b-o', label=sub_plot_name, showlegend=True, xlabel='x', ylabel='y', title='title', grid='on'),
+                            sub_plot_name))
+            except TypeError as e:
+                print('Failed to create {} plot: type({}) = {}'.format(sub_plot_name, sub_score, type(values)))
+    # struct = results['trackables']['perplexity']
+    # print(len(results['trackables']['perplexity']['value']))
+    return grs
 
 
 def make_plots():
@@ -91,9 +123,8 @@ class NoDataGivenPlotCreationException(Exception):
 
 def get_cl_arguments():
     parser = argparse.ArgumentParser(prog='make_graphs.py', description='Creates graphs of evaluation scores tracked along the training process and saves them to disk', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('collection', help='the name for the collection to train on')
-    parser.add_argument('config', help='the .cfg file to use for constructing and training the topic_model')
-    # parser.add_argument('category', help='the category of data to use')
+    parser.add_argument('collection', help='the name of the collection on which experiments were conducted')
+    # parser.add_argument('results', help='path to a pickle file with experimental data to plot')
     # parser.add_argument('--sample', metavar='nb_docs', default='all', help='the number of documents to consider. Defaults to all documents')
     if len(sys.argv) == 1:
         parser.print_help()
@@ -101,8 +132,16 @@ def get_cl_arguments():
     return parser.parse_args()
 
 
+def _get_results_file_path(collection_name):
+    return os.path.join(collections_dir, collection_name, 'train-res.pkl')
+
+
 if __name__ == '__main__':
-    gr = make_plots()
+    args = get_cl_arguments()
+    results = load_results(_get_results_file_path(args.collection))
+
+    plotter = GraphMaker(os.path.join(collections_dir, args.collection, 'graphs'))
+    plotter.save_plot('all', results)
 
 
 # eplot = EasyPlot(xlabel=r'$x$', ylabel='$y$', fontsize=16,
