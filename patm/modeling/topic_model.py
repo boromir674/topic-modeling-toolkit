@@ -120,6 +120,10 @@ class TrainSpecs(Mapping):
         self._storage = dict(*args, **kwargs)
         assert 'collection_passes' in self._storage
 
+    def __str__(self):
+        # return 'Mapping([{}])'.format(', '.join())
+        return str(self._storage)
+
     def __getitem__(self, key):
         return self._storage[key]
 

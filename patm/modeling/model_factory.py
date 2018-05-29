@@ -61,7 +61,6 @@ class ModelFactory(object):
         return tm, specs
 
 
-
 if __name__ == '__main__':
     sett = cfg2model_settings('/data/thesis/code/train.cfg')
     print sett
