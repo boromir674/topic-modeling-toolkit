@@ -120,6 +120,25 @@ class TopicModel(object):
         toks = self.model.score_tracker[self.evaluators['top-tokens'].name].last_value
         return [toks[topic_name] for topic_name in topic_names]
 
+    def print_topics(self, topic_names='all'):
+        if topic_names == 'all':
+            topic_names = self.model.topic_names
+        toks = self.model.score_tracker[self.evaluators['top-tokens'].name].last_value
+        body, max_lens = self._get_rows(toks)
+        header = self._get_header(max_lens, topic_names)
+        print(header + body)
+
+    def _get_header(self, max_lens, topic_names):
+        assert len(max_lens) == len(topic_names)
+        return ' - '.join(map(lambda x: '{}{}'.format(x[1], ' ' * (max_lens[x[0]] - len(name))), (j, name in enumerate(topic_names))))
+
+    def _get_rows(self, topic_name2tokens):
+        max_token_lens = [max(map(lambda x: len(x), topic_name2tokens[name])) for name in self.model.topic_names]
+        b = ''
+        for i in range(len(topic_name2tokens.values()[0])):
+            b += ' | '.join('{} {}'.format(topic_name2tokens[name][i], (max_token_lens[j] - len(topic_name2tokens[name][i])) * ' ') for j, name in enumerate(self.model.topic_names)) + '\n'
+        return b, max_token_lens
+
 
 class TrainSpecs(Mapping):
     def __init__(self, *args, **kwargs):

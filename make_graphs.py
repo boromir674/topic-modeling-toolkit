@@ -84,7 +84,6 @@ def create_perplexity_graph(results):
     if 'perplexity' not in results['trackables']:
         raise NoDataGivenPlotCreationException("Key 'perplexity' not found in the result keys: {}".format(', '.join(results['trackables'].keys())))
     struct = results['trackables']['perplexity']
-    print(len(results['trackables']['perplexity']['value']))
     return EasyPlot(range(len(struct['value'])), struct['value'], 'b-o', label='perplexity', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
 
 

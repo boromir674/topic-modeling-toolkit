@@ -145,4 +145,3 @@ if __name__ == '__main__':
     print regw1.instance.name
     regw1.instance.__setattr__('tau', -1)
     print regw1.instance.name
-

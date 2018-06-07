@@ -4,6 +4,8 @@ import json
 
 from .regularizers import parameter_name2encoder
 
+from .regularizers import parameter_name2encoder
+
 
 class Experiment:
     """
@@ -133,3 +135,4 @@ class EvaluationOutputLoadingException(Exception):
 class DidNotReceiveTrainSignalException(Exception):
     def __init__(self, msg):
         super(DidNotReceiveTrainSignalException, self).__init__(msg)
+
