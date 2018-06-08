@@ -73,7 +73,6 @@ class TopicModel(object):
         else:
             raise RegularizerNameNotFoundException("Did not find a regularizer set in the artm_model with name '{}'".format(reg_name))
 
-
     def set_parameters(self, reg_name2param_settings):
         for reg_name, settings in reg_name2param_settings.items():
             for param, value in settings.items():
@@ -112,31 +111,6 @@ class TopicModel(object):
         b = ''
         for i in range(len(topic_name2tokens.values()[0])):
             b += ' | '.join('{} {}'.format(topic_name2tokens[name][i], (max_token_lens[j] - len(topic_name2tokens[name][i])) * ' ') for j, name in enumerate(self.artm_model.topic_names)) + '\n'
-        return b, max_token_lens
-
-    def get_top_tokens(self, topic_names='all', nb_tokens=10):
-        if topic_names == 'all':
-            topic_names = self.model.topic_names
-        toks = self.model.score_tracker[self.evaluators['top-tokens'].name].last_value
-        return [toks[topic_name] for topic_name in topic_names]
-
-    def print_topics(self, topic_names='all'):
-        if topic_names == 'all':
-            topic_names = self.model.topic_names
-        toks = self.model.score_tracker[self.evaluators['top-tokens'].name].last_value
-        body, max_lens = self._get_rows(toks)
-        header = self._get_header(max_lens, topic_names)
-        print(header + body)
-
-    def _get_header(self, max_lens, topic_names):
-        assert len(max_lens) == len(topic_names)
-        return ' - '.join(map(lambda x: '{}{}'.format(x[1], ' ' * (max_lens[x[0]] - len(name))), (j, name in enumerate(topic_names))))
-
-    def _get_rows(self, topic_name2tokens):
-        max_token_lens = [max(map(lambda x: len(x), topic_name2tokens[name])) for name in self.model.topic_names]
-        b = ''
-        for i in range(len(topic_name2tokens.values()[0])):
-            b += ' | '.join('{} {}'.format(topic_name2tokens[name][i], (max_token_lens[j] - len(topic_name2tokens[name][i])) * ' ') for j, name in enumerate(self.model.topic_names)) + '\n'
         return b, max_token_lens
 
 

@@ -11,8 +11,6 @@ dicts2model_factory = {}
 def get_model_factory(dictionary):
     if dictionary not in dicts2model_factory:
         dicts2model_factory[dictionary] = ModelFactory(dictionary)
-        # print 'using new oblect'
-        # print 'using existing object'
     return dicts2model_factory[dictionary]
 
 

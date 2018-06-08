@@ -28,11 +28,12 @@ class PipeHandler(object):
 
     def create_pipeline(self, pipeline_cfg):
         pipe_settings = cfg2pipe_settings(os.path.join(root_dir, 'code', pipeline_cfg), 'preprocessing')
-        print pipe_settings
+        print 'Pipe-Config:\n' + ',\n'.join('{}: {}'.format(key, value) for key, value in pipe_settings.items())
         return get_pipeline(pipe_settings['format'], pipe_settings)
 
     def set_doc_gen(self, category, num_docs='all', labels=False):
-        self.cat2textgen_proc = get_posts_generator(nb_docs=num_docs)
+        self.sample = num_docs
+        self.cat2textgen_proc = get_posts_generator(nb_docs=self.sample)
         self.text_generator = self.cat2textgen_proc.process(category)
 
     def preprocess(self, a_pipe, collection, labels=False):
