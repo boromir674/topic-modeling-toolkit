@@ -35,6 +35,7 @@ class PipeHandler(object):
         self.sample = num_docs
         self.cat2textgen_proc = get_posts_generator(nb_docs=self.sample)
         self.text_generator = self.cat2textgen_proc.process(category)
+        print self.cat2textgen_proc, '\n'
 
     def preprocess(self, a_pipe, collection, labels=False):
         self.set_doc_gen(self.category, num_docs=self.sample, labels=labels)
@@ -51,26 +52,25 @@ class PipeHandler(object):
         # self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
         # print '{} tokens in all generators\n'.format(sum_toks)
         # print 'total bow tuples in corpus: {}'.format(sum(len(_) for _ in self.corpus))
-        print 'num_pos', self.dct.num_pos
-        print 'nnz', self.dct.num_nnz
+        print '\nnum_pos', self.dct.num_pos
+        print 'num_nnz', self.dct.num_nnz
         print '{} items in dictionary'.format(len(self.dct.items()))
-        print '\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0))[:10]))
+        print '\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0))[:5]))
 
         print 'filter extremes'
         self.dct.filter_extremes(no_below=a_pipe.settings['nobelow'], no_above=a_pipe.settings['noabove'])
+        print 'num_pos', self.dct.num_pos
+        print 'num_nnz', self.dct.num_nnz
         print '{} items in dictionary'.format(len(self.dct.items()))
-        # print '\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0))[:10]))
-        # print '\n'.join(['{}: {}'.format(k, v) for k, v in self.dct.iteritems()][:10])
 
         print 'compactify'
         self.dct.compactify()
+        print 'num_pos', self.dct.num_pos
+        print 'num_nnz', self.dct.num_nnz
         print '{} items in dictionary'.format(len(self.dct.items()))
-        # print '\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0))[:10]))
-        # print '\n'.join(['{}: {}'.format(k, v) for k, v in self.dct.iteritems()][:10]
 
         self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
-        # for i, j in enumerate(self.corpus):
-        #     print i, len(j)
+
         print 'total bow tuples in corpus: {}\n'.format(sum(len(_) for _ in self.corpus))
         print 'corpus len (nb_docs):', len(self.corpus), 'empty docs', len([_ for _ in self.corpus if not _])
 
@@ -108,7 +108,6 @@ class PipeHandler(object):
 
         uci_dataset = UciDataset(collection, self.get_dataset_id(a_pipe), docword_file, vocab_file)
         uci_dataset.save()
-        print uci_dataset
         return uci_dataset
 
     def get_words_file_name(self, a_pipe):
@@ -150,23 +149,19 @@ def get_cl_arguments():
 
 if __name__ == '__main__':
     args = get_cl_arguments()
-    # print 'Arguments given:', args
-
     nb_docs = args.sample
     if nb_docs != 'all':
         nb_docs = int(nb_docs)
 
     ph = PipeHandler(args.category, sample=nb_docs)
-
-    # ph.set_doc_gen(args.category, nb_docs)
     pipe = ph.create_pipeline(args.config)
-    print '\n', ph.cat2textgen_proc
     print '\n', pipe, '\n'
     uci_dt = ph.preprocess(pipe, args.collection, labels=args.labels)
 
-    print 'nb docs gen:', ph.doc_gen_stats['docs-gen']
-    print 'nb docs failed:', ph.doc_gen_stats['docs-failed']
-    print ph.cat2textgen_proc.failed
+    print uci_dt
+
+    print '\nnb docs gen:', ph.doc_gen_stats['docs-gen']
+    print 'nb docs failed:', ph.doc_gen_stats['docs-failed'], ph.cat2textgen_proc.failed
     print 'unique words:', len(ph.dct.items())
     print 'total words:', ph.doc_gen_stats['corpus-tokens']
     print
