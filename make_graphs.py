@@ -2,6 +2,7 @@
 
 import os
 import sys
+import json
 import argparse
 import pickle
 import matplotlib as mlp
@@ -14,11 +15,34 @@ from easyplot import EasyPlot
 collections_dir = '/data/thesis/data/collections'
 
 
-def load_results(path_file):
-    with open(path_file, 'rb') as results_file:
-        results = pickle.load(results_file)
-    assert 'collection_passes' in results and 'trackables' in results, 'root_dir' in results
+# def load_results(path_file):
+#     with open(path_file, 'rb') as results_file:
+#         results = pickle.load(results_file)
+#     assert 'collection_passes' in results and 'trackables' in results, 'root_dir' in results
+#     return results
+
+def _dictify_results(results):
+    tr = results['trackables']
+    for k, v in tr.items():
+        if type(v) == str:
+            tr[k] = eval(v)
+        elif type(v) == dict:
+            for in_k, in_v in v.items():
+                if type(in_v) == list:
+                    try:
+                        print(type(v[in_k]))
+                        v[in_k] = [eval(_) for _ in in_v]
+                        print(type(v[in_k]))
+                    except RuntimeError as e:
+                        print(e)
     return results
+
+def load_results(path_file):
+    with open(path_file, 'r') as results_file:
+        results = json.load(results_file, encoding='utf-8')
+        # results = pickle.load(results_file)
+    assert 'collection_passes' in results and 'trackables' in results, 'root_dir' in results
+    return _dictify_results(results)
 
 
 class GraphMaker(object):
@@ -97,8 +121,6 @@ def create_graphs(results):
                             sub_plot_name))
             except TypeError as e:
                 print('Failed to create {} plot: type({}) = {}'.format(sub_plot_name, sub_score, type(values)))
-    # struct = results['trackables']['perplexity']
-    # print(len(results['trackables']['perplexity']['value']))
     return grs
 
 
