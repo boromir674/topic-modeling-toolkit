@@ -40,8 +40,7 @@ class ModelFactory(object):
         :rtype: patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs
         """
         settings = cfg2model_settings(cfg_file)
-        regularizers = init_from_file(settings['regularizers'].iteritems(), reg_cfg)
-        print 'REGULARIZERS:', ', '.join(x.name for x in regularizers)
+        regularizers = init_from_file(settings['regularizers'].items(), reg_cfg)
         scorers = {}
 
         model = artm.ARTM(num_topics=settings['learning']['nb_topics'], dictionary=self.dict)
