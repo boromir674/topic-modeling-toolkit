@@ -124,7 +124,7 @@ def load_results(path_file):
     with open(path_file, 'rb') as results_file:
         results = json.load(results_file, encoding='utf-8')
     assert 'collection_passes' in results and 'trackables' in results, 'root_dir' in results
-    return results
+    return _dictify_results(results)
 
 
 class EvaluationOutputLoadingException(Exception):
