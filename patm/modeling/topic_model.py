@@ -73,6 +73,26 @@ class TopicModel(object):
         else:
             raise RegularizerNameNotFoundException("Did not find a regularizer set in the artm_model with name '{}'".format(reg_name))
 
+    def register(self, observer):
+        if observer not in self.observers:
+            self.observers.append(observer)
+
+    def unregister(self, observer):
+        if observer in self.observers:
+            self.observers.remove(observer)
+
+    def unregister_all(self):
+        if self.observers:
+            del self.observers[:]
+
+    def update_observers(self, *args, **kwargs):
+        for observer in self.observers:
+            observer.update(*args, **kwargs)
+
+    @property
+    def reg_names(self):
+        return sorted(list(self.regularizers_set))
+
     def set_parameters(self, reg_name2param_settings):
         for reg_name, settings in reg_name2param_settings.items():
             for param, value in settings.items():
