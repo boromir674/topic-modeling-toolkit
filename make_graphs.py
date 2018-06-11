@@ -30,9 +30,9 @@ def _dictify_results(results):
             for in_k, in_v in v.items():
                 if type(in_v) == list:
                     try:
-                        print(type(v[in_k]))
+                        # print(type(v[in_k]))
                         v[in_k] = [eval(_) for _ in in_v]
-                        print(type(v[in_k]))
+                        # print(type(v[in_k]))
                     except RuntimeError as e:
                         print(e)
     return results
@@ -48,9 +48,10 @@ def load_results(path_file):
 class GraphMaker(object):
 
     def __init__(self, plot_dir):
-        self.line_designs = ['b-o',
-                             'r--s',
-                             'g-D',
+        self.line_designs = ['b-',
+                             'y-',
+                             'g-',
+                             'p-',
                              'y-+',
                              'p-:',
                              'o-.',
@@ -101,7 +102,7 @@ class GraphMaker(object):
         :return:
         """
         assert len(results_list) <= len(self.line_designs)
-        graphs = create_cross_graphs(results_list, self.line_designs, [res['model_label'] for res in results_list])
+        graphs = create_cross_graphs(results_list, self.line_designs[:len(results_list)], [res['model_label'] for res in results_list])
         for graph_type, plot in graphs:
             self._save_plot(graph_type, plot)
 
@@ -170,21 +171,10 @@ def create_cross_graphs(results_list, line_design_list, labels_list):
                     '{}-{}'.format(models, measure_name),
                     EasyPlot(x, values, line_design_list[0], label=labels_list[0], showlegend=True, xlabel='x', ylabel='y', title=results_list[0]['root_dir'], grid='on')))
                 for j, result in enumerate(results_list[1:]):
-                    graph_plots[-1].add_plot(x, result['trackables'][eval_name][sub_score], line_design_list[j+1], label=labels_list[j+1])
+                    graph_plots[-1][1].add_plot(x, result['trackables'][eval_name][sub_score], line_design_list[j+1], label=labels_list[j+1])
             except TypeError as e:
                 print('Failed to create {} plot: type({}) = {}'.format(measure_name, sub_score, type(values)))
-    return grs
-
-
-def make_plots():
-    x = [1, 2, 3, 4, 5]
-    y1 = [1, 4, 7, 9, 4]
-    y2 = [2, 3, 5, 8, 9]
-
-    eplot = EasyPlot(x, y1, 'b-o', label='y1 != x**2', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
-    eplot.add_plot(x, y2, 'r--s', label='y2')
-    eplot.kwargs['fig'].savefig('/data/thesis/data/fig.png')
-    return eplot
+    return graph_plots
 
 
 class NoDataGivenPlotCreationException(Exception):
@@ -196,25 +186,33 @@ def get_cl_arguments():
     parser = argparse.ArgumentParser(prog='make_graphs.py', description='Creates graphs of evaluation scores tracked along the training process and saves them to disk', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('collection', help='the name of the collection on which experiments were conducted')
     # parser.add_argument('results', help='path to a pickle file with experimental data to plot')
-    # parser.add_argument('--sample', metavar='nb_docs', default='all', help='the number of documents to consider. Defaults to all documents')
+    parser.add_argument('--models', metavar='model_labels', nargs='+', help='the models to compare by plotting graphs')
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
     return parser.parse_args()
 
 
-def _get_results_file_path(collection_name):
-    return os.path.join(collections_dir, collection_name, 'train-res.pkl')
+def _get_results_file_path(collection_root):
+    return os.path.join(collection_root, 'train-res.pkl')
 
 
 if __name__ == '__main__':
     args = get_cl_arguments()
-    exp_results = load_results(_get_results_file_path(args.collection))
+    collection_root = os.path.join(collections_dir, args.collection)
+    if os.path.isdir(collection_root):
+        plotter = GraphMaker(os.path.join(collection_root, 'graphs'))
+    else:
+        print("Collection '{}' not found in {}".format(args.collection, collection_root))
+        sys.exit(1)
 
-    plotter = GraphMaker(os.path.join(collections_dir, args.collection, 'graphs'))
+    exp_results = []
+    for model_label in args.models:
+        exp_results.append(load_results(os.path.join(collection_root, 'results', model_label + '-train.pkl')))
+
     # plotter.save_plot('all', exp_results)
 
-    plotter.save_cross_models_plots()
+    plotter.save_cross_models_plots(exp_results)
 
 # eplot = EasyPlot(xlabel=r'$x$', ylabel='$y$', fontsize=16,
 #                  colorcycle=["#66c2a5", "#fc8d62", "#8da0cb"], figsize=(8, 5))

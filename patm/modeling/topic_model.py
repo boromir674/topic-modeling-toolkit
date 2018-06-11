@@ -61,6 +61,9 @@ class TopicModel(object):
     def document_passes(self):
         return self.artm_model.num_document_passes
 
+    def get_parameters(self):
+        return {'nb_topics': }
+
     def set_parameter(self, reg_name, reg_param, value):
         if reg_name in self.regularizers_set:
             if hasattr(self.artm_model.regularizers[reg_name], reg_param):
