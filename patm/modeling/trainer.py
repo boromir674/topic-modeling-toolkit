@@ -35,22 +35,11 @@ class ModelTrainer(object):
 
     def train(self, model, specs):
         """
-        :param collection_passes: number of passes over the whole collection
-        :type collection_passes: int
-        :param nb_topics:
-        :return:
+        :param artm.ARTM model:
+        :param patm.modeling.topic_model.TrainSpecs specs:
         """
-
-        # model = self.model_factory.create_model()
         model.fit_offline(self.batch_vectorizer, num_collection_passes=specs['collection_passes'])
-        # print model.score_tracker['sp'].value
-        # print model.score_tracker['my_fisrt_perplexity_score'].last_value
-        # print model.score_tracker['sparsity_phi_score'].value  # .last_value
-        # print model.score_tracker['sparsity_theta_score'].value  # .last_value
-        # saved_top_tokens = model.score_tracker['top_tokens_score'].last_tokens
-        # for topic_name in model.topic_names:
-        #     print saved_top_tokens[topic_name]
-        self.update_observers(model)
+        self.update_observers(model, specs)
 
 
 class TrainerFactory(object):
@@ -59,7 +48,7 @@ class TrainerFactory(object):
         """
         :param collection: the collection name which matches the root directory of all the files related to the collection
         :type collection: str
-        :return: a model trainer
+        :return: an artm model trainer
         :rtype: ModelTrainer
         """
         root_dir = os.path.join(collections_dir, collection)
@@ -88,12 +77,3 @@ class TrainerFactory(object):
             mod_tr.dictionary.save(bin_dict)
             print 'saved binary dictionary'
         return mod_tr
-
-
-# if __name__ == '__main__':
-    # tf = TrainerFactory()
-    # trainer = tf.create_trainer('plsa', 'n1c')
-    # md_factory = ModelFactory(trainer.dictionary)
-    # model_inst = md_factory.create_model('/data/thesis/code/train.cfg')
-    # trainer.train(model_inst, 50)
-    # print model_inst.num_document_passes

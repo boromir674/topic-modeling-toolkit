@@ -47,23 +47,6 @@ class AbstractEvaluator(object):
 #         pass
 
 
-# @decorator('dump_to_disk')
-class ArtmScorer(AbstractEvaluator):
-
-    def __init__(self, name, attributes):
-        super(ArtmScorer, self).__init__(name)
-        # self._model = model
-        self._attrs = attributes
-        # print model.score_tracker['my_first_perplexity_score'].last_value
-
-    def evaluate(self, model):
-        # assert all(map(lambda x: x in model
-        return {attr: model.score_tracker[self.name].__getattribute__(attr).value for attr in sorted(self._attrs)}
-
-    @property
-    def atttributes(self):
-        return self._attrs
-
 
 MetaEvaluator.register(AbstractEvaluator)
 

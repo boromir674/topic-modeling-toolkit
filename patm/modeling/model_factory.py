@@ -28,42 +28,45 @@ class ModelFactory(object):
             'sparsity-theta': lambda x: artm.SparsityThetaScore(name=x),
             'theta-snippet': lambda x: artm.ThetaSnippetScore(name=x),
             'topic-mass-phi': lambda x: artm.TopicMassPhiScore(name=x),
-            'topic-kernel': lambda x: artm.TopicKernelScore(name=x),
+            'topic-kernel': lambda x: artm.TopicKernelScore(name=x, probability_mass_threshold=0.3),
             'top-tokens': lambda x: artm.TopTokensScore(name=x)
         }
-        self.regularizer2constructor = {
-            'kl-function-info': lambda x: artm.KlFunctionInfo(),
-            'smooth-sparse-phi': lambda x: artm.SmoothSparsePhiRegularizer(name=x) if x else None,
-            'smooth-sparse-theta': lambda x: artm.SmoothSparseThetaRegularizer(name=x) if x else None,
-            'decorrelator-phi': lambda x: artm.DecorrelatorPhiRegularizer(name=x) if x else None,
-            'label-regularization-phi': lambda x: artm.LabelRegularizationPhiRegularizer(name=x),
-            'specified-sparse-phi': lambda x: artm.SpecifiedSparsePhiRegularizer(name=x),
-            'improve-coherence-phi': lambda x: artm.ImproveCoherencePhiRegularizer(name=x),
-            'smooth-ptdw': lambda x: artm.SmoothPtdwRegularizer(name=x),
-            'topic-selection': lambda x: artm.TopicSelectionThetaRegularizer(name=x)
-        }
 
-    def create_model(self, cfg_file, output_dir):
+    def create_model(self, label, cfg_file, output_dir):
         """
-        Creates an artm model instance based on the input config file.\n
-        :param cfg_file:
-        :param output_dir:
+        Creates an artm _topic_model instance based on the input config file.\n
+        :param str label: the unique identifier for the model
+        :param str cfg_file: A cfg file containing initial model parameters, regularizers and score metrics to use
+        :param str output_dir: the top level directory to use for dumping files related to training
+        :return: tuple of initialized model and
+        :rtype: patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs
+        """
+        """
+        
+        :param str label: a unique identifier
+        :param str cfg_file:
+        :param str output_dir:
+        :rtype: patm.modeling.topic_model.TopicModel
         :return:
         """
         settings = cfg2model_settings(cfg_file)
-        scorers = []
+        scorers = {}
         model = artm.ARTM(num_topics=settings['learning']['nb_topics'], dictionary=self.dict)
         model.num_document_passes = settings['learning']['document_passes']
 
-        for reg_setting_name, value in settings['regularizers'].iteritems():
-            model.regularizers.add(self.regularizer2constructor[reg_setting_name](value))
-
         for score_setting_name, value in settings['scores'].iteritems():
             model.scores.add(self.score2constructor[score_setting_name](value))
-            scorers.append(scorer_factory.create_scorer(value))
+            scorers[score_setting_name] = get_scorers_factory(settings['scores']).create_scorer(value)
 
-        tm = TopicModel(model)
-        specs = TrainSpecs({'collection_passes': settings['learning']['collection_passes']})
+        tm = TopicModel(label, model, scorers)
+
+        for reg_instance in regularizers:
+            tm.add_regularizer(reg_instance)
+
+        print 'REGULARIZERS:', ', '.join(x for x in model.regularizers.data)
+
+        specs = TrainSpecs(collection_passes=settings['learning']['collection_passes'], output_dir=output_dir)
+
         return tm, specs
 
 
