@@ -25,8 +25,8 @@ class UciFormatWriter(StateLessDiskWriter):
     Injests a doc_vector at a time. For example [('2', 1), ('15', 4), ('18', 5), ('11', 3)]
     """
     def __init__(self, fname='/data/thesis/data/myuci'):
-        # super(UciFormatWriter, self).__init__(fname, lambda x: write_uci(self.fname, map(lambda word_id_weight_tuple: (word_id_weight_tuple[0]+1, word_id_weight_tuple[1]), x), self.doc_num))
-        super(UciFormatWriter, self).__init__(fname, lambda x: write_uci(self.fname, x, self.doc_num))
+        super(UciFormatWriter, self).__init__(fname, lambda x: write_uci(self.fname, map(lambda word_id_weight_tuple: (word_id_weight_tuple[0]+1, word_id_weight_tuple[1]), x), self.doc_num))
+        # super(UciFormatWriter, self).__init__(fname, lambda x: write_uci(self.fname, x, self.doc_num))
         # + 1 to align with the uci format, which states that the minimum word_id = 1; implemented with map-lambda combo on every element of a document vector
 
     def to_id(self):

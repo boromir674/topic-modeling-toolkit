@@ -5,17 +5,35 @@ split_tags = ('train', 'dev', 'test')
 
 
 class Dataset(object):
-    def __init__(self, name, _id, collection_length):
+    def __init__(self, name, _id, collection_length, unique_words=None, nb_words=None):
+        """
+
+        :param name:
+        :param _id:
+        :param collection_length:
+        :param unique_words:
+        :param nb_words:
+        """
         self.name = name
         self.id = _id
         self.col_len = collection_length
         self.splits = None
         self.datapoints = dict([(tag, {}) for tag in split_tags])
+        self._unique_words = unique_words
+        self._nb_bows = nb_words
 
     def add(self, other):
         pass
         # doc_id >= 1
         # datapoint[doc_id] = {class:'ney-york-times'}
+
+    @property
+    def unigue(self):
+        return self._unique_words
+
+    @property
+    def nb_bows(self):
+        return self._nb_bows
 
     def set_splits(self, splits):
         """

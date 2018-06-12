@@ -1,8 +1,9 @@
 import os
 import artm
 
-from .model_factory import get_model_factory
+from patm.utils import cfg2model_settings
 from ..definitions import collections_dir
+from .model_factory import get_model_factory
 from ..evaluation.scorer_factory import ArtmScorerFactory
 
 
@@ -71,9 +72,9 @@ class TrainerFactory(object):
             print 'vectorizer initialized from \'uci\' file'
         if os.path.exists(bin_dict):
             mod_tr.dictionary.load(bin_dict)
-            print 'loaded binary dictionary'
+            print 'loaded binary dictionary', bin_dict
         else:
             mod_tr.dictionary.gather(data_path=root_dir, vocab_file_path=os.path.join(root_dir, 'vocab.'+collection+'.txt'))
             mod_tr.dictionary.save(bin_dict)
-            print 'saved binary dictionary'
+            print 'saved binary dictionary as', bin_dict
         return mod_tr

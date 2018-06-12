@@ -1,7 +1,5 @@
 from abc import ABCMeta, abstractmethod
 
-from ..utils import dump_to_disk
-
 
 class MetaEvaluator:
     __metaclass__ = ABCMeta
@@ -32,9 +30,6 @@ class AbstractEvaluator(object):
     def __str__(self):
         return self.name
 
-    def evaluate(self, data):
-        return self.method(data)
-
 
 # class SplitEvaluator(AbstractEvaluator):
 #     def __init__(self, dataset, method):
@@ -45,7 +40,6 @@ class AbstractEvaluator(object):
 #     def evaluate(self, split):
 #         sp = self._dataset[split]
 #         pass
-
 
 
 MetaEvaluator.register(AbstractEvaluator)

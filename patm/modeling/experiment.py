@@ -4,6 +4,8 @@ import json
 
 from .regularizers import parameter_name2encoder
 
+from .regularizers import parameter_name2encoder
+
 
 class Experiment:
     """

@@ -24,23 +24,28 @@ class ArtmScorer(AbstractEvaluator):
 
     def evaluate(self, model):
         return {attr: model.score_tracker[self.name].__getattribute__(attr).value for attr in sorted(self._attrs)}
+        # return {attr: model.score_tracker[self.name].__getattribute__('last_{}'.format(attr)) for attr in sorted(self._attrs)}
 
     @property
-    def atttributes(self):
+    def attributes(self):
         return self._attrs
 
 
 class ArtmScorerFactory(object):
-    def __init__(self, model, scorers_dict):
-        self._model = model
-        self.scorers = scorers_dict
+    def __init__(self, scorers):
+        """
+        :param scorers: a mapping of 'scorers' types to 'scorers' names. This structure can be parsed out of the 'scores' section of a 'train.cfg'
+        :type scorers: dict
+        """
+        self.scorers = scorers
 
     def create_scorer(self, name):
         assert name in self.scorers.values()
-        return ArtmScorer(mame, tuple(scorer_type2_reportables[{v: k for k, v in self.scorers.items()}[name]]))
+        return ArtmScorer(name, tuple(scorer_type2_reportables[{v: k for k, v in self.scorers.items()}[name]]))
 
 
 # TODO change this suspicious code
+scorer_factories = {}
 def get_scorers_factory(scorers):
     key = '.'.join(sorted(scorers.values()))
     if key not in scorer_factories:

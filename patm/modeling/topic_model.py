@@ -73,6 +73,25 @@ class TopicModel(object):
         else:
             raise RegularizerNameNotFoundException("Did not find a regularizer set in the artm_model with name '{}'".format(reg_name))
 
+    @property
+    def evaluator_types(self):
+        return sorted(self.evaluators.keys())
+
+    @property
+    def evaluator_names(self):
+        return sorted(self.evaluators.values())
+
+    @property
+    def topic_names(self):
+        return self.artm_model.topic_names
+
+    @property
+    def nb_topics(self):
+        return self.artm_model.num_topics
+
+    @property
+    def document_passes(self):
+        return self.artm_model.num_document_passes
 
     def set_parameters(self, reg_name2param_settings):
         for reg_name, settings in reg_name2param_settings.items():
