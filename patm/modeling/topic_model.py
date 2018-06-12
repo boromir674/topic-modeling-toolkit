@@ -61,9 +61,6 @@ class TopicModel(object):
     def document_passes(self):
         return self.artm_model.num_document_passes
 
-    def get_parameters(self):
-        return {'nb_topics': }
-
     def set_parameter(self, reg_name, reg_param, value):
         if reg_name in self.regularizers_set:
             if hasattr(self.artm_model.regularizers[reg_name], reg_param):
@@ -76,25 +73,25 @@ class TopicModel(object):
         else:
             raise RegularizerNameNotFoundException("Did not find a regularizer set in the artm_model with name '{}'".format(reg_name))
 
-    def register(self, observer):
-        if observer not in self.observers:
-            self.observers.append(observer)
-
-    def unregister(self, observer):
-        if observer in self.observers:
-            self.observers.remove(observer)
-
-    def unregister_all(self):
-        if self.observers:
-            del self.observers[:]
-
-    def update_observers(self, *args, **kwargs):
-        for observer in self.observers:
-            observer.update(*args, **kwargs)
+    @property
+    def evaluator_types(self):
+        return sorted(self.evaluators.keys())
 
     @property
-    def reg_names(self):
-        return sorted(list(self.regularizers_set))
+    def evaluator_names(self):
+        return sorted(self.evaluators.values())
+
+    @property
+    def topic_names(self):
+        return self.artm_model.topic_names
+
+    @property
+    def nb_topics(self):
+        return self.artm_model.num_topics
+
+    @property
+    def document_passes(self):
+        return self.artm_model.num_document_passes
 
     def set_parameters(self, reg_name2param_settings):
         for reg_name, settings in reg_name2param_settings.items():

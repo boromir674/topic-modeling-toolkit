@@ -122,10 +122,9 @@ def _stringify_trackable_dicts(results):
 
 def load_results(path_file):
     with open(path_file, 'rb') as results_file:
-        # TODO change json.load to json.loads to avoid using _dictify_results
         results = json.load(results_file, encoding='utf-8')
     assert 'collection_passes' in results and 'trackables' in results, 'root_dir' in results
-    return _dictify_results(results)
+    return results
 
 
 class EvaluationOutputLoadingException(Exception):
@@ -136,4 +135,3 @@ class EvaluationOutputLoadingException(Exception):
 class DidNotReceiveTrainSignalException(Exception):
     def __init__(self, msg):
         super(DidNotReceiveTrainSignalException, self).__init__(msg)
-
