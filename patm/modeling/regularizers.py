@@ -56,7 +56,12 @@ def _construct_regularizer(reg_type, name, reg_settings):
         return reg_type2constructor[reg_type](**reg_settings)
     # print 'Adding regularizer', reg_type, '\n'
     d = dict(reg_settings, **{'name': name})
-    return reg_type2constructor[reg_type](**d)
+    try:
+        th = reg_type2constructor[reg_type](**d)
+    except IndexError:
+        print d
+        sys.exit(1)
+    return th
 
 
 def init_from_file(type_names_list, reg_config):
@@ -84,7 +89,9 @@ def init_from_file(type_names_list, reg_config):
 
 def init_from_latest_results(results):
     regs = []
-    for reg_type, reg_settings_dict in results['reg_parameters'][-1]:
+    print 'INIT', type(results['reg_parameters']), len(results['reg_parameters'])
+    print results['reg_parameters'][-1], len(results['reg_parameters'][-1])
+    for reg_type, reg_settings_dict in results['reg_parameters'][-1][1].items():
         regs.append(_construct_regularizer(reg_type,
                                            reg_settings_dict['name'],
                                            dict([(attr_name, reg_settings_dict[attr_name]) for attr_name in regularizer2parameters[reg_type]])))

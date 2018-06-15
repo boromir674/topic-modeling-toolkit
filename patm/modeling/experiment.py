@@ -4,6 +4,7 @@ import json
 
 from .regularizers import parameter_name2encoder
 from .persistence import ResultsWL, ModelWL
+from .model_factory import get_model_factory
 
 
 class Experiment:
@@ -37,6 +38,10 @@ class Experiment:
         self.phi_matrix_handler = ModelWL(self, 'train')
 
     @property
+    def model_factory(self):
+        return get_model_factory(self.dictionary)
+
+    @property
     def topic_model(self):
         return self._topic_model
 
@@ -60,6 +65,7 @@ class Experiment:
         self.reg_params.append(tuple((specs['collection_passes'], self._topic_model.get_regs_param_dict())))
 
         for evaluator_type, evaluator_instance in self._topic_model.evaluators.items():
+            print 'DEBUG: eval type:', evaluator_type, 'instance name:', evaluator_instance.name
             current_eval = evaluator_instance.evaluate(model)
             for inner_k, value in current_eval.items():
                 try:
@@ -84,7 +90,7 @@ class Experiment:
             'model_label': self.topic_model.label,
             'model_parameters': self.model_params,
             'reg_parameters': self.reg_params,
-            'evaluators': sorted(map(lambda x: x[0], x[1].name, self._topic_model.evaluators.items()), key=lambda x: x[0])
+            'evaluators': sorted(map(lambda x: (x[0], x[1].name), self._topic_model.evaluators.items()), key=lambda x: x[0])
         }
 
     def save_experiment(self, save_phi=True):
@@ -122,7 +128,7 @@ class Experiment:
         self.trackables = results['trackables']
         self.reg_params = results['reg_parameters']
         self.model_params = results['model_parameters']
-        my_tm, train_specs = self.phi_matrix_handler.load(name, results=results)
+        my_tm, train_specs = self.phi_matrix_handler.load(model_label, results=results)
         self.set_topic_model(my_tm, empty_trackables=False)
         return train_specs
 

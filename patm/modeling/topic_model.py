@@ -30,7 +30,6 @@ class TopicModel(object):
         """
         self.reg_type2name[reg_class_string2reg_type[type(reg_object).__name__]] = reg_object.name
         self.artm_model.regularizers.add(reg_object)
-        self.regularizers_set.add(reg_object.name)
 
     @property
     def regularizer_types(self):

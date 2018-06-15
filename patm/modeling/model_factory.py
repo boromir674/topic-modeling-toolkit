@@ -8,21 +8,16 @@ from patm.definitions import collections_dir
 
 dicts2model_factory = {}
 
-
 def get_model_factory(dictionary):
     if dictionary not in dicts2model_factory:
         dicts2model_factory[dictionary] = ModelFactory(dictionary)
     return dicts2model_factory[dictionary]
 
 
-# def create_model_factory(bin_dict_path):
-#     dictionry = artm.Dictionary()
-#     dictionry.load(bin_dict_path)
-#     return dictionry
-
-
 class ModelFactory(object):
-
+    """
+    This class can create a fresh TopicModel or restore a TopicModel's state from disk. In both cases the model is ready to be trained.
+    """
     def __init__(self, dictionary):
         self.dict = dictionary
         self.score2constructor = {
@@ -36,28 +31,23 @@ class ModelFactory(object):
             'topic-kernel': lambda x: artm.TopicKernelScore(name=x, probability_mass_threshold=0.3),
             'top-tokens': lambda x: artm.TopTokensScore(name=x)
         }
-    self._tm = None
+        self._tm = None
 
     def create_model(self, label, cfg_file, reg_cfg):
         """
         Creates an artm _topic_model instance based on the input config file. Phi matrix is initialized with random numbers by default\n
         :param str label: the unique identifier for the model
-        :param str cfg_file: A cfg file containing initial model parameters, regularizers and score metrics to use
-        :param str output_dir: the top level directory to use for dumping files related to training
-        :return: tuple of initialized model and
+        :param str cfg_file: A config file containing initial model parameters, regularizers and score metrics to use
+        :param str reg_cfg: A config file containing values to initialize the regularizer parameters
+        :return: tuple of initialized model and training specifications
         :rtype: patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs
         """
         settings = cfg2model_settings(cfg_file)
         regularizers = init_from_file(settings['regularizers'].items(), reg_cfg)
         scorers = {}
-
         model = artm.ARTM(num_topics=settings['learning']['nb_topics'], dictionary=self.dict)
         model.num_document_passes = settings['learning']['document_passes']
-
-        for score_setting_name, value in settings['scores'].iteritems():
-            model.scores.add(self.score2constructor[score_setting_name](value))
-            scorers[score_setting_name] = get_scorers_factory(settings['scores']).create_scorer(value)
-
+        self._set_scorers(settings['scores'])
         self._tm = TopicModel(label, model, scorers)
         self._set_regularizers(regularizers)
         specs = TrainSpecs(collection_passes=settings['learning']['collection_passes'])
@@ -71,26 +61,26 @@ class ModelFactory(object):
         - number of phi-matrix-updates/passes-per-document\n
         - number of train iterations to perform on the whole documents collection\n
         - regularizers to use and their parameters\n
-        :param str phi_file_path: strored phi matrix p_wt\n
+        :param str phi_file_path: strored phi matrix p_wt
         :param dict results: experimental results
-        :return:
+        :return: tuple of initialized model and training specifications
         :rtype: (patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs)
         """
         regularizers = init_from_latest_results(results)
         scorers = {}
-
-        model = artm.ARTM(dictionary=self.dict)
+        model = artm.ARTM(num_topics=5, dictionary=self.dict) # number of topics have to be set, but doesn't matter, because they are overridden by the phi matrix loaded below
         model.load(filename=phi_file_path)
-        model.num_document_passes = results['model_parameters']['document_passes'][-1]
-
-        for score_setting_name, eval_instance_name in results['evaluators']:
-            model.scores.add(self.score2constructor[score_setting_name](eval_instance_name))
-            scorers[score_setting_name] = get_scorers_factory(dict(results['evaluators'])).create_scorer(eval_instance_name)
-
+        model.num_document_passes = results['model_parameters']['document_passes'][-1][1]
+        self._set_scorers(dict(results['evaluators']))
         self._tm = TopicModel(label, model, scorers)
         self._set_regularizers(regularizers)
         specs = TrainSpecs(collection_passes=results['collection_passes'][-1])
         return self._tm, specs
+
+    def _set_scorers(self, score_type_name2score_name):
+        for score_setting_name, eval_instance_name in score_type_name2score_name.items():
+            self._tm.scores.add(self.score2constructor[score_setting_name](eval_instance_name))
+            scorers[score_setting_name] = get_scorers_factory(score_type_name2score_name).create_scorer(eval_instance_name)
 
     def _set_regularizers(self, reg_list):
         for reg_instance in reg_list:

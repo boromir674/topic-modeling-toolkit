@@ -23,7 +23,7 @@ class ArtmScorer(AbstractEvaluator):
         self._attrs = attributes
 
     def evaluate(self, model):
-        return {attr: model.score_tracker[self.name].__getattribute__(attr).value for attr in sorted(self._attrs)}
+        return {attr: model.score_tracker[self.name].__getattribute__(attr) for attr in sorted(self._attrs)}
         # return {attr: model.score_tracker[self.name].__getattribute__('last_{}'.format(attr)) for attr in sorted(self._attrs)}
 
     @property

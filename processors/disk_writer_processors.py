@@ -51,15 +51,11 @@ class VowpalFormatWriter(StateLessDiskWriter):
 
 def write_vowpal(fname, doc_vector, doc_num, class_labels):
     """
-    Dumps a doument as a single line in the specified target file path in the "Vowpal Wabbit" format\n
-    :param fname: path to target file
-    :type fname: str
-    :param doc_vector: the representation of a document; an iterable of (token, frequency) tuples; eg [('gav', 1), ('alpha', 4)]
-    :type doc_vector: iterable
-    :param doc_num: number to represent document number in queue; eg 1,2,3,4,5 ... D
-    :type doc_num: int
-    :param class_labels: keys are class "category" (i.e. 'author') and values are the actuall class the document belongs to (i.e. 'Ivan Sokolov')
-    :type class_labels: dict
+    Dumps a doument as a single line in the specified target file path in the "Vowpal Wabbit" format.\n
+    :param str fname: path to target file
+    :param iterable doc_vector: the representation of a document; an iterable of (token, frequency) tuples; eg [('gav', 1), ('alpha', 4)]
+    :param int doc_num: number to represent document number in queue; eg 1,2,3,4,5 ... D
+    :param dict class_labels: keys are class "category" (i.e. 'author') and values are the actuall class the document belongs to (i.e. 'Ivan Sokolov')
     """
     with open(fname, 'a') as f:
         f.write('doc{} {} {}'.format(
