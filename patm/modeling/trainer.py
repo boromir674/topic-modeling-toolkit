@@ -17,6 +17,7 @@ class ModelTrainer(object):
     def register(self, observer):
         if observer not in self.observers:
             self.observers.append(observer)
+            observer.set_dictionary(self.dictionary)
 
     def unregister(self, observer):
         if observer in self.observers:
@@ -54,6 +55,7 @@ class TrainerFactory(object):
         """
         root_dir = os.path.join(collections_dir, collection)
         bin_dict = os.path.join(root_dir, 'mydic.dict')
+        text_dict = os.path.join(root_dir, 'mydic.txt')
         if not os.path.exists(root_dir):
             os.makedirs(root_dir)
         batches = [_ for _ in os.listdir(root_dir) if '.batch' in _]
@@ -76,5 +78,7 @@ class TrainerFactory(object):
         else:
             mod_tr.dictionary.gather(data_path=root_dir, vocab_file_path=os.path.join(root_dir, 'vocab.'+collection+'.txt'))
             mod_tr.dictionary.save(bin_dict)
+            mod_tr.dictionary.save_text(text_dict, encoding='utf-8')
             print 'saved binary dictionary as', bin_dict
+            print 'saved textual dictionary as', text_dict
         return mod_tr

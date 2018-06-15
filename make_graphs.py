@@ -30,9 +30,9 @@ def _dictify_results(results):
             for in_k, in_v in v.items():
                 if type(in_v) == list:
                     try:
-                        # print(type(v[in_k]))
+                        # print(type(constructor[in_k]))
                         v[in_k] = [eval(_) for _ in in_v]
-                        # print(type(v[in_k]))
+                        # print(type(constructor[in_k]))
                     except RuntimeError as e:
                         print(e)
     return results

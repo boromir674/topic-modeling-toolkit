@@ -1,7 +1,7 @@
 from collections import Mapping
 from patm.utils import cfg2model_settings
 from .regularizers import regularizer2parameters, parameter_name2encoder
-from regularizers import regularizer_class_string2regularizer_type as reg_obj_class_str2reg_type
+from regularizers import reg_class_string2reg_type
 
 
 class TopicModel(object):
@@ -20,26 +20,25 @@ class TopicModel(object):
         self.label = label
         self.artm_model = artm_model
         self.evaluators = evaluators
-        self.regularizers_set = set()
         self.observers = []
-        self.reg_hash = {}  # regularizer_type => regularizer_object
+        self.reg_type2name = {}  # ie {'smooth-sparse-theta': 'sst', 'smooth-sparse-phi': 'ssp'}
 
     def add_regularizer(self, reg_object):
         """
         Adds a regularizer component to the optimization likelihood function. Adds the given object to the underlying artm model.\n
         :param artm.BaseRegularizer reg_object: the object to add
         """
-        self.reg_hash[reg_obj_class_str2reg_type[type(reg_object).__name__]] = reg_object
+        self.reg_type2name[reg_class_string2reg_type[type(reg_object).__name__]] = reg_object.name
         self.artm_model.regularizers.add(reg_object)
         self.regularizers_set.add(reg_object.name)
 
     @property
     def regularizer_types(self):
-        return sorted(self.reg_hash.keys())
+        return sorted(self.reg_type2name.keys())
 
     @property
     def regularizer_names(self):
-        return sorted(list(self.regularizers_set))
+        return sorted(self.reg_type2name.values())
 
     @property
     def evaluator_types(self):
@@ -73,39 +72,27 @@ class TopicModel(object):
         else:
             raise RegularizerNameNotFoundException("Did not find a regularizer set in the artm_model with name '{}'".format(reg_name))
 
-    @property
-    def evaluator_types(self):
-        return sorted(self.evaluators.keys())
-
-    @property
-    def evaluator_names(self):
-        return sorted(self.evaluators.values())
-
-    @property
-    def topic_names(self):
-        return self.artm_model.topic_names
-
-    @property
-    def nb_topics(self):
-        return self.artm_model.num_topics
-
-    @property
-    def document_passes(self):
-        return self.artm_model.num_document_passes
-
     def set_parameters(self, reg_name2param_settings):
         for reg_name, settings in reg_name2param_settings.items():
             for param, value in settings.items():
                 self.set_parameter(reg_name, param, value)
 
     def get_regs_param_dict(self):
+        """
+
+        :return:
+        :rtype dict
+        """
+        print '\nBuilding regularizers parameters dictionary'
         d = {}
         for reg_type in self.regularizer_types:
             d[reg_type] = {}
-            print 'REGTYPE', reg_type
+            cur_reg_obj = self.artm_model.regularizers[self.reg_type2name[reg_type]]
+            print ' reg {}: {}'.format(reg_type, cur_reg_obj.name)
+            d[reg_type]['name'] = cur_reg_obj.name
             for key in regularizer2parameters[reg_type]:
-                print ' ', key
-                d[reg_type][key] = self.reg_hash[reg_type].__getattribute__(key)
+                print '  recording param:', key
+                d[reg_type][key] = cur_reg_obj.__getattribute__(key)
         return d
 
     def get_top_tokens(self, topic_names='all', nb_tokens=10):
