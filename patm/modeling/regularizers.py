@@ -17,7 +17,7 @@ regularizer2parameters = {
     # the reasonable parameters to consider experiment with setting to different values and to also change between training cycles
 }
 
-regularizer2constructor = {
+reg_type2constructor = {
         'kl-function-info': artm.KlFunctionInfo,
         'smooth-sparse-phi': artm.SmoothSparsePhiRegularizer,
         'smooth-sparse-theta': artm.SmoothSparseThetaRegularizer,
@@ -31,7 +31,7 @@ regularizer2constructor = {
     # artm.BitermsPhiRegularizer(name=None, tau=1.0, gamma=None, class_ids=None, topic_names=None, dictionary=None, config=None)
     }
 
-regularizer_class_string2regularizer_type = {v.__name__: k for k, v in regularizer2constructor.items()}
+reg_class_string2reg_type = {constructor.__name__: reg_type for reg_type, constructor in reg_type2constructor.items()}
 
 
 parameter_name2encoder = {
@@ -53,10 +53,10 @@ parameter_name2encoder = {
 
 def _construct_regularizer(reg_type, name, reg_settings):
     if reg_type == 'kl-function-info':
-        return regularizer2constructor[reg_type](**reg_settings)
+        return reg_type2constructor[reg_type](**reg_settings)
     # print 'Adding regularizer', reg_type, '\n'
     d = dict(reg_settings, **{'name': name})
-    return regularizer2constructor[reg_type](**d)
+    return reg_type2constructor[reg_type](**d)
 
 
 def init_from_file(type_names_list, reg_config):
@@ -82,6 +82,12 @@ def init_from_file(type_names_list, reg_config):
             print e
     return regs
 
+def init_from_latest_results(results):
+    regs = []
+    for reg_type, reg_settings_dict in results['reg_parameters'][-1]:
+        regs.append(_construct_regularizer(reg_type,
+                                           reg_settings_dict['name'],
+                                           dict([(attr_name, reg_settings_dict[attr_name]) for attr_name in regularizer2parameters[reg_type]])))
 
 def cfg2regularizer_settings(cfg_file):
     config = ConfigParser()
