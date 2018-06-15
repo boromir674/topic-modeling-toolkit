@@ -3,8 +3,8 @@ import cPickle as pickle
 import json
 
 from .regularizers import parameter_name2encoder
-
-from .regularizers import parameter_name2encoder
+from .persistence import ResultsWL, ModelWL
+from model_factory import get_model_factory
 
 
 class Experiment:
@@ -18,12 +18,15 @@ class Experiment:
     - model label: the unique identifier of the model used for the experiments
     - trackable metrics
     - regularization parameters
+    - evaluators
     """
 
-    def __init__(self):
+    def __init__(self, root_dir):
         """
-
+        Encapsulates experimentation by doing topic modeling on a 'collection' in the given root_dir. A 'collection' is a proccessed document collection into BoW format and possibly split into 'train' and 'test' splits
         """
+        self._dir = root_dir
+        self._loaded_dictionary = None # artm.Dictionary object. Data population happens uppon artm.Artm object creation in model_factory; dictionary.load(bin_dict_path) is called there
         self._topic_model = None
         self.collection_passes = []
         self.specs_instances = []
@@ -31,23 +34,25 @@ class Experiment:
         self.reg_params = []
         self.model_params = {'nb_topics': [], 'document_passes': []}
 
+        self.train_results_handler = ResultsWL(self, 'train')
+        self.phi_matrix_handler = ModelWL(self, 'train')
+        self.model_factories = {}  # bin dict file path to model factory object reference
+
     @property
     def topic_model(self):
         return self._topic_model
 
-    def set_topic_model(self, topic_model):
+    def set_topic_model(self, topic_model, empty_trackables=False):
         self._topic_model = topic_model
-        self.trackables = {key: {inner_k: [] for inner_k in self._topic_model.evaluators[key].attributes} for key in self._topic_model.evaluators.keys()}
+        if empty_trackables:
+            self.trackables = {key: {inner_k: [] for inner_k in self._topic_model.evaluators[key].attributes} for key in self._topic_model.evaluators.keys()}
 
-    # def set_parameters(self, expressions_list):
-    #     """
-    #     Allows setting new values to already existing
-    #     :param expressions_list:
-    #     :return:
-    #     """
-    #     components_lists = [expression.split('.') for expression in expressions_list]
-    #     for reg_name, param, value in components_lists:
-    #         self._topic_model.set_parameter(reg_name, param, value)
+    @property
+    def dictionary(self):
+        return self._loaded_dictionary
+
+    def set_dictionary(self, artm_dictionary):
+        self._loaded_dictionary = artm_dictionary
 
     def update(self, model, specs):
         self.collection_passes.append(specs['collection_passes']) # iterations
@@ -62,8 +67,7 @@ class Experiment:
                 try:
                     self.trackables[evaluator_type][inner_k] = value
                 except RuntimeError as e:
-                    print e, '\n'
-                    print type(value)
+                    print e, '\n', type(value)
                     try:
                         print len(value)
                     except TypeError:
@@ -72,60 +76,61 @@ class Experiment:
 
     @property
     def current_root_dir(self):
-        return self.specs_instances[-1]['output_dir']
+        return self._dir
 
     def get_results(self):
-        return _stringify_trackable_dicts({
+        return {
             'collection_passes': self.collection_passes,  # eg [20, 20, 40, 100]
             'trackables': self.trackables,  # TODO try list of tuples [('perplexity'), dict), ..]
             'root_dir': self.current_root_dir,  # eg /data/blah/
             'model_label': self.topic_model.label,
             'model_parameters': self.model_params,
-            'reg_parameters': self.reg_params})
+            'reg_parameters': self.reg_params,
+            'evaluators': sorted(map(lambda x: x[0], x[1].name, self._topic_model.evaluators.items()), key=lambda x: x[0])
+        }
 
-    def save_results(self, filename):
+    def save_experiment(self, save_phi=True):
         """
         Dumps the dictionary-type accumulated results with the given file name. The file is saved in the directory specified by the latest train specifications (TrainSpecs).\n
-        :param str filename: the name with possible extension to use
         """
         if not self.collection_passes:
             raise DidNotReceiveTrainSignalException('Model probably hasn\'t been fitted since len(self.collection_passes) = {}, len(self.specs_instances) = {}'.format(len(self.collection_passes), len(self.specs_instances)))
-        for k, v in self.trackables.items():
-            print(k)
-            for ik, iv in v.items():
-                print ik, len(iv)
-        print(len(self.collection_passes), self.collection_passes)
+        # asserts that the number of observations recorded per tracked metric variables is equal to the number of "collections pass"; training iterations over the document dataset
+        # artm.ARTM.scores satisfy this
         assert all(map(lambda x: len(x) == sum(self.collection_passes), [values_list for eval2scoresdict in self.trackables.values() for values_list in eval2scoresdict.values()]))
-        # assert all(map(lambda x: len(x) == sum(self.collection_passes), [score_list for scores_dict in self.trackables.values() for score_list in scores_dict]))
-        results_dir = os.path.join(self.current_root_dir, 'results')
-        if not os.path.isdir(results_dir):
-            os.mkdir(results_dir)
-            print 'Created {} dir to pickle experiment results'.format(results_dir)
-        target_name = os.path.join(results_dir, filename)
-        res = self.get_results()
-        with open(target_name, 'w') as results_file:
-            json.dump(res, results_file)
-        print('Saved results as', target_name)
+        # the above will fail when metrics outside the artm library start to get tracked, because these will be able to only capture the last state of the metric trajectory due to fitting by "junks
+        self.train_results_handler.save(self.topic_model.label)
+        if save_phi:
+            self.phi_matrix_handler.save(self.topic_model.label)
 
+    def load_experiment(self, model_label):
+        """
 
-def _stringify_trackable_dicts(results):
-    tr = results['trackables']
-    for k, v in tr.items():
-        if type(v) == list:
-            tr[k] = map(lambda x: str(x), tr[k])
-        elif type(v) == dict:
-            for in_k, in_v in v.items():
-                if type(in_v) == list:
-                    v[in_k] = map(lambda x: str(x), v[in_k])
-    return results
+        :param model_label:
+        :return:
+        """
+        results = self.train_results_handler.load(model_label)
+        assert model_label == results['model_label']
+        self.collection_passes = results['collection_passes']
+        self.specs_instances = []
+        self.trackables = results['trackables']
+        self.reg_params = results['reg_parameters']
+        self.model_params = results['model_parameters']
+        my_tm, train_specs = self.phi_matrix_handler.load(name)
+        self.set_topic_model(my_tm, empty_trackables=False)
+        return train_specs
 
+        # get_model_factory(self._loaded_dictionary).create_model_with_phi_from_disk()
 
-def load_results(path_file):
-    with open(path_file, 'rb') as results_file:
-        results = json.load(results_file, encoding='utf-8')
-    assert 'collection_passes' in results and 'trackables' in results, 'root_dir' in results
-    return results
-
+    # def set_parameters(self, expressions_list):
+    #     """
+    #     Allows setting new values to already existing
+    #     :param expressions_list:
+    #     :return:
+    #     """
+    #     components_lists = [expression.split('.') for expression in expressions_list]
+    #     for reg_name, param, value in components_lists:
+    #         self._topic_model.set_parameter(reg_name, param, value)
 
 class EvaluationOutputLoadingException(Exception):
     def __init__(self, msg):
