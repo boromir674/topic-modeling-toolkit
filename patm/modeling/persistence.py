@@ -94,7 +94,7 @@ class ModelWL(ExperimentWL):
     def save(self, name):
         self._exp.topic_model.artm_model.save(self.get_full_path(name), model_name=self._phi_matrix_label)  # saves one Phi-like matrix to disk
 
-    def load(self, name):
+    def load(self, name, results=None):
         """
         Loaded model will overwrite ARTM.topic_names and class_ids fields.
         All class_ids weights will be set to 1.0, (if necessary, they have to be specified by hand. The method call will empty ARTM.score_tracker.
@@ -102,10 +102,8 @@ class ModelWL(ExperimentWL):
         :param name:
         :return:
         """
-
-        with open(self.get_full_path(name), 'rb') as results_file:
-            results = json.load(results_file, encoding='utf-8')
-            # assert 'collection_passes' in results and 'trackables' in results, 'root_dir' in results
+        if results is None:
+            return
         return self._exp.model_factory.create_model_with_phi_from_disk(self.get_full_path(name), results)
 
 

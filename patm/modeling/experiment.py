@@ -4,7 +4,6 @@ import json
 
 from .regularizers import parameter_name2encoder
 from .persistence import ResultsWL, ModelWL
-from model_factory import get_model_factory
 
 
 class Experiment:
@@ -36,7 +35,6 @@ class Experiment:
 
         self.train_results_handler = ResultsWL(self, 'train')
         self.phi_matrix_handler = ModelWL(self, 'train')
-        self.model_factories = {}  # bin dict file path to model factory object reference
 
     @property
     def topic_model(self):
@@ -105,9 +103,17 @@ class Experiment:
 
     def load_experiment(self, model_label):
         """
-
-        :param model_label:
-        :return:
+        Given a unigue model label, restores the state of the experiment from disk. Loads all tracked values of the experimental results
+        and the state of the TopicModel inferred so far: namely the phi p_wt matrix.
+        In details loads settings:
+        - doc collection fit iteration chunks
+        - eval metrics/measures trackes per iteration
+        - regularization parameters
+        - document passes
+        \n
+        :param str model_label: a unigue identifier of a topic model
+        :return: the latest train specification used in the experiment
+        :rtype: patm.modeling.topic_model.TrainSpecs
         """
         results = self.train_results_handler.load(model_label)
         assert model_label == results['model_label']
@@ -116,7 +122,7 @@ class Experiment:
         self.trackables = results['trackables']
         self.reg_params = results['reg_parameters']
         self.model_params = results['model_parameters']
-        my_tm, train_specs = self.phi_matrix_handler.load(name)
+        my_tm, train_specs = self.phi_matrix_handler.load(name, results=results)
         self.set_topic_model(my_tm, empty_trackables=False)
         return train_specs
 

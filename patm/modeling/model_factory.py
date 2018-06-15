@@ -65,10 +65,16 @@ class ModelFactory(object):
 
     def create_model_with_phi_from_disk(self, phi_file_path, results):
         """
-
-        :param phi_file_path:
-        :param results:
+        Given a phi file path and a dictionary of experimental results, initializes a TopicModel object with the restored state of a model stored in disk. Configures to track the same
+        evaluation metrics/scores. Uses the self.dictionary for indexing.\n
+        Sets the below parameters with the latest corresponding values found in the expermental results:\n
+        - number of phi-matrix-updates/passes-per-document\n
+        - number of train iterations to perform on the whole documents collection\n
+        - regularizers to use and their parameters\n
+        :param str phi_file_path: strored phi matrix p_wt\n
+        :param dict results: experimental results
         :return:
+        :rtype: (patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs)
         """
         regularizers = init_from_latest_results(results)
         scorers = {}
