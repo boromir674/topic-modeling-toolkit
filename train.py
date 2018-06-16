@@ -40,10 +40,13 @@ if __name__ == '__main__':
         assert len(experiment.trackables['perplexity']['value']) == 0
 
     # when the trainer trains, the experiment object listens to changes
-    train_specs = {'collection_passes': 100}
-    # model_trainer.train(topic_model.artm_model, train_specs)
-    assert len(experiment.trackables['perplexity']['value']) == 100
-    assert len(experiment.trackables['sparsity-theta']['value']) == 100
+    train_specs = {'collection_passes': 50}
+    model_trainer.register(experiment)
+    model_trainer.train(topic_model.artm_model, train_specs)
+    print len(experiment.trackables['perplexity']['value'])
+    assert len(experiment.trackables['perplexity']['value']) == 150
+    assert len(experiment.trackables['sparsity-theta']['value']) == 150
+
     if args.load:
         # assert len(experiment.trackables['perplexity']['value']) == 130
         pass

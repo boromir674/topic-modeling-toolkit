@@ -81,7 +81,7 @@ def init_from_file(type_names_list, reg_config):
             print 'constructed regularizer of type', type(reg), 'with name', reg.name
             regs.append(reg)
         except RuntimeError as e:
-            print '\n', reg_type, '\n'
+            # print '\n', reg_type, '\n'
             raise e
     return regs
 

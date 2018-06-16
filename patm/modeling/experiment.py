@@ -35,9 +35,10 @@ class Experiment:
         self.trackables = {}
         self.reg_params = []
         self.model_params = {'nb_topics': [], 'document_passes': []}
-        self._nb_prev_accumulated = 0
+        # self._nb_prev_accumulated = 0
         self.train_results_handler = ResultsWL(self, 'train')
         self.phi_matrix_handler = ModelWL(self, 'train')
+        self.updc = 0
 
     @property
     def model_factory(self):
@@ -51,7 +52,7 @@ class Experiment:
         self._topic_model = topic_model
         if empty_trackables:
             self.trackables = {key: {inner_k: [] for inner_k in self._topic_model.evaluators[key].attributes} for key in self._topic_model.evaluators.keys()}
-            self._nb_prev_accumulated = {eval_type: Counter() for eval_type in self.trackables.keys()}
+            # self._nb_prev_accumulated = {eval_type: Counter() for eval_type in self.trackables.keys()}
 
     @property
     def dictionary(self):
@@ -61,6 +62,8 @@ class Experiment:
         self._loaded_dictionary = artm_dictionary
 
     def update(self, model, specs):
+        assert len(self.trackables['perplexity']['value']) == 100 + self.updc
+        self.updc += 1
         self.collection_passes.append(specs['collection_passes']) # iterations
         self.specs_instances.append(specs)
         self.model_params['nb_topics'].append(tuple((specs['collection_passes'], model.num_topics)))
@@ -74,14 +77,15 @@ class Experiment:
                 # print 'PREV', self._nb_prev_accumulated
                 # print 'VAL', len(value), len(value[self._nb_prev_accumulated[evaluator_type]:])
                 try:
-                    self.trackables[evaluator_type][eval_reportable].extend(value[self._nb_prev_accumulated[evaluator_type][eval_reportable]:]) # append only the newly produced tracked values
-                    print len(self.trackables[evaluator_type][eval_reportable])
-                    self._nb_prev_accumulated[evaluator_type][eval_reportable] += specs['collection_passes']
+                    self.trackables[evaluator_type][eval_reportable].extend(value) # append only the newly produced tracked values
+                    # print len(self.trackables[evaluator_type][eval_reportable])
+                    # self._nb_prev_accumulated[evaluator_type][eval_reportable] += specs['collection_passes']
                 except RuntimeError as e:
                     print e, '\n', type(value)
                     try:
                         print len(value)
-                    except TypeError:
+                        raise e
+                    except TypeError as er:
                         print 'does not have __len__ implemented'
                     raise EvaluationOutputLoadingException("Could not assign the value of type '{}' with key '{}' as an item in self.trackables'".format(type(value), eval_reportable))
 
@@ -137,10 +141,8 @@ class Experiment:
         self.trackables = results['trackables']
         self.reg_params = results['reg_parameters']
         self.model_params = results['model_parameters']
-        self._nb_prev_accumulated = {eval_type: Counter({eval_reportable: len(val_list) for eval_reportable, val_list in eval_dict.items()}) for eval_type, eval_dict in self.trackables.items()}
-        print 'GouV'
+        # self._nb_prev_accumulated = {eval_type: Counter({eval_reportable: len(val_list) for eval_reportable, val_list in eval_dict.items()}) for eval_type, eval_dict in self.trackables.items()}
         my_tm, train_specs = self.phi_matrix_handler.load(model_label, results=results)
-        print 'GAV'
         self.set_topic_model(my_tm, empty_trackables=False)
         return train_specs
 
