@@ -41,7 +41,7 @@ parameter_name2encoder = {
     'topic_names': list, # specific topics to target for applying regularization, Targets all if None
     'topic_pairs': dict, # key=topic_name, value=dict: pairwise topic decorrelation coefficients, if None all values equal to 1.0
     'function_type': str, # the type of function, 'log' (logarithm) or 'pol' (polynomial)
-    'power_value': float, # the float power of polynomial, ignored if type = 'log'
+    'power_value': float, # the float power of polynomial, ignored if 'function_type' = 'log'
     'alpha_iter': list, # list of additional coefficients of regularization on each iteration over document. Should have length equal to model.num_document_passes (of an artm.ARTM model object)
     'doc_titles': list, # of strings: list of titles of documents to be processed by this regularizer. Default empty value means processing of all documents. User should guarantee the existence and correctness of document titles in batches (e.g. in src files with data, like WV).
     'doc_topic_coef': list, # (list of floats or list of list of floats): of floats len=nb_topics or of lists of floats len=len(doc_titles) and len(inner_list)=nb_topics: Two cases: 1) list of floats with length equal to num of topics. Means additional multiplier in M-step formula besides alpha and tau, unique for each topic, but general for all processing documents. 2) list of lists of floats with outer list length equal to length of doc_titles, and each inner list length equal to num of topics. Means case 1 with unique list of additional multipliers for each document from doc_titles. Other documents will not be regularized according to description of doc_titles parameter. Note, that doc_topic_coef and topic_names are both using.
@@ -52,16 +52,14 @@ parameter_name2encoder = {
 
 
 def _construct_regularizer(reg_type, name, reg_settings):
-    if reg_type == 'kl-function-info':
-        return reg_type2constructor[reg_type](**reg_settings)
-    # print 'Adding regularizer', reg_type, '\n'
-    d = dict(reg_settings, **{'name': name})
-    try:
-        th = reg_type2constructor[reg_type](**d)
-    except IndexError:
-        print d
-        sys.exit(1)
-    return th
+    reg_parameters = {k: v for k, v in reg_settings.items() if v}
+    if reg_type != 'kl-function-info':
+        reg_parameters = dict(reg_parameters, **{'name': name})
+    artm_reg = reg_type2constructor[reg_type](**reg_parameters)
+    found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), reg_parameters.items()))
+    not_found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), {k: v for k, v in reg_settings.items() if not v}.items()))
+    print 'INFO: found and set: ({}); did not find and using defaults: ({})'.format(found, not_found)
+    return artm_reg
 
 
 def init_from_file(type_names_list, reg_config):
@@ -84,17 +82,21 @@ def init_from_file(type_names_list, reg_config):
             regs.append(reg)
         except RuntimeError as e:
             print '\n', reg_type, '\n'
-            print e
+            raise e
     return regs
 
 def init_from_latest_results(results):
     regs = []
-    print 'INIT', type(results['reg_parameters']), len(results['reg_parameters'])
-    print results['reg_parameters'][-1], len(results['reg_parameters'][-1])
+    # print 'INIT', type(results['reg_parameters']), len(results['reg_parameters'])
+    # print results['reg_parameters'][-1], len(results['reg_parameters'][-1])
+    print 'INITIALIZING REGS from latest results'
     for reg_type, reg_settings_dict in results['reg_parameters'][-1][1].items():
+        print reg_type, reg_settings_dict.keys()
         regs.append(_construct_regularizer(reg_type,
                                            reg_settings_dict['name'],
                                            dict([(attr_name, reg_settings_dict[attr_name]) for attr_name in regularizer2parameters[reg_type]])))
+    print 'INITIALIZED REGS from latest results'
+    return regs
 
 def cfg2regularizer_settings(cfg_file):
     config = ConfigParser()

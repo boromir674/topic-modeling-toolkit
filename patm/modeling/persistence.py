@@ -103,8 +103,6 @@ class ModelWL(ExperimentWL):
         :param name:
         :return:
         """
-        if results is None:
-            return
         return self._exp.model_factory.create_model_with_phi_from_disk(self.get_full_path(name), results)
 
 

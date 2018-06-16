@@ -2,6 +2,8 @@ import os
 import cPickle as pickle
 import json
 
+from collections import Counter
+
 from .regularizers import parameter_name2encoder
 from .persistence import ResultsWL, ModelWL
 from .model_factory import get_model_factory
@@ -33,7 +35,7 @@ class Experiment:
         self.trackables = {}
         self.reg_params = []
         self.model_params = {'nb_topics': [], 'document_passes': []}
-
+        self._nb_prev_accumulated = 0
         self.train_results_handler = ResultsWL(self, 'train')
         self.phi_matrix_handler = ModelWL(self, 'train')
 
@@ -49,6 +51,7 @@ class Experiment:
         self._topic_model = topic_model
         if empty_trackables:
             self.trackables = {key: {inner_k: [] for inner_k in self._topic_model.evaluators[key].attributes} for key in self._topic_model.evaluators.keys()}
+            self._nb_prev_accumulated = {eval_type: Counter() for eval_type in self.trackables.keys()}
 
     @property
     def dictionary(self):
@@ -65,18 +68,22 @@ class Experiment:
         self.reg_params.append(tuple((specs['collection_passes'], self._topic_model.get_regs_param_dict())))
 
         for evaluator_type, evaluator_instance in self._topic_model.evaluators.items():
-            print 'DEBUG: eval type:', evaluator_type, 'instance name:', evaluator_instance.name
+            print 'Loading score: eval type:', evaluator_type, 'instance name:', evaluator_instance.name
             current_eval = evaluator_instance.evaluate(model)
-            for inner_k, value in current_eval.items():
+            for eval_reportable, value in current_eval.items():
+                # print 'PREV', self._nb_prev_accumulated
+                # print 'VAL', len(value), len(value[self._nb_prev_accumulated[evaluator_type]:])
                 try:
-                    self.trackables[evaluator_type][inner_k] = value
+                    self.trackables[evaluator_type][eval_reportable].extend(value[self._nb_prev_accumulated[evaluator_type][eval_reportable]:]) # append only the newly produced tracked values
+                    print len(self.trackables[evaluator_type][eval_reportable])
+                    self._nb_prev_accumulated[evaluator_type][eval_reportable] += specs['collection_passes']
                 except RuntimeError as e:
                     print e, '\n', type(value)
                     try:
                         print len(value)
                     except TypeError:
                         print 'does not have __len__ implemented'
-                    raise EvaluationOutputLoadingException("Could not assign the value of type '{}' with key '{}' as an item in self.trackables'".format(type(value), inner_k))
+                    raise EvaluationOutputLoadingException("Could not assign the value of type '{}' with key '{}' as an item in self.trackables'".format(type(value), eval_reportable))
 
     @property
     def current_root_dir(self):
@@ -101,6 +108,7 @@ class Experiment:
             raise DidNotReceiveTrainSignalException('Model probably hasn\'t been fitted since len(self.collection_passes) = {}, len(self.specs_instances) = {}'.format(len(self.collection_passes), len(self.specs_instances)))
         # asserts that the number of observations recorded per tracked metric variables is equal to the number of "collections pass"; training iterations over the document dataset
         # artm.ARTM.scores satisfy this
+        print self.collection_passes
         assert all(map(lambda x: len(x) == sum(self.collection_passes), [values_list for eval2scoresdict in self.trackables.values() for values_list in eval2scoresdict.values()]))
         # the above will fail when metrics outside the artm library start to get tracked, because these will be able to only capture the last state of the metric trajectory due to fitting by "junks
         self.train_results_handler.save(self.topic_model.label)
@@ -123,12 +131,16 @@ class Experiment:
         """
         results = self.train_results_handler.load(model_label)
         assert model_label == results['model_label']
+        assert len(results['trackables']['perplexity']['value']) == sum(results['collection_passes'])
         self.collection_passes = results['collection_passes']
         self.specs_instances = []
         self.trackables = results['trackables']
         self.reg_params = results['reg_parameters']
         self.model_params = results['model_parameters']
+        self._nb_prev_accumulated = {eval_type: Counter({eval_reportable: len(val_list) for eval_reportable, val_list in eval_dict.items()}) for eval_type, eval_dict in self.trackables.items()}
+        print 'GouV'
         my_tm, train_specs = self.phi_matrix_handler.load(model_label, results=results)
+        print 'GAV'
         self.set_topic_model(my_tm, empty_trackables=False)
         return train_specs
 

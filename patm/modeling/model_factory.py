@@ -44,47 +44,47 @@ class ModelFactory(object):
         """
         settings = cfg2model_settings(cfg_file)
         regularizers = init_from_file(settings['regularizers'].items(), reg_cfg)
-        scorers = {}
         model = artm.ARTM(num_topics=settings['learning']['nb_topics'], dictionary=self.dict)
         model.num_document_passes = settings['learning']['document_passes']
-        self._set_scorers(settings['scores'])
-        self._tm = TopicModel(label, model, scorers)
+        self._create_topic_model(label, model, settings['scores'])
         self._set_regularizers(regularizers)
-        specs = TrainSpecs(collection_passes=settings['learning']['collection_passes'])
-        return self._tm, specs
+        return self._tm, TrainSpecs(collection_passes=settings['learning']['collection_passes'])
 
     def create_model_with_phi_from_disk(self, phi_file_path, results):
         """
-        Given a phi file path and a dictionary of experimental results, initializes a TopicModel object with the restored state of a model stored in disk. Configures to track the same
+        Given a phi file path, a unique label and a dictionary of experimental results, initializes a TopicModel object with the restored state of a model stored in disk. Configures to track the same
         evaluation metrics/scores. Uses the self.dictionary for indexing.\n
         Sets the below parameters with the latest corresponding values found in the expermental results:\n
         - number of phi-matrix-updates/passes-per-document\n
         - number of train iterations to perform on the whole documents collection\n
         - regularizers to use and their parameters\n
         :param str phi_file_path: strored phi matrix p_wt
-        :param dict results: experimental results
+        :param dict results: experimental results; patm.modeling.experiment.Experiment.get_results() output
         :return: tuple of initialized model and training specifications
         :rtype: (patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs)
         """
         regularizers = init_from_latest_results(results)
-        scorers = {}
-        model = artm.ARTM(num_topics=5, dictionary=self.dict) # number of topics have to be set, but doesn't matter, because they are overridden by the phi matrix loaded below
+        model = artm.ARTM(num_topics=int(results['model_parameters']['nb_topics'][-1][1]), dictionary=self.dict) # number of topics have to be set, but doesn't matter, because they are overridden by the phi matrix loaded below
         model.load(filename=phi_file_path)
         model.num_document_passes = results['model_parameters']['document_passes'][-1][1]
-        self._set_scorers(dict(results['evaluators']))
-        self._tm = TopicModel(label, model, scorers)
+        self._create_topic_model(results['model_label'], model, dict(results['evaluators']))
         self._set_regularizers(regularizers)
-        specs = TrainSpecs(collection_passes=results['collection_passes'][-1])
-        return self._tm, specs
+        return self._tm, TrainSpecs(collection_passes=results['collection_passes'][-1])
 
-    def _set_scorers(self, score_type_name2score_name):
+    def _create_topic_model(self, label, artm_model, score_type_name2score_name):
+        scorers = {}
         for score_setting_name, eval_instance_name in score_type_name2score_name.items():
-            self._tm.scores.add(self.score2constructor[score_setting_name](eval_instance_name))
+            artm_model.scores.add(self.score2constructor[score_setting_name](eval_instance_name))
             scorers[score_setting_name] = get_scorers_factory(score_type_name2score_name).create_scorer(eval_instance_name)
+        self._tm = TopicModel(label, artm_model, scorers)
 
     def _set_regularizers(self, reg_list):
         for reg_instance in reg_list:
             self._tm.add_regularizer(reg_instance)
+
+class ModelLabelDisagreementException(Exception):
+    def __init__(self, msg):
+        super(ModelLabelDisagreementException, self).__init__(msg)
 
 if __name__ == '__main__':
     sett = cfg2model_settings('/data/thesis/code/train.cfg')

@@ -211,8 +211,8 @@ if __name__ == '__main__':
         exp_results.append(load_results(os.path.join(collection_root, 'results', model_label + '-train.json')))
 
     # plotter.save_plot('all', exp_results)
-    print(len(results_list[0]['trackables']['perplexity']['value']))
-    assert len(results_list[0]['trackables']['perplexity']['value']) == 150
+    # print(len(results_list[0]['trackables']['perplexity']['value']))
+    # assert len(results_list[0]['trackables']['perplexity']['value']) == 150
     plotter.save_cross_models_plots(exp_results)
 
 # eplot = EasyPlot(xlabel=r'$x$', ylabel='$y$', fontsize=16,
