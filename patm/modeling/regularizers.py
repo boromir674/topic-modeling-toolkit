@@ -58,7 +58,7 @@ def _construct_regularizer(reg_type, name, reg_settings):
     artm_reg = reg_type2constructor[reg_type](**reg_parameters)
     found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), reg_parameters.items()))
     not_found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), {k: v for k, v in reg_settings.items() if not v}.items()))
-    print 'INFO: found and set: ({}); did not find and using defaults: ({})'.format(found, not_found)
+    print 'Constructed reg: {}: set params: ({}); using defaults: ({})'.format(reg_type+'.'+name, found, not_found)
     return artm_reg
 
 
@@ -78,7 +78,6 @@ def init_from_file(type_names_list, reg_config):
         try:
             # print "reg settings:", reg_settings[reg_type]
             reg = _construct_regularizer(reg_type, name, reg_settings[reg_type])
-            print 'constructed regularizer of type', type(reg), 'with name', reg.name
             regs.append(reg)
         except RuntimeError as e:
             # print '\n', reg_type, '\n'
@@ -101,10 +100,6 @@ def init_from_latest_results(results):
 def cfg2regularizer_settings(cfg_file):
     config = ConfigParser()
     config.read(cfg_file)
-    for sec in config.sections():
-        print str(sec)
-        for par in config[sec].items():
-            print '  {}: {}'.format(str(par[0]), str(par[1]))
     return OrderedDict([(str(section), OrderedDict([(str(setting_name), parameter_name2encoder[str(setting_name)](value)) for setting_name, value in config.items(section) if value])) for section in config.sections()])
 
 

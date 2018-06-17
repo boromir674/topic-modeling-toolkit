@@ -62,7 +62,6 @@ class Experiment:
         self._loaded_dictionary = artm_dictionary
 
     def update(self, model, specs):
-        assert len(self.trackables['perplexity']['value']) == 100 + self.updc
         self.updc += 1
         self.collection_passes.append(specs['collection_passes']) # iterations
         self.specs_instances.append(specs)
@@ -112,7 +111,7 @@ class Experiment:
             raise DidNotReceiveTrainSignalException('Model probably hasn\'t been fitted since len(self.collection_passes) = {}, len(self.specs_instances) = {}'.format(len(self.collection_passes), len(self.specs_instances)))
         # asserts that the number of observations recorded per tracked metric variables is equal to the number of "collections pass"; training iterations over the document dataset
         # artm.ARTM.scores satisfy this
-        print self.collection_passes
+        print 'Saving model \'{}\', train set iterations: {}'.format(self.topic_model.label, self.collection_passes)
         assert all(map(lambda x: len(x) == sum(self.collection_passes), [values_list for eval2scoresdict in self.trackables.values() for values_list in eval2scoresdict.values()]))
         # the above will fail when metrics outside the artm library start to get tracked, because these will be able to only capture the last state of the metric trajectory due to fitting by "junks
         self.train_results_handler.save(self.topic_model.label)

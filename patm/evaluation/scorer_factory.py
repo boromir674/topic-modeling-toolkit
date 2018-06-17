@@ -6,12 +6,12 @@ from .base_evaluator import AbstractEvaluator
 scorer_type2_reportables = {
     'background-tokens-ratio': ('tokens', 'value'),
     'items-processed': 'value',
-    'perplexity': ('class_id_info', 'normalizer', 'raw', 'value'),  # bigger value, better. bigger raw, worse
+    'perplexity': ('class_id_info', 'normalizer', 'raw', 'value'),  # smaller the "value", better. bigger the "raw", better
     'sparsity-phi': ('total_tokens', 'value', 'zero_tokens'),  # bigger value, better.
     'sparsity-theta': ('total_topics', 'value', 'zero_topics'),  # bigger value, better.
     'theta-snippet': ('document_ids', 'snippet'),
     'topic-mass-phi': ('topic_mass', 'topic_ratio', 'value'),
-    'topic-kernel': ('average_coherence', 'average_contrast', 'average_purity', 'average_size', 'coherence', 'contrast', 'purity', 'size', 'tokens'),  # the bigger the value (contr, pur, coher), the better.
+    'topic-kernel': ('average_coherence', 'average_contrast', 'average_purity', 'average_size', 'coherence', 'contrast', 'purity', 'size', 'tokens'), # bigger value of contr, pur, coher, the better.
     'top-tokens': ('average_coherence', 'coherence', 'num_tokens', 'tokens', 'weights')
 }
 

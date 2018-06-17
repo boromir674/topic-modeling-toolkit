@@ -48,14 +48,14 @@ def load_results(path_file):
 class GraphMaker(object):
 
     def __init__(self, plot_dir):
-        self.line_designs = ['b-',
+        self.line_designs = ['b',
                              'y',
-                             'g--',
-                             'p:',
-                             'o-.',
-                             'y-.',
+                             'g',
+                             'k',
+                             'c',
+                             'm',
                              'p ',
-                             'r:'
+                             'r'
                              ]
         # linestyle / ls: Plot linestyle['-', '--', '-.', ':', 'None', ' ', '']
         # marker: '+', 'o', '*', 's', 'D', ',', '.', '<', '>', '^', '1', '2'
@@ -163,8 +163,10 @@ def create_cross_graphs(results_list, line_design_list, labels_list):
     assert len(set([res['root_dir'] for res in results_list])) <= 1
     models = '-'.join(labels_list)
     graph_plots = []
+    _vals = []
     for eval_name, sub_score2values in results_list[0]['trackables'].items():
         for sub_score, values in sub_score2values.items():
+            _vals.append(values)
             measure_name = eval_name + '-' + sub_score
             try:
                 x = range(len(values))
@@ -175,6 +177,7 @@ def create_cross_graphs(results_list, line_design_list, labels_list):
                     graph_plots[-1][1].add_plot(x, result['trackables'][eval_name][sub_score], line_design_list[j+1], label=labels_list[j+1])
             except TypeError as e:
                 print('Failed to create {} plot: type({}) = {}'.format(measure_name, sub_score, type(values)))
+    assert all(len(i) == len(_vals[0]) for i in _vals)
     return graph_plots
 
 

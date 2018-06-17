@@ -85,10 +85,3 @@ class UciDataset(object):
         except RuntimeError as e:
             print(e)
             print("Failed to save dataset wtih id '{}'".format(weedataset_id))
-
-
-def construct_dataset(pickle_file):
-    with open(pickle_file, 'rb') as f:
-        dataset = pickle.load(f)
-        assert isinstance(weedataset, UciDataset)
-    return dataset

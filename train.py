@@ -26,29 +26,18 @@ if __name__ == '__main__':
 
     experiment = Experiment(root_dir)
     model_trainer = trainer_factory.create_trainer(args.collection)
-    model_trainer.register(experiment)
+    model_trainer.register(experiment)  # when the model_trainer trains, the experiment object listens to changes
 
     if args.load:
         train_specs = experiment.load_experiment(args.label)
         topic_model = experiment.topic_model
         print '\nLoaded experiment and model state'
-        assert len(experiment.trackables['perplexity']['value']) == 100
     else:
         topic_model, train_specs = model_trainer.model_factory.create_model(args.label, args.config, regularizers_param_cfg)
         experiment.set_topic_model(topic_model, empty_trackables=True)
         print 'Initialized new experiment and model'
-        assert len(experiment.trackables['perplexity']['value']) == 0
 
-    # when the trainer trains, the experiment object listens to changes
-    train_specs = {'collection_passes': 50}
-    model_trainer.register(experiment)
+    # train_specs = {'collection_passes': 30}
     model_trainer.train(topic_model.artm_model, train_specs)
-    print len(experiment.trackables['perplexity']['value'])
-    assert len(experiment.trackables['perplexity']['value']) == 150
-    assert len(experiment.trackables['sparsity-theta']['value']) == 150
-
-    if args.load:
-        # assert len(experiment.trackables['perplexity']['value']) == 130
-        pass
     if args.save:
         experiment.save_experiment(save_phi=True)

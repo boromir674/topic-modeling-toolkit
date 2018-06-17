@@ -32,7 +32,7 @@ def get_posts_generator(nb_docs='all'):
 def gen_fields(category, cat2files, sample_docs=None, fields=tuple('text')):
     """
     Given a category (ie 'posts') generates dictionaries with fields defined by the user input. If a sample size is
-    given then generates till reaching the ammount, generates till depletion otherwise.
+    given then generates till reaching the ammount; generates till depletion otherwise.
     In case it fails to find all the requested fields it generates dictionaries solely having the 'text' field.
     Therefore it expects each document in the dataframes to have a 'text' field.\n
     :param category: The category of pickled files to consider [posts, comments, posts+comments]. Currently supports only posts
