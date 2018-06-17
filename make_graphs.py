@@ -49,12 +49,13 @@ class GraphMaker(object):
 
     def __init__(self, plot_dir):
         self.line_designs = ['b-',
-                             'y-',
-                             'g-',
-                             'p-',
-                             'y-+',
-                             'p-:',
+                             'y',
+                             'g--',
+                             'p:',
                              'o-.',
+                             'y-.',
+                             'p ',
+                             'r:'
                              ]
         # linestyle / ls: Plot linestyle['-', '--', '-.', ':', 'None', ' ', '']
         # marker: '+', 'o', '*', 's', 'D', ',', '.', '<', '>', '^', '1', '2'
