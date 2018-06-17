@@ -35,6 +35,12 @@ class Dataset(object):
     def nb_bows(self):
         return self._nb_bows
 
+    @staticmethod
+    def load(dataset_path):
+        with open(dataset_path, 'rb') as f:
+            dataset = pickle.load(f)
+        return dataset
+
     def set_splits(self, splits):
         """
         :param splits: possible keys: {train, dev, test}
@@ -50,10 +56,11 @@ class UciDataset(object):
 
     def __init__(self, name, _id, weights, words):
         """
-        :param ids_n_weights: absolute path to the uci formated file that holds (doc_id, token id, weight) triplets
-        :type ids_n_weights: str
-        :param words: absolute path to the uci formated file that holds a word per line (no duplicates of course)
-        :param words: str
+
+        :param str name: a name corresponding to the collection the dataset encodes/belongs to
+        :param str _id: a unique identifier based on the prerpocessing steps executed to create this dataset
+        :param str weights: full path to a uci docwords (Bag of Words) file: */docword.name.txt
+        :param str words: full path to the uci vocabulary file: */vocab.name.txt
         """
         self.name = name
         self.id = _id
@@ -63,9 +70,10 @@ class UciDataset(object):
         assert os.path.isfile(self.words)
         assert os.path.dirname(self.bowf) == os.path.dirname(self.words)
         self.root_dir = os.path.dirname(self.bowf)
+        assert os.path.basename(self.root_dir) == name
 
     def __str__(self):
-        b = 'Uci Dataset\nid: {}\nname: {}\nroot-dir: {}\nuci-docwords: {}\nvocab: {}'.format(self.id, self.name, self.root_dir, os.path.basename(self.bowf), os.path.basename(self.words))
+        b = 'UCI Dataset\nid: {}\nname: {}\nroot-dir: {}\nuci-docwords: {}\nvocab: {}'.format(self.id, self.name, self.root_dir, os.path.basename(self.bowf), os.path.basename(self.words))
         return b
 
     def save(self):
@@ -77,8 +85,6 @@ class UciDataset(object):
         except RuntimeError as e:
             print(e)
             print("Failed to save dataset wtih id '{}'".format(weedataset_id))
-
-
 
 
 def construct_dataset(pickle_file):
