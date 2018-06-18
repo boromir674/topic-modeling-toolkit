@@ -80,9 +80,8 @@ class ResultsWL(ExperimentWL):
 
     def load(self, name):
         with open(self.get_full_path(name), 'rb') as results_file:
-            results = json.load(results_file, encoding='utf-8')
-        assert 'collection_passes' in results and 'trackables' in results
-        return results
+            results = results_file.read()
+        return json.loads(results)
 
 
 class ModelWL(ExperimentWL):
