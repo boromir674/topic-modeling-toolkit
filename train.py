@@ -20,7 +20,6 @@ def get_cl_arguments():
 
 if __name__ == '__main__':
     args = get_cl_arguments()
-
     root_dir = os.path.join(collections_dir, args.collection)
     regularizers_param_cfg = '/data/thesis/code/regularizers.cfg'
 
@@ -36,7 +35,6 @@ if __name__ == '__main__':
         topic_model, train_specs = model_trainer.model_factory.create_model(args.label, args.config, regularizers_param_cfg)
         experiment.set_topic_model(topic_model, empty_trackables=True)
         print 'Initialized new experiment and model'
-
     # train_specs = {'collection_passes': 30}
     model_trainer.train(topic_model.artm_model, train_specs)
     if args.save:

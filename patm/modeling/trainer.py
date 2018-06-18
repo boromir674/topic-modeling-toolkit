@@ -40,6 +40,7 @@ class ModelTrainer(object):
         :param artm.ARTM model:
         :param patm.modeling.topic_model.TrainSpecs specs:
         """
+        print 'Training...'
         model.fit_offline(self.batch_vectorizer, num_collection_passes=specs['collection_passes'])
         self.update_observers(model, specs)
 

@@ -64,77 +64,24 @@ def _construct_regularizer(reg_type, name, reg_settings):
 
 def init_from_file(type_names_list, reg_config):
     """
-    Initializes a set of regularizers.\n
-    :param type_names_list: the desired regularizers to initialize. Elements should correspond to pairs of 'sections' in the input cfg file and names; eg: [('smooth-sparse-theta', 'sst'), ('decorrelator-phi', 'dp')]
-    :type type_names_list: list of tuples
-    :param reg_config: a cfg file having as sections the type of regularizers supported. Each section attributes can be optionally set to values (if unset inits with defaults)
-    :type reg_config: str
+    Initializes a set of regularizers given the type of regularizers desired to create, a custom name to use and a static configuration file containing initialization settings\n
+    :param list of tuples type_names_list: the desired regularizers to initialize. Elements should correspond to pairs of 'sections' in the input cfg file and names; eg: [('smooth-sparse-theta', 'sst'), ('decorrelator-phi', 'dp')]
+    :param str reg_config: a cfg file having as sections the type of regularizers supported. Each section attributes can be optionally set to values (if unset inits with defaults)
     :return: a list of instantiated regularizer objects,
     :rtype: list
     """
     reg_settings = cfg2regularizer_settings(reg_config)
-    regs = []
-    for reg_type, name in type_names_list:
-        try:
-            # print "reg settings:", reg_settings[reg_type]
-            reg = _construct_regularizer(reg_type, name, reg_settings[reg_type])
-            regs.append(reg)
-        except RuntimeError as e:
-            # print '\n', reg_type, '\n'
-            raise e
-    return regs
+    return [_construct_regularizer(reg_type, name, reg_settings[reg_type]) for reg_type, name in type_names_list]
+
 
 def init_from_latest_results(results):
-    regs = []
-    # print 'INIT', type(results['reg_parameters']), len(results['reg_parameters'])
-    # print results['reg_parameters'][-1], len(results['reg_parameters'][-1])
-    print 'INITIALIZING REGS from latest results'
-    for reg_type, reg_settings_dict in results['reg_parameters'][-1][1].items():
-        print reg_type, reg_settings_dict.keys()
-        regs.append(_construct_regularizer(reg_type,
-                                           reg_settings_dict['name'],
-                                           dict([(attr_name, reg_settings_dict[attr_name]) for attr_name in regularizer2parameters[reg_type]])))
-    print 'INITIALIZED REGS from latest results'
-    return regs
+    return [_construct_regularizer(reg_type, reg_settings_dict['name'], dict([(attr_name, reg_settings_dict[attr_name])
+        for attr_name in regularizer2parameters[reg_type]])) for reg_type, reg_settings_dict in results['reg_parameters'][-1][1].items()]
 
 def cfg2regularizer_settings(cfg_file):
     config = ConfigParser()
     config.read(cfg_file)
     return OrderedDict([(str(section), OrderedDict([(str(setting_name), parameter_name2encoder[str(setting_name)](value)) for setting_name, value in config.items(section) if value])) for section in config.sections()])
-
-
-class RegularizerW(object):
-    def __init__(self, instance):
-        self.instance = instance
-        self._global_wealth = 10.0
-        self._observers = []
-
-    # def __getattr__(self, name):
-    #     print 'debug:', name
-    #     try:
-    #         return getattr(self.instance, name)
-    #     except KeyError:
-    #         msg = "'{0}' object has no attribute '{1}'"
-    #         sys.exit(1)
-    #         raise AttributeError(msg.format(type(self).__name__, name))
-
-    # def __setattr__(self, key, value):
-    #     self.instance.__setattr__(key, value)
-
-    @property
-    def global_wealth(self):
-        return self._global_wealth
-
-    @global_wealth.setter
-    def global_wealth(self, value):
-        self._global_wealth = value
-        for callback in self._observers:
-            print('announcing change')
-            callback(self._global_wealth)
-
-    def bind_to(self, callback):
-        print('bound')
-        self._observers.append(callback)
 
 
 if __name__ == '__main__':
