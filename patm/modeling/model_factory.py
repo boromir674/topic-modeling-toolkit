@@ -21,15 +21,15 @@ class ModelFactory(object):
     def __init__(self, dictionary):
         self.dict = dictionary
         self.score2constructor = {
-            'backgroung-tokens-ratio': lambda x: artm.BackgroundTokensRatioScore(name=x),
+            'background-tokens-ratio': lambda x: artm.BackgroundTokensRatioScore(name=x),
             'items-processed': lambda x: artm.ItemsProcessedScore(name=x),
             'perplexity': lambda x: artm.PerplexityScore(name=x, dictionary=self.dict),
             'sparsity-phi': lambda x: artm.SparsityPhiScore(name=x),
             'sparsity-theta': lambda x: artm.SparsityThetaScore(name=x),
             'theta-snippet': lambda x: artm.ThetaSnippetScore(name=x),
             'topic-mass-phi': lambda x: artm.TopicMassPhiScore(name=x),
-            'topic-kernel': lambda x: artm.TopicKernelScore(name=x, probability_mass_threshold=0.3),
-            'top-tokens': lambda x: artm.TopTokensScore(name=x)
+            'topic-kernel': lambda x: artm.TopicKernelScore(name=x, probability_mass_threshold=0.5), # p(t|w) > probability_mass_threshold
+            'top-tokens': lambda x: artm.TopTokensScore(name=x, num_tokens=20)
         }
         self._tm = None
 
@@ -43,8 +43,11 @@ class ModelFactory(object):
         :rtype: patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs
         """
         settings = cfg2model_settings(cfg_file)
+        nb_topics = settings['learning']['nb_topics']
         regularizers = init_from_file(settings['regularizers'].items(), reg_cfg)
-        model = artm.ARTM(num_topics=settings['learning']['nb_topics'], dictionary=self.dict)
+        model = artm.ARTM(num_topics=nb_topics,
+                          dictionary=self.dict,
+                          topic_names=get_generic_topic_names(nb_topics))
         model.num_document_passes = settings['learning']['document_passes']
         self._create_topic_model(label, model, settings['scores'])
         self._set_regularizers(regularizers)
@@ -52,19 +55,22 @@ class ModelFactory(object):
 
     def create_model_with_phi_from_disk(self, phi_file_path, results):
         """
-        Given a phi file path, a unique label and a dictionary of experimental results, initializes a TopicModel object with the restored state of a model stored in disk. Configures to track the same
+        Given a phi file path, a unique label and a dictionary of experimental res_dict, initializes a TopicModel object with the restored state of a model stored in disk. Configures to track the same
         evaluation metrics/scores. Uses the self.dictionary for indexing.\n
-        Sets the below parameters with the latest corresponding values found in the expermental results:\n
+        Sets the below parameters with the latest corresponding values found in the expermental res_dict:\n
         - number of phi-matrix-updates/passes-per-document\n
         - number of train iterations to perform on the whole documents collection\n
         - regularizers to use and their parameters\n
         :param str phi_file_path: strored phi matrix p_wt
-        :param dict results: experimental results; patm.modeling.experiment.Experiment.get_results() output
+        :param dict results: experimental results object; patm.modeling.experiment.Experiment.get_results() output
         :return: tuple of initialized model and training specifications
         :rtype: (patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs)
         """
         regularizers = init_from_latest_results(results)
-        model = artm.ARTM(num_topics=int(results['model_parameters']['nb_topics'][-1][1]), dictionary=self.dict) # number of topics have to be set, but doesn't matter, because they are overridden by the phi matrix loaded below
+        nb_topics = int(results['model_parameters']['nb_topics'][-1][1])
+        model = artm.ARTM(num_topics=nb_topics,
+                          dictionary=self.dict,
+                          topic_names=get_generic_topic_names(nb_topics)) # number of topics have to be set, but doesn't matter, because they are overridden by the phi matrix loaded below
         model.load(filename=phi_file_path)
         model.num_document_passes = results['model_parameters']['document_passes'][-1][1]
         self._create_topic_model(results['model_label'], model, dict(results['evaluators']))
@@ -81,6 +87,9 @@ class ModelFactory(object):
     def _set_regularizers(self, reg_list):
         for reg_instance in reg_list:
             self._tm.add_regularizer(reg_instance)
+
+def get_generic_topic_names(nb_topics):
+    return ['top_' + index for index in map(lambda x: str(x) if len(str(x)) > 1 else '0'+str(x), range(1, nb_topics+1))]
 
 class ModelLabelDisagreementException(Exception):
     def __init__(self, msg):
