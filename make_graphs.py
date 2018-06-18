@@ -17,9 +17,9 @@ collections_dir = '/data/thesis/data/collections'
 
 # def load_results(path_file):
 #     with open(path_file, 'rb') as results_file:
-#         results = pickle.load(results_file)
-#     assert 'collection_passes' in results and 'trackables' in results, 'root_dir' in results
-#     return results
+#         res_dict = pickle.load(results_file)
+#     assert 'collection_passes' in res_dict and 'trackables' in res_dict, 'root_dir' in res_dict
+#     return res_dict
 
 def _dictify_results(results):
     tr = results['trackables']
@@ -40,7 +40,7 @@ def _dictify_results(results):
 def load_results(path_file):
     with open(path_file, 'r') as results_file:
         results = json.load(results_file, encoding='utf-8')
-        # results = pickle.load(results_file)
+        # res_dict = pickle.load(results_file)
     assert 'collection_passes' in results and 'trackables' in results, 'root_dir' in results
     return _dictify_results(results)
 
@@ -96,14 +96,14 @@ class GraphMaker(object):
             plot = self.plot[graph_type](results)
             self._save_plot(graph_type, plot)
 
-    def save_cross_models_plots(self, results_list):
+    def save_cross_models_plots(self, results, nb_points=None):
         """
-        Currently supported maximum 6 plots on the same figure\n.
-        :param results_list:
-        :return:
+        Currently supported maximum 8 plots on the same figure\n.
+        :param list of dicts results: experimental results, gathered after model training
+        :param int nb_points: number of points to plot. Defaults to plotting all measurements found
         """
-        assert len(results_list) <= len(self.line_designs)
-        graphs = create_cross_graphs(results_list, self.line_designs[:len(results_list)], [res['model_label'] for res in results_list])
+        assert len(results) <= len(self.line_designs)
+        graphs = create_cross_graphs(results, self.line_designs[:len(results)], [res['model_label'] for res in results], limit_iterations=nb_points)
         for graph_type, plot in graphs:
             self._save_plot(graph_type, plot)
 
@@ -133,7 +133,7 @@ class GraphMaker(object):
     # eplot.grid(which='major', axis='y', linewidth=2, linestyle='-', color='0.85', alpha=0.5)
 
 
-#     eplot = EasyPlot(x, results['trackables'], 'b-o', label='y1 != x**2', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
+#     eplot = EasyPlot(x, res_dict['trackables'], 'b-o', label='y1 != x**2', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
 #     eplot.iter_plot(x, y_dict, linestyle=linestyle_dict, marker=marker_dict, label=labels_dict, linewidth=3, ms=10, showlegend=True, grid='on')
 
 
@@ -158,7 +158,7 @@ def create_graphs(results):
     return grs
 
 
-def create_cross_graphs(results_list, line_design_list, labels_list):
+def create_cross_graphs(results_list, line_design_list, labels_list, limit_iterations=None):
     assert len(results_list) == len(line_design_list) == len(labels_list)
     assert len(set([res['root_dir'] for res in results_list])) <= 1
     models = '-'.join(labels_list)
@@ -166,15 +166,17 @@ def create_cross_graphs(results_list, line_design_list, labels_list):
     _vals = []
     for eval_name, sub_score2values in results_list[0]['trackables'].items():
         for sub_score, values in sub_score2values.items():
+             # takes the first 'limit_iterations' metric values
             _vals.append(values)
             measure_name = eval_name + '-' + sub_score
             try:
-                x = range(len(values))
+                x = range(len(values[:limit_iterations]))
                 graph_plots.append((
                     '{}-{}'.format(models, measure_name),
-                    EasyPlot(x, values, line_design_list[0], label=labels_list[0], showlegend=True, xlabel='x', ylabel='y', title=results_list[0]['root_dir'], grid='on')))
+                    EasyPlot(x, values[:limit_iterations], line_design_list[0], label=labels_list[0], showlegend=True,
+                             xlabel='x', ylabel='y', title=measure_name.replace('-', '.'), grid='on')))
                 for j, result in enumerate(results_list[1:]):
-                    graph_plots[-1][1].add_plot(x, result['trackables'][eval_name][sub_score], line_design_list[j+1], label=labels_list[j+1])
+                    graph_plots[-1][1].add_plot(x, result['trackables'][eval_name][sub_score][:limit_iterations], line_design_list[j+1], label=labels_list[j+1])
             except TypeError as e:
                 print('Failed to create {} plot: type({}) = {}'.format(measure_name, sub_score, type(values)))
     assert all(len(i) == len(_vals[0]) for i in _vals)
@@ -189,8 +191,8 @@ class NoDataGivenPlotCreationException(Exception):
 def get_cl_arguments():
     parser = argparse.ArgumentParser(prog='make_graphs.py', description='Creates graphs of evaluation scores tracked along the training process and saves them to disk', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('collection', help='the name of the collection on which experiments were conducted')
-    # parser.add_argument('results', help='path to a pickle file with experimental data to plot')
     parser.add_argument('--models', metavar='model_labels', nargs='+', help='the models to compare by plotting graphs')
+    parser.add_argument('--iterations', '-i', metavar='nb_points', type=int, help='limit or not the dapoints plotted, to the specified number')
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
@@ -203,21 +205,22 @@ def _get_results_file_path(collection_root):
 
 if __name__ == '__main__':
     args = get_cl_arguments()
-    collection_root = os.path.join(collections_dir, args.collection)
-    if os.path.isdir(collection_root):
-        plotter = GraphMaker(os.path.join(collection_root, 'graphs'))
+    col_root = os.path.join(collections_dir, args.collection)
+    if os.path.isdir(col_root):
+        plotter = GraphMaker(os.path.join(col_root, 'graphs'))
     else:
-        print("Collection '{}' not found in {}".format(args.collection, collection_root))
+        print("Collection '{}' not found in {}".format(args.collection, col_root))
         sys.exit(1)
 
     exp_results = []
     for model_label in args.models:
-        exp_results.append(load_results(os.path.join(collection_root, 'results', model_label + '-train.json')))
+        exp_results.append(load_results(os.path.join(col_root, 'results', model_label + '-train.json')))
 
     # plotter.save_plot('all', exp_results)
     # print(len(results_list[0]['trackables']['perplexity']['value']))
     # assert len(results_list[0]['trackables']['perplexity']['value']) == 150
-    plotter.save_cross_models_plots(exp_results)
+    print(type(args.iterations))
+    plotter.save_cross_models_plots(exp_results, nb_points=args.iterations)
 
 # eplot = EasyPlot(xlabel=r'$x$', ylabel='$y$', fontsize=16,
 #                  colorcycle=["#66c2a5", "#fc8d62", "#8da0cb"], figsize=(8, 5))
