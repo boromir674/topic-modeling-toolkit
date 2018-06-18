@@ -15,10 +15,10 @@ class Experiment:
     and also has capabilities of persisting these tracked quantities as experimental results.\n
     Experimental results include:
     - number of topics: the number of topics inffered
-    - document passes: the inner iterations over each document. Phi matrix gets updated 'document_passes' times during one path through the whole collection
+    - document passes: the inner iterations over each document. Phi matrix gets updated 'document_passes' x 'nb_docs' times during one path through the whole collection
     - root dir: the base directory of the colletion, on which experiments were conducted
     - model label: the unique identifier of the model used for the experiments
-    - trackable metrics
+    - trackable "evaluation" metrics
     - regularization parameters
     - evaluators
     """
@@ -61,6 +61,7 @@ class Experiment:
     def set_dictionary(self, artm_dictionary):
         self._loaded_dictionary = artm_dictionary
 
+    # TODO refactor this; remove dubious exceptions
     def update(self, model, specs):
         self.updc += 1
         self.collection_passes.append(specs['collection_passes']) # iterations
@@ -73,12 +74,12 @@ class Experiment:
             print 'Loading score: eval type:', evaluator_type, 'instance name:', evaluator_instance.name
             current_eval = evaluator_instance.evaluate(model)
             for eval_reportable, value in current_eval.items():
-                # print 'PREV', self._nb_prev_accumulated
-                # print 'VAL', len(value), len(value[self._nb_prev_accumulated[evaluator_type]:])
                 try:
-                    self.trackables[evaluator_type][eval_reportable].extend(value) # append only the newly produced tracked values
-                    # print len(self.trackables[evaluator_type][eval_reportable])
-                    # self._nb_prev_accumulated[evaluator_type][eval_reportable] += specs['collection_passes']
+                    if type(value) == list:
+                        self.trackables[evaluator_type][eval_reportable].extend(value[-specs['collection_passes']:]) # append only the newly produced tracked values
+                    else:
+                        print type(value)
+                        raise RuntimeError
                 except RuntimeError as e:
                     print e, '\n', type(value)
                     try:
@@ -101,11 +102,12 @@ class Experiment:
             'model_parameters': self.model_params,
             'reg_parameters': self.reg_params,
             'evaluators': sorted(map(lambda x: (x[0], x[1].name), self._topic_model.evaluators.items()), key=lambda x: x[0])
+            # 'topic_names': self.topic_model.topic_names
         }
 
     def save_experiment(self, save_phi=True):
         """
-        Dumps the dictionary-type accumulated results with the given file name. The file is saved in the directory specified by the latest train specifications (TrainSpecs).\n
+        Dumps the dictionary-type accumulated experimental results with the given file name. The file is saved in the directory specified by the latest train specifications (TrainSpecs).\n
         """
         if not self.collection_passes:
             raise DidNotReceiveTrainSignalException('Model probably hasn\'t been fitted since len(self.collection_passes) = {}, len(self.specs_instances) = {}'.format(len(self.collection_passes), len(self.specs_instances)))
