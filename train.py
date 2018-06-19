@@ -36,6 +36,6 @@ if __name__ == '__main__':
         experiment.set_topic_model(topic_model, empty_trackables=True)
         print 'Initialized new experiment and model'
     # train_specs = {'collection_passes': 30}
-    model_trainer.train(topic_model.artm_model, train_specs)
+    model_trainer.train(topic_model, train_specs)
     if args.save:
         experiment.save_experiment(save_phi=True)

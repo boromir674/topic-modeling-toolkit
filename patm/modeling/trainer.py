@@ -35,14 +35,16 @@ class ModelTrainer(object):
     def model_factory(self):
         return get_model_factory(self.dictionary)
 
-    def train(self, model, specs):
+    def train(self, topic_model, specs):
         """
-        :param artm.ARTM model:
+        :param patm.modeling.topic_model.TopicModel topic_model:
         :param patm.modeling.topic_model.TrainSpecs specs:
         """
+        print 'Setting training parameters..'
+        topic_model.set_parameters(specs)
         print 'Training...'
-        model.fit_offline(self.batch_vectorizer, num_collection_passes=specs['collection_passes'])
-        self.update_observers(model, specs)
+        topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=specs.collection_passes)
+        self.update_observers(topic_model, specs)
 
 
 class TrainerFactory(object):

@@ -120,26 +120,19 @@ class TopicModel(object):
         return b, max_token_lens
 
 
-class TrainSpecs(Mapping):
-    def __init__(self, *args, **kwargs):
-        self._storage = dict(*args, **kwargs)
-        assert 'collection_passes' in self._storage
+class TrainSpecs(object):
+    def __init__(self, collection_passes, reg_names, tau_trajectories):
+        self._col_iter = collection_passes
+        assert len(reg_names) == len(tau_trajectories)
+        self._reg_name2tau_trajectory = dict(zip(reg_names, tau_trajectories))
+        assert all(map(lambda x: len(x) == self._col_iter, self._reg_name2tau_trajectory.values()))
 
-    def __str__(self):
-        # return 'Mapping([{}])'.format(', '.join())
-        return str(self._storage)
+    def tau_trajectory(self, reg_name):
+        return self._reg_name2tau_trajectory.get(reg_name, None)
 
-    def __getitem__(self, key):
-        return self._storage[key]
-
-    def __iter__(self):
-        return iter(self._storage)
-
-    def __len__(self):
-        return len(self._storage)
-
-    def fct_method(self, cfg_file):
-        return TrainSpecs(collection_passes=cfg2model_settings(cfg_file)['learning']['collection_passes'], output_dir=self['output_dir'])
+    @property
+    def collection_passes(self):
+        return self._col_iter
 
 
 class RegularizerNameNotFoundException(Exception):

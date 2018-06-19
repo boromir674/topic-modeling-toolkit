@@ -62,21 +62,21 @@ class Experiment:
         self._loaded_dictionary = artm_dictionary
 
     # TODO refactor this; remove dubious exceptions
-    def update(self, model, specs):
+    def update(self, topic_model, specs):
         self.updc += 1
-        self.collection_passes.append(specs['collection_passes']) # iterations
+        self.collection_passes.append(specs.collection_passes) # iterations
         self.specs_instances.append(specs)
-        self.model_params['nb_topics'].append(tuple((specs['collection_passes'], model.num_topics)))
-        self.model_params['document_passes'].append(tuple((specs['collection_passes'], model.num_document_passes)))
-        self.reg_params.append(tuple((specs['collection_passes'], self._topic_model.get_regs_param_dict())))
+        self.model_params['nb_topics'].append(tuple((specs.collection_passes, topic_model.nb_topics)))
+        self.model_params['document_passes'].append(tuple((specs.collection_passes, topic_model.document_passes)))
+        self.reg_params.append(tuple((specs.collection_passes, opic_model.get_regs_param_dict())))
 
-        for evaluator_type, evaluator_instance in self._topic_model.evaluators.items():
+        for evaluator_type, evaluator_instance in topic_model.evaluators.items():
             print 'Loading score: eval type:', evaluator_type, 'instance name:', evaluator_instance.name
-            current_eval = evaluator_instance.evaluate(model)
+            current_eval = evaluator_instance.evaluate(topic_model.artm_model)
             for eval_reportable, value in current_eval.items():
                 try:
                     if type(value) == list:
-                        self.trackables[evaluator_type][eval_reportable].extend(value[-specs['collection_passes']:]) # append only the newly produced tracked values
+                        self.trackables[evaluator_type][eval_reportable].extend(value[-specs.collection_passes:]) # append only the newly produced tracked values
                     else:
                         print type(value)
                         raise RuntimeError
