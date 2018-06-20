@@ -32,7 +32,7 @@ class Experiment:
         self._topic_model = None
         self.collection_passes = []
         self.specs_instances = []
-        self.trackables = {}
+        self.trackables = {key: {inner_k: [] for inner_k in self._topic_model.evaluators[key].attributes} for key in self._topic_model.evaluators.keys()}
         self.reg_params = []
         self.model_params = {'nb_topics': [], 'document_passes': []}
         # self._nb_prev_accumulated = 0
@@ -48,11 +48,8 @@ class Experiment:
     def topic_model(self):
         return self._topic_model
 
-    def set_topic_model(self, topic_model, empty_trackables=False):
-        self._topic_model = topic_model
-        if empty_trackables:
-            self.trackables = {key: {inner_k: [] for inner_k in self._topic_model.evaluators[key].attributes} for key in self._topic_model.evaluators.keys()}
-            # self._nb_prev_accumulated = {eval_type: Counter() for eval_type in self.trackables.keys()}
+    def empty_trackables(self):
+        self.trackables = {key: {inner_k: [] for inner_k in self._topic_model.evaluators[key].attributes} for key in self._topic_model.evaluators.keys()}
 
     @property
     def dictionary(self):
@@ -143,9 +140,7 @@ class Experiment:
         self.reg_params = results['reg_parameters']
         self.model_params = results['model_parameters']
         # self._nb_prev_accumulated = {eval_type: Counter({eval_reportable: len(val_list) for eval_reportable, val_list in eval_dict.items()}) for eval_type, eval_dict in self.trackables.items()}
-        my_tm, train_specs = self.phi_matrix_handler.load(model_label, results=results)
-        self.set_topic_model(my_tm, empty_trackables=False)
-        return train_specs
+        return self.phi_matrix_handler.load(model_label, results=results)
 
         # get_model_factory(self._loaded_dictionary).create_model_with_phi_from_disk()
 

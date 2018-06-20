@@ -134,6 +134,9 @@ class TrainSpecs(object):
     def collection_passes(self):
         return self._col_iter
 
+    def to_iteration_chunks(self):
+
+
 
 class RegularizerNameNotFoundException(Exception):
     def __init__(self, msg):

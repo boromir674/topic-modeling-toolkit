@@ -12,7 +12,9 @@ scorer_type2_reportables = {
     'theta-snippet': ('document_ids', 'snippet'),
     'topic-mass-phi': ('topic_mass', 'topic_ratio', 'value'),
     'topic-kernel': ('average_coherence', 'average_contrast', 'average_purity', 'average_size', 'coherence', 'contrast', 'purity', 'size', 'tokens'), # bigger value of contr, pur, coher, the better.
-    'top-tokens': ('average_coherence', 'coherence', 'num_tokens', 'tokens', 'weights')
+    'top-tokens': ('average_coherence', 'coherence', 'num_tokens', 'tokens', 'weights'),
+    'top-tokens-10': ('average_coherence', 'coherence', 'num_tokens', 'tokens', 'weights'),
+    'top-tokens-100': ('average_coherence', 'coherence', 'num_tokens', 'tokens', 'weights')
 }
 
 

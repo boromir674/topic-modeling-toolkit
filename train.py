@@ -28,12 +28,10 @@ if __name__ == '__main__':
     model_trainer.register(experiment)  # when the model_trainer trains, the experiment object listens to changes
 
     if args.load:
-        train_specs = experiment.load_experiment(args.label)
-        topic_model = experiment.topic_model
+        topic_model, train_specs = experiment.load_experiment(args.label)
         print '\nLoaded experiment and model state'
     else:
         topic_model, train_specs = model_trainer.model_factory.create_model(args.label, args.config, regularizers_param_cfg)
-        experiment.set_topic_model(topic_model, empty_trackables=True)
         print 'Initialized new experiment and model'
     # train_specs = {'collection_passes': 30}
     model_trainer.train(topic_model, train_specs)

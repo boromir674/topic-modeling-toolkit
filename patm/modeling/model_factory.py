@@ -29,7 +29,8 @@ class ModelFactory(object):
             'theta-snippet': lambda x: artm.ThetaSnippetScore(name=x),
             'topic-mass-phi': lambda x: artm.TopicMassPhiScore(name=x),
             'topic-kernel': lambda x: artm.TopicKernelScore(name=x, probability_mass_threshold=0.5), # p(t|w) > probability_mass_threshold
-            'top-tokens': lambda x: artm.TopTokensScore(name=x, num_tokens=20)
+            'top-tokens-10': lambda x: artm.TopTokensScore(name=x, num_tokens=10),
+            'top-tokens-100': lambda x: artm.TopTokensScore(name=x, num_tokens=100)
         }
         self._tm = None
 
@@ -88,13 +89,10 @@ class ModelFactory(object):
         for reg_instance in reg_list:
             self._tm.add_regularizer(reg_instance)
 
+
 def get_generic_topic_names(nb_topics):
     return ['top_' + index for index in map(lambda x: str(x) if len(str(x)) > 1 else '0'+str(x), range(1, nb_topics+1))]
 
 class ModelLabelDisagreementException(Exception):
     def __init__(self, msg):
         super(ModelLabelDisagreementException, self).__init__(msg)
-
-if __name__ == '__main__':
-    sett = cfg2model_settings('/data/thesis/code/train.cfg')
-    print sett
