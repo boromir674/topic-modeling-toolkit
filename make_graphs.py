@@ -46,7 +46,6 @@ def load_results(path_file):
 
 
 class GraphMaker(object):
-
     def __init__(self, plot_dir):
         self.line_designs = ['b',
                              'y',
@@ -57,6 +56,16 @@ class GraphMaker(object):
                              'p ',
                              'r'
                              ]
+        self._cross_tau_plots = {
+            'phi': lambda x: x['trackables']['reg_parameters']['smooth-sparse-phi']['tau'],
+            'theta': lambda x: x['trackables']['reg_parameters']['smooth-sparse-theta']['tau']
+        }
+        self._tau_titler = lambda x: x + ' matrix sparsing regularization coefficient tau'
+        # self.traj_plots = {
+        #     'sprasity-phi-all':
+        #     'sprasity-theta-all':
+        #     'both-sparsities':
+        # }
         # linestyle / ls: Plot linestyle['-', '--', '-.', ':', 'None', ' ', '']
         # marker: '+', 'o', '*', 's', 'D', ',', '.', '<', '>', '^', '1', '2'
         self.plot = {
@@ -79,6 +88,35 @@ class GraphMaker(object):
         else:
             os.makedirs(self.gr_dir)
             print('Created \'{}\' directory'.format(self.gr_dir))
+
+
+    def save_tau_trajectories(self, results, cross=True, nb_points=None):
+        assert len(results) <= len(self.line_designs)
+        # assert len(set([res['root_dir'] for res in results_list])) <= 1
+        graph_plots = []
+        _vals = []
+        if cross:
+            for tau_type, extractor in self._cross_tau_plots.items():
+                values = extractor(results[0])[:nb_points]
+                _val.append(values)
+                x = range(len(values[:nb_points]))
+                graph_plots.append((
+                                    '{}-tau-{}'.format('-'.join(map(lambda x: x['model_label'], results)), tau_type),
+                                    EasyPlot(x, values[:nb_points], self.line_designs[0], label=results[0]['model_label'],
+                                 showlegend=True,
+                                 xlabel='x', ylabel='y', title=self._tau_titler(tau_type), grid='on')
+                ))
+
+                for i, exp_res in enumerate(results[1:]):
+                    values = extractor(exp_res)[:nb_points]
+                    _vals.append(values)
+                    graph_plots[-1][1].add_plot(x, values, self.line_designs[i + 1], label=exp_res['model_label'][i + 1])
+        else:
+            
+
+        assert all(len(i) == len(_vals[0]) for i in _vals)
+        for graph_type, plot in graph_plots:
+            self._save_plot(graph_type, plot)
 
     def save_plot(self, graph_type, results):
         """
@@ -192,6 +230,7 @@ def get_cl_arguments():
     parser = argparse.ArgumentParser(prog='make_graphs.py', description='Creates graphs of evaluation scores tracked along the training process and saves them to disk', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('collection', help='the name of the collection on which experiments were conducted')
     parser.add_argument('--models', metavar='model_labels', nargs='+', help='the models to compare by plotting graphs')
+    parser.add_argument('--tau-trajectories', '-t', action='store_true', dest='plot_tau_trajectories', default=False, help='Enable ploting of the dynamic tau coefficients\' trajectories')
     parser.add_argument('--iterations', '-i', metavar='nb_points', type=int, help='limit or not the dapoints plotted, to the specified number')
     if len(sys.argv) == 1:
         parser.print_help()
@@ -221,6 +260,9 @@ if __name__ == '__main__':
     # assert len(results_list[0]['trackables']['perplexity']['value']) == 150
     print(type(args.iterations))
     plotter.save_cross_models_plots(exp_results, nb_points=args.iterations)
+
+    if args.plot_tau_trajectories:
+        plotter.save_tau_trajectories(exp_results, nb_points=args.iterations)
 
 # eplot = EasyPlot(xlabel=r'$x$', ylabel='$y$', fontsize=16,
 #                  colorcycle=["#66c2a5", "#fc8d62", "#8da0cb"], figsize=(8, 5))
