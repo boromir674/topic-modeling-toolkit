@@ -31,8 +31,6 @@ reg_type2constructor = {
     # artm.BitermsPhiRegularizer(name=None, tau=1.0, gamma=None, class_ids=None, topic_names=None, dictionary=None, config=None)
     }
 
-a = artm.SmoothSparsePhiRegularizer()
-
 reg_class_string2reg_type = {constructor.__name__: reg_type for reg_type, constructor in reg_type2constructor.items()}
 
 

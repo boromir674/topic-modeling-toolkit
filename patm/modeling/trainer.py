@@ -5,6 +5,7 @@ from patm.utils import cfg2model_settings
 from ..definitions import collections_dir
 from .model_factory import get_model_factory
 from ..evaluation.scorer_factory import ArtmScorerFactory
+from .parameters import get_fit_iteration_chunks
 
 
 class ModelTrainer(object):
@@ -40,11 +41,16 @@ class ModelTrainer(object):
         :param patm.modeling.topic_model.TopicModel topic_model:
         :param patm.modeling.topic_model.TrainSpecs specs:
         """
-        print 'Setting training parameters..'
-        topic_model.set_parameters(specs)
+        steady_iter_chunks = get_fit_iteration_chunks(map(lambda x: x[1], specs.tau_trajectory_list))
+        all_iter_chunks = steady_iter_chunks.to_training_chunks(specs.collection_passes)
+        print 'To train with steady_chunks', iter_chunks
         print 'Training...'
-        topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=specs.collection_passes)
-        self.update_observers(topic_model, specs)
+        iter_sum = 0
+        for chunk in all_iter_chunks:
+            topic_model.set_parameters(specs.to_taus_slice(iter_sum))
+            topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=chunk.span)
+            self.update_observers(topic_model, chunk.span)
+            iter_sum += chunk.span
 
 
 class TrainerFactory(object):

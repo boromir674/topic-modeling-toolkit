@@ -31,7 +31,6 @@ class Experiment:
         self._loaded_dictionary = None # artm.Dictionary object. Data population happens uppon artm.Artm object creation in model_factory; dictionary.load(bin_dict_path) is called there
         self._topic_model = None
         self.collection_passes = []
-        self.specs_instances = []
         self.trackables = {key: {inner_k: [] for inner_k in self._topic_model.evaluators[key].attributes} for key in self._topic_model.evaluators.keys()}
         self.reg_params = []
         self.model_params = {'nb_topics': [], 'document_passes': []}
@@ -59,13 +58,12 @@ class Experiment:
         self._loaded_dictionary = artm_dictionary
 
     # TODO refactor this; remove dubious exceptions
-    def update(self, topic_model, specs):
+    def update(self, topic_model, span):
         self.updc += 1
-        self.collection_passes.append(specs.collection_passes) # iterations
-        self.specs_instances.append(specs)
-        self.model_params['nb_topics'].append(tuple((specs.collection_passes, topic_model.nb_topics)))
-        self.model_params['document_passes'].append(tuple((specs.collection_passes, topic_model.document_passes)))
-        self.reg_params.append(tuple((specs.collection_passes, opic_model.get_regs_param_dict())))
+        self.collection_passes.append(span) # iterations
+        self.model_params['nb_topics'].append(tuple((span, topic_model.nb_topics)))
+        self.model_params['document_passes'].append(tuple((span, topic_model.document_passes)))
+        self.reg_params.append(tuple((span, topic_model.get_regs_param_dict())))
 
         for evaluator_type, evaluator_instance in topic_model.evaluators.items():
             print 'Loading score: eval type:', evaluator_type, 'instance name:', evaluator_instance.name
@@ -73,7 +71,7 @@ class Experiment:
             for eval_reportable, value in current_eval.items():
                 try:
                     if type(value) == list:
-                        self.trackables[evaluator_type][eval_reportable].extend(value[-specs.collection_passes:]) # append only the newly produced tracked values
+                        self.trackables[evaluator_type][eval_reportable].extend(value[-span:]) # append only the newly produced tracked values
                     else:
                         print type(value)
                         raise RuntimeError
@@ -107,7 +105,7 @@ class Experiment:
         Dumps the dictionary-type accumulated experimental results with the given file name. The file is saved in the directory specified by the latest train specifications (TrainSpecs).\n
         """
         if not self.collection_passes:
-            raise DidNotReceiveTrainSignalException('Model probably hasn\'t been fitted since len(self.collection_passes) = {}, len(self.specs_instances) = {}'.format(len(self.collection_passes), len(self.specs_instances)))
+            raise DidNotReceiveTrainSignalException('Model probably hasn\'t been fitted since len(self.collection_passes) = {}'.format(len(self.collection_passes)))
         # asserts that the number of observations recorded per tracked metric variables is equal to the number of "collections pass"; training iterations over the document dataset
         # artm.ARTM.scores satisfy this
         print 'Saving model \'{}\', train set iterations: {}'.format(self.topic_model.label, self.collection_passes)
@@ -122,7 +120,7 @@ class Experiment:
         Given a unigue model label, restores the state of the experiment from disk. Loads all tracked values of the experimental results
         and the state of the TopicModel inferred so far: namely the phi p_wt matrix.
         In details loads settings:
-        - doc collection fit iteration chunks
+        - doc collection fit iteration steady_chunks
         - eval metrics/measures trackes per iteration
         - regularization parameters
         - document passes
@@ -135,7 +133,6 @@ class Experiment:
         assert model_label == results['model_label']
         assert len(results['trackables']['perplexity']['value']) == sum(results['collection_passes'])
         self.collection_passes = results['collection_passes']
-        self.specs_instances = []
         self.trackables = results['trackables']
         self.reg_params = results['reg_parameters']
         self.model_params = results['model_parameters']

@@ -131,11 +131,16 @@ class TrainSpecs(object):
         return self._reg_name2tau_trajectory.get(reg_name, None)
 
     @property
+    def tau_trajectory_list(self):
+        """Returns the list of (reg_name, tau trajectory) pairs, sorted alphabetically by regularizer name"""
+        return map(lambda x: x[1], sorted(self._reg_name2tau_trajectory.items(), key=lambda x: x[0]))
+
+    @property
     def collection_passes(self):
         return self._col_iter
 
-    def to_iteration_chunks(self):
-
+    def to_taus_slice(self, iter_count):
+        return dict(zip(self._reg_name2tau_trajectory.keys(), map(lambda x: x[iter_count], self._reg_name2tau_trajectory.values())))
 
 
 class RegularizerNameNotFoundException(Exception):
