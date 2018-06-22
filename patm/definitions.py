@@ -5,6 +5,10 @@ from processors.string_processors import LowerCaser, MonoSpacer, UtfEncoder, DeA
 from processors.generator_processors import MinLengthFilter, MaxLengthFilter, WordToNgramGenerator
 from processors.disk_writer_processors import UciFormatWriter, VowpalFormatWriter
 
+results_root = 'results'
+models_root = 'models'
+
+
 
 root_dir = '/data/thesis'
 data_root_dir = '/data/thesis/data'

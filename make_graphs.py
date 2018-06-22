@@ -93,11 +93,7 @@ class GraphMaker(object):
 
     def _infer_trajectory(self, iterspan_value_tuples):
         res = []
-        print(list(iterspan_value_tuples))
-        print(type(iterspan_value_tuples))
         for span, val in list(iterspan_value_tuples):
-            print(type(span))
-            print(type(val))
             res.extend([val] * span)
         return res
 
