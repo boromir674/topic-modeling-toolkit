@@ -56,11 +56,13 @@ class GraphMaker(object):
                              'p ',
                              'r'
                              ]
-        self._cross_tau_plots = {
-            'phi': lambda x: x['trackables']['reg_parameters']['smooth-sparse-phi']['tau'],
-            'theta': lambda x: x['trackables']['reg_parameters']['smooth-sparse-theta']['tau']
+        self._tau_traj_extractor = {
+            'phi': lambda x: self._infer_trajectory([(span, params['smooth-sparse-phi']['tau']) for span, params in x['reg_parameters']]),
+            'theta': lambda x: self._infer_trajectory([(span, params['smooth-sparse-theta']['tau']) for span, params in x['reg_parameters']]),
         }
-        self._tau_titler = lambda x: x + ' matrix sparsing regularization coefficient tau'
+
+        self._cross_tau_titler = lambda x: 'tau coefficient for {} matrix sparsing regularization'.format(x)
+        self._all_taus_titler = lambda x, y: 'tau coefficients for {} sparsing regularization for model {}'.format(x, y)
         # self.traj_plots = {
         #     'sprasity-phi-all':
         #     'sprasity-theta-all':
@@ -89,22 +91,32 @@ class GraphMaker(object):
             os.makedirs(self.gr_dir)
             print('Created \'{}\' directory'.format(self.gr_dir))
 
+    def _infer_trajectory(self, iterspan_value_tuples):
+        res = []
+        print(list(iterspan_value_tuples))
+        print(type(iterspan_value_tuples))
+        for span, val in list(iterspan_value_tuples):
+            print(type(span))
+            print(type(val))
+            res.extend([val] * span)
+        return res
 
     def save_tau_trajectories(self, results, cross=True, nb_points=None):
+        """Plots tau coefficient value trajectory for sparsing phi and theta matrices and saves to disk"""
         assert len(results) <= len(self.line_designs)
         # assert len(set([res['root_dir'] for res in results_list])) <= 1
         graph_plots = []
         _vals = []
         if cross:
-            for tau_type, extractor in self._cross_tau_plots.items():
+            for tau_type, extractor in self._tau_traj_extractor.items():
                 values = extractor(results[0])[:nb_points]
-                _val.append(values)
+                _vals.append(values)
                 x = range(len(values[:nb_points]))
                 graph_plots.append((
                                     '{}-tau-{}'.format('-'.join(map(lambda x: x['model_label'], results)), tau_type),
                                     EasyPlot(x, values[:nb_points], self.line_designs[0], label=results[0]['model_label'],
-                                 showlegend=True,
-                                 xlabel='x', ylabel='y', title=self._tau_titler(tau_type), grid='on')
+                                             showlegend=True,
+                                             xlabel='x', ylabel='y', title=self._cross_tau_titler(tau_type), grid='on')
                 ))
 
                 for i, exp_res in enumerate(results[1:]):
@@ -112,7 +124,22 @@ class GraphMaker(object):
                     _vals.append(values)
                     graph_plots[-1][1].add_plot(x, values, self.line_designs[i + 1], label=exp_res['model_label'][i + 1])
         else:
-            
+            for res in results:
+                print(type(res['reg_parameters']))
+                print(res['reg_parameters'][0])
+                values = list(self._tau_traj_extractor['phi'](res))
+                _vals.append(values)
+                x = range(len(values[:nb_points]))
+                el = '.'.join(sorted(self._tau_traj_extractor.keys()))
+                graph_plots.append((
+                    '{}-{}-taus'.format(res['model_label'], el),
+                    EasyPlot(x, values[:nb_points], self.line_designs[0], label='phi',
+                             showlegend=True,
+                             xlabel='x', ylabel='y', title=self._all_taus_titler(el, res['model_label']), grid='on')
+                ))
+                values = list(self._tau_traj_extractor['theta'](res))
+                _vals.append(values)
+                graph_plots[-1][1].add_plot(x, values, self.line_designs[1], label='theta')
 
         assert all(len(i) == len(_vals[0]) for i in _vals)
         for graph_type, plot in graph_plots:
@@ -230,6 +257,7 @@ def get_cl_arguments():
     parser = argparse.ArgumentParser(prog='make_graphs.py', description='Creates graphs of evaluation scores tracked along the training process and saves them to disk', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('collection', help='the name of the collection on which experiments were conducted')
     parser.add_argument('--models', metavar='model_labels', nargs='+', help='the models to compare by plotting graphs')
+    parser.add_argument('--metrics', action='store_true', default=False, help='Enable pltotting of all possible metrics tracked')
     parser.add_argument('--tau-trajectories', '-t', action='store_true', dest='plot_tau_trajectories', default=False, help='Enable ploting of the dynamic tau coefficients\' trajectories')
     parser.add_argument('--iterations', '-i', metavar='nb_points', type=int, help='limit or not the dapoints plotted, to the specified number')
     if len(sys.argv) == 1:
@@ -259,10 +287,11 @@ if __name__ == '__main__':
     # print(len(results_list[0]['trackables']['perplexity']['value']))
     # assert len(results_list[0]['trackables']['perplexity']['value']) == 150
     print(type(args.iterations))
-    plotter.save_cross_models_plots(exp_results, nb_points=args.iterations)
-
+    if args.metrics:
+        plotter.save_cross_models_plots(exp_results, nb_points=args.iterations)
     if args.plot_tau_trajectories:
-        plotter.save_tau_trajectories(exp_results, nb_points=args.iterations)
+        plotter.save_tau_trajectories(exp_results, nb_points=args.iterations, cross=True)
+        plotter.save_tau_trajectories(exp_results, nb_points=args.iterations, cross=False)
 
 # eplot = EasyPlot(xlabel=r'$x$', ylabel='$y$', fontsize=16,
 #                  colorcycle=["#66c2a5", "#fc8d62", "#8da0cb"], figsize=(8, 5))
