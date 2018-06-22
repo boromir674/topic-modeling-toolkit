@@ -113,9 +113,9 @@ class Experiment:
         print 'Saving model \'{}\', train set iterations: {}'.format(self.topic_model.label, self.collection_passes)
         assert all(map(lambda x: len(x) == sum(self.collection_passes), [values_list for eval2scoresdict in self.trackables.values() for values_list in eval2scoresdict.values()]))
         # the above will fail when metrics outside the artm library start to get tracked, because these will be able to only capture the last state of the metric trajectory due to fitting by "junks
-        self.train_results_handler.save(self.topic_model.label)
+        self.train_results_handler.save(self._topic_model.label)
         if save_phi:
-            self.phi_matrix_handler.save(self.topic_model.label)
+            self.phi_matrix_handler.save(self._topic_model.label)
 
     def load_experiment(self, model_label):
         """
@@ -138,7 +138,7 @@ class Experiment:
         self.trackables = results['trackables']
         self.reg_params = results['reg_parameters']
         self.model_params = results['model_parameters']
-        self._topic_model, specs = self.phi_matrix_handler.load(model_label, results=results)
+        self._topic_model = self.phi_matrix_handler.load(model_label, results=results)
         return self._topic_model
 
     # def set_parameters(self, expressions_list):
