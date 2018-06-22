@@ -1,3 +1,7 @@
+import sys
+import time
+import threading
+import json
 from configparser import ConfigParser
 from collections import OrderedDict
 
@@ -13,9 +17,6 @@ def cfg2model_settings(cfg_file):
     config.read(cfg_file)
     return OrderedDict([(section.encode('utf-8'), OrderedDict([(setting_name.encode('utf-8'), _section2encoder[section](value)) for setting_name, value in config.items(section) if value])) for section in config.sections()])
 
-import sys
-import time
-import threading
 
 class Spinner:
     busy = False
@@ -45,3 +46,9 @@ class Spinner:
     def stop(self):
         self.busy = False
         time.sleep(self.delay)
+
+
+def load_results(results_path):
+    with open(results_path, 'r') as results_file:
+        results = results_file.read()
+    return json.loads(results)
