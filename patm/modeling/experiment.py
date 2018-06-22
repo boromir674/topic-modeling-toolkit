@@ -20,7 +20,7 @@ class Experiment:
     - model label: the unique identifier of the model used for the experiments
     - trackable "evaluation" metrics
     - regularization parameters
-    - evaluators
+    - _eval_name2eval_type
     """
 
     def __init__(self, root_dir):
@@ -41,7 +41,7 @@ class Experiment:
 
     def init_empty_trackables(self, model):
         self._topic_model = model
-        self.trackables = {key: {inner_k: [] for inner_k in self._topic_model.evaluators[key].attributes} for key in self._topic_model.evaluators.keys()}
+        self.trackables = {scorer_name: {inner_k: [] for inner_k in self._topic_model.get_scorer_wrapper(scorer_name).attributes} for scorer_name in self._topic_model.evaluator_names}
 
     @property
     def model_factory(self):
@@ -98,7 +98,7 @@ class Experiment:
             'model_label': self._topic_model.label,
             'model_parameters': self.model_params,
             'reg_parameters': self.reg_params,
-            'evaluators': sorted(map(lambda x: (x[0], x[1].name), self._topic_model.evaluators.items()), key=lambda x: x[0])
+            '_eval_name2eval_type': sorted(map(lambda x: (x[0], x[1].name), self._topic_model.evaluators.items()), key=lambda x: x[0])
             # 'topic_names': self.topic_model.topic_names
         }
 
