@@ -290,7 +290,7 @@ if __name__ == '__main__':
     if args.metrics:
         plotter.save_cross_models_plots(exp_results, nb_points=args.iterations)
     if args.plot_tau_trajectories:
-        plotter.save_tau_trajectories(exp_results, nb_points=args.iterations, cross=True)
+        # plotter.save_tau_trajectories(exp_results, nb_points=args.iterations, cross=True)
         plotter.save_tau_trajectories(exp_results, nb_points=args.iterations, cross=False)
 
 # eplot = EasyPlot(xlabel=r'$x$', ylabel='$y$', fontsize=16,

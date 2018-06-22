@@ -63,7 +63,7 @@ class TopicModel(object):
         return self.artm_model.num_document_passes
 
     def set_parameter(self, reg_name, reg_param, value):
-        if reg_name in self.regularizers_set:
+        if reg_name in self.artm_model.regularizers.data:
             if hasattr(self.artm_model.regularizers[reg_name], reg_param):
                 try:
                     self.artm_model.regularizers[reg_name].__setattr__(reg_param, parameter_name2encoder[reg_param](value))
@@ -135,14 +135,15 @@ class TrainSpecs(object):
     @property
     def tau_trajectory_list(self):
         """Returns the list of (reg_name, tau trajectory) pairs, sorted alphabetically by regularizer name"""
-        return map(lambda x: x[1], sorted(self._reg_name2tau_trajectory.items(), key=lambda x: x[0]))
+        return sorted(self._reg_name2tau_trajectory.items(), key=lambda x: x[0])
 
     @property
     def collection_passes(self):
         return self._col_iter
 
     def to_taus_slice(self, iter_count):
-        return dict(zip(self._reg_name2tau_trajectory.keys(), map(lambda x: x[iter_count], self._reg_name2tau_trajectory.values())))
+        return {reg_name: {'tau': trajectory[iter_count]} for reg_name, trajectory in self._reg_name2tau_trajectory.items()}
+        # return dict(zip(self._reg_name2tau_trajectory.keys(), map(lambda x: x[iter_count], self._reg_name2tau_trajectory.values())))
 
 # def get_simple_train_specs(iterations):
 #     return TrainSpecs(iterations, [], [])

@@ -45,7 +45,9 @@ class ModelTrainer(object):
         :param patm.modeling.topic_model.TopicModel topic_model:
         :param patm.modeling.topic_model.TrainSpecs specs:
         """
+        print specs.tau_trajectory_list
         trajectories_list = map(lambda x: x[1], specs.tau_trajectory_list)
+        print trajectories_list
         if not trajectories_list:
             print 'Training without any trajectory...'
             self.spinner.start()
@@ -56,16 +58,15 @@ class ModelTrainer(object):
         else:
             steady_iter_chunks = get_fit_iteration_chunks(map(lambda x: x[1], specs.tau_trajectory_list))
             all_iter_chunks = steady_iter_chunks.to_training_chunks(specs.collection_passes)
-            bar = progressbar.ProgressBar(maxval=progressbar.UnknownLength)
-            print 'Training train with steady_chunks', iter_chunks, '...'
+            print 'Training train with steady_chunks', all_iter_chunks, '...'
             iter_sum = 0
-            for chunk in qtdm(all_iter_chunks):
+            for chunk in tqdm(all_iter_chunks):
+                # d = specs.to_taus_slice(iter_sum)
+                # print d
                 topic_model.set_parameters(specs.to_taus_slice(iter_sum))
                 topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=chunk.span)
                 self.update_observers(topic_model, chunk.span)
                 iter_sum += chunk.span
-                bar.update(i)
-
 
 class TrainerFactory(object):
 
