@@ -2,8 +2,8 @@ import os
 import sys
 import argparse
 from patm.definitions import collections_dir
-from patm import get_model_factory, trainer_factory, Experiment
-
+from patm import get_model_factory, trainer_factory, Experiment, TrainSpecs
+from patm.utils import cfg2model_settings
 
 def get_cl_arguments():
     parser = argparse.ArgumentParser(prog='train.py', description='Trains a artm _topic_model and stores \'evaluation\' scores', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -28,12 +28,16 @@ if __name__ == '__main__':
     model_trainer.register(experiment)  # when the model_trainer trains, the experiment object listens to changes
 
     if args.load:
-        topic_model, train_specs = experiment.load_experiment(args.label)
+        topic_model = experiment.load_experiment(args.label)
         print '\nLoaded experiment and model state'
+        settings = cfg2model_settings(args.config)
+        train_specs = TrainSpecs(settings['learning']['collection_passes'], [], [])
     else:
         topic_model, train_specs = model_trainer.model_factory.create_model(args.label, args.config, regularizers_param_cfg)
+        experiment.init_empty_trackables(topic_model)
         print 'Initialized new experiment and model'
     # train_specs = {'collection_passes': 30}
     model_trainer.train(topic_model, train_specs)
+    print 'Iterated {} times through the collection and {} times over each document: total phi updates = {}'.format(train_specs.collection_passes, topic_model.document_passes, train_specs.collection_passes * topic_model.document_passes)
     if args.save:
         experiment.save_experiment(save_phi=True)

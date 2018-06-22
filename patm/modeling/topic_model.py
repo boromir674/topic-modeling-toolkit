@@ -31,6 +31,9 @@ class TopicModel(object):
         self.reg_type2name[reg_class_string2reg_type[type(reg_object).__name__]] = reg_object.name
         self.artm_model.regularizers.add(reg_object)
 
+    def get_reg(self, reg_name):
+        return self.artm_model.regularizers[reg_name]
+
     @property
     def regularizer_types(self):
         return sorted(self.reg_type2name.keys())
@@ -82,15 +85,14 @@ class TopicModel(object):
         :return:
         :rtype dict
         """
-        print '\nBuilding regularizers parameters dictionary'
         d = {}
         for reg_type in self.regularizer_types:
             d[reg_type] = {}
             cur_reg_obj = self.artm_model.regularizers[self.reg_type2name[reg_type]]
-            print ' reg {}: {}'.format(reg_type, cur_reg_obj.name)
+            # print ' reg {}: {}'.format(reg_type, cur_reg_obj.name)
             d[reg_type]['name'] = cur_reg_obj.name
             for key in regularizer2parameters[reg_type]:
-                print '  recording param:', key
+                # print '  recording param:', key
                 d[reg_type][key] = cur_reg_obj.__getattribute__(key)
         return d
 
@@ -142,6 +144,8 @@ class TrainSpecs(object):
     def to_taus_slice(self, iter_count):
         return dict(zip(self._reg_name2tau_trajectory.keys(), map(lambda x: x[iter_count], self._reg_name2tau_trajectory.values())))
 
+# def get_simple_train_specs(iterations):
+#     return TrainSpecs(iterations, [], [])
 
 class RegularizerNameNotFoundException(Exception):
     def __init__(self, msg):

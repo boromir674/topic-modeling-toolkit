@@ -52,7 +52,7 @@ class ModelFactory(object):
         model.num_document_passes = settings['learning']['document_passes']
         self._create_topic_model(label, model, settings['scores'])
         self._set_regularizers(regularizers)
-        return self._tm, TrainSpecs(collection_passes=settings['learning']['collection_passes'])
+        return self._tm, TrainSpecs(settings['learning']['collection_passes'], [], [])
 
     def create_model_with_phi_from_disk(self, phi_file_path, results):
         """
@@ -76,7 +76,7 @@ class ModelFactory(object):
         model.num_document_passes = results['model_parameters']['document_passes'][-1][1]
         self._create_topic_model(results['model_label'], model, dict(results['evaluators']))
         self._set_regularizers(regularizers)
-        return self._tm, TrainSpecs(collection_passes=results['collection_passes'][-1])
+        return self._tm
 
     def _create_topic_model(self, label, artm_model, score_type_name2score_name):
         scorers = {}

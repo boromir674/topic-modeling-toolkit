@@ -31,13 +31,17 @@ class Experiment:
         self._loaded_dictionary = None # artm.Dictionary object. Data population happens uppon artm.Artm object creation in model_factory; dictionary.load(bin_dict_path) is called there
         self._topic_model = None
         self.collection_passes = []
-        self.trackables = {key: {inner_k: [] for inner_k in self._topic_model.evaluators[key].attributes} for key in self._topic_model.evaluators.keys()}
+        self.trackables = None
         self.reg_params = []
         self.model_params = {'nb_topics': [], 'document_passes': []}
         # self._nb_prev_accumulated = 0
         self.train_results_handler = ResultsWL(self, 'train')
         self.phi_matrix_handler = ModelWL(self, 'train')
         self.updc = 0
+
+    def init_empty_trackables(self, model):
+        self._topic_model = model
+        self.trackables = {key: {inner_k: [] for inner_k in self._topic_model.evaluators[key].attributes} for key in self._topic_model.evaluators.keys()}
 
     @property
     def model_factory(self):
@@ -46,9 +50,6 @@ class Experiment:
     @property
     def topic_model(self):
         return self._topic_model
-
-    def empty_trackables(self):
-        self.trackables = {key: {inner_k: [] for inner_k in self._topic_model.evaluators[key].attributes} for key in self._topic_model.evaluators.keys()}
 
     @property
     def dictionary(self):
@@ -66,7 +67,7 @@ class Experiment:
         self.reg_params.append(tuple((span, topic_model.get_regs_param_dict())))
 
         for evaluator_type, evaluator_instance in topic_model.evaluators.items():
-            print 'Loading score: eval type:', evaluator_type, 'instance name:', evaluator_instance.name
+            # print 'Loading score: eval type:', evaluator_type, 'instance name:', evaluator_instance.name
             current_eval = evaluator_instance.evaluate(topic_model.artm_model)
             for eval_reportable, value in current_eval.items():
                 try:
@@ -84,6 +85,7 @@ class Experiment:
                         print 'does not have __len__ implemented'
                     raise EvaluationOutputLoadingException("Could not assign the value of type '{}' with key '{}' as an item in self.trackables'".format(type(value), eval_reportable))
 
+
     @property
     def current_root_dir(self):
         return self._dir
@@ -93,7 +95,7 @@ class Experiment:
             'collection_passes': self.collection_passes,  # eg [20, 20, 40, 100]
             'trackables': self.trackables,  # TODO try list of tuples [('perplexity'), dict), ..]
             'root_dir': self.current_root_dir,  # eg /data/blah/
-            'model_label': self.topic_model.label,
+            'model_label': self._topic_model.label,
             'model_parameters': self.model_params,
             'reg_parameters': self.reg_params,
             'evaluators': sorted(map(lambda x: (x[0], x[1].name), self._topic_model.evaluators.items()), key=lambda x: x[0])
@@ -136,10 +138,8 @@ class Experiment:
         self.trackables = results['trackables']
         self.reg_params = results['reg_parameters']
         self.model_params = results['model_parameters']
-        # self._nb_prev_accumulated = {eval_type: Counter({eval_reportable: len(val_list) for eval_reportable, val_list in eval_dict.items()}) for eval_type, eval_dict in self.trackables.items()}
-        return self.phi_matrix_handler.load(model_label, results=results)
-
-        # get_model_factory(self._loaded_dictionary).create_model_with_phi_from_disk()
+        self._topic_model, specs = self.phi_matrix_handler.load(model_label, results=results)
+        return self._topic_model
 
     # def set_parameters(self, expressions_list):
     #     """
