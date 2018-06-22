@@ -296,8 +296,11 @@ def get_fit_iteration_chunks(parameter_trajectories):
     """
     return reduce(lambda x, y: x.common_chunks(y), map(lambda x: x.steady_chunks, parameter_trajectories))
 
-def _test():
-    builder = TrajectoryBuilder()
+
+trajectory_builder = TrajectoryBuilder()
+
+
+def _test(builder):
     tr1 = builder.begin_trajectory('tau').deactivate(2).steady_prev(3).interpolate_to(3, 1.2).steady_prev(
         2).interpolate_to(2, 1).create()
     tr2 = builder.begin_trajectory('tau').deactivate(2).steady_new(3, 0.8).interpolate_to(4, 1.2).steady_prev(
@@ -356,19 +359,4 @@ def _test():
 
 if __name__ == '__main__':
 
-    _test()
-
-    # builder = TrajectoryBuilder()
-    # tr1 = builder.begin_trajectory('tau').deactivate(2).steady_new(3, 0.8).interpolate_to(10, 1.2).steady_prev(2).interpolate_to(2, 1).create()
-    # tr2 = builder.begin_trajectory('tau').interpolate_to(2, 0.5, start=1).deactivate(3).steady_new(3, 0.8).create()
-    # # print tr1, type(tr1)
-    # # print tr1.tau, type(tr1.tau)
-    # # print tr1.last_tau, type(tr1.last_tau)
-    # print tr2
-    #
-    # print tr1, len(tr1)
-    # print tr1.group_iterations()
-    # print tr1.steady_chunks._steady_iteration_ranges()
-    # print tr2, len(tr2)
-    # print tr2.group_iterations()
-    # print tr2.steady_chunks._steady_iteration_ranges()
+    _test(trajectory_builder)

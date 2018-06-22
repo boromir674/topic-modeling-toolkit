@@ -5,6 +5,8 @@ from patm.definitions import collections_dir
 from patm import get_model_factory, trainer_factory, Experiment, TrainSpecs
 from patm.utils import cfg2model_settings
 
+from patm.modeling import trajectory_builder
+
 def get_cl_arguments():
     parser = argparse.ArgumentParser(prog='train.py', description='Trains a artm _topic_model and stores \'evaluation\' scores', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('collection', help='the name for the collection to train on')
