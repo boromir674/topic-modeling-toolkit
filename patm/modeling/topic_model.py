@@ -1,7 +1,7 @@
 from collections import Mapping
 from patm.utils import cfg2model_settings
 from .regularizers import regularizer2parameters, parameter_name2encoder
-from regularizers import reg_class_string2reg_type
+from regularizers import regularizer_class_string2reg_type
 
 
 class TopicModel(object):
@@ -17,38 +17,45 @@ class TopicModel(object):
         :param artm.ARTM artm_model: a reference to an artm model object
         :param dict evaluators: mapping from evaluator_types to evaluator_names; i.e. {'sparsity-phi': 'sp', 'top-tokens': 'tt'}
         """
+        self.observers = []
         self.label = label
         self.artm_model = artm_model
-        self.evaluators = evaluators
-        self.observers = []
-        self.reg_type2name = {}  # ie {'smooth-sparse-theta': 'sst', 'smooth-sparse-phi': 'ssp'}
+        self._eval_type2eval_wrapper_obj = evaluators
+        self._eval_name2eval_type = {v.name: k for k, v in evaluators.items()} # {'sp': 'sparsity-phi', 'tt10': 'top-tokens10'}
+        self._reg_type2name = {}  # ie {'smooth-sparse-theta': 'sst', 'smooth-sparse-phi': 'ssp'}
 
     def add_regularizer(self, reg_object):
         """
         Adds a regularizer component to the optimization likelihood function. Adds the given object to the underlying artm model.\n
         :param artm.BaseRegularizer reg_object: the object to add
         """
-        self.reg_type2name[reg_class_string2reg_type[type(reg_object).__name__]] = reg_object.name
+        self._reg_type2name[regularizer_class_string2reg_type[type(reg_object).__name__]] = reg_object.name
         self.artm_model.regularizers.add(reg_object)
+
+    @property
+    def regularizer_names(self):
+        return sorted(_ for _ in self.artm_model.regularizers.data)
+
+    @property
+    def regularizer_types(self):
+        return [regularizer_class_string2reg_type[type(self.artm_model.regularizers[name]).__name__] for name in self.regularizer_names]
 
     def get_reg(self, reg_name):
         return self.artm_model.regularizers[reg_name]
 
     @property
-    def regularizer_types(self):
-        return sorted(self.reg_type2name.keys())
-
-    @property
-    def regularizer_names(self):
-        return sorted(self.reg_type2name.values())
+    def evaluator_names(self):
+        return sorted(self._eval_name2eval_type.keys())
 
     @property
     def evaluator_types(self):
-        return sorted(self.evaluators.keys())
+        return [self._eval_name2eval_type[eval_name] for eval_name in self.evaluator_names]
 
-    @property
-    def evaluator_names(self):
-        return sorted(self.evaluators.values())
+    def get_scorer_wrapper(self, eval_name):
+        return self._eval_type2eval_wrapper_obj[self._eval_name2eval_type[eval_name]]
+
+    def get_scorer(self, eval_name):
+        return self.artm_model.scorer[eval_name]
 
     @property
     def topic_names(self):
@@ -88,8 +95,8 @@ class TopicModel(object):
         d = {}
         for reg_type in self.regularizer_types:
             d[reg_type] = {}
-            cur_reg_obj = self.artm_model.regularizers[self.reg_type2name[reg_type]]
-            # print ' reg {}: {}'.format(reg_type, cur_reg_obj.name)
+            cur_reg_obj = self.artm_model.regularizers[self._reg_type2name[reg_type]]
+            # print ' reg {}: {}'.format(score_type, cur_reg_obj.name)
             d[reg_type]['name'] = cur_reg_obj.name
             for key in regularizer2parameters[reg_type]:
                 # print '  recording param:', key
@@ -99,13 +106,13 @@ class TopicModel(object):
     def get_top_tokens(self, topic_names='all', nb_tokens=10):
         if topic_names == 'all':
             topic_names = self.artm_model.topic_names
-        toks = self.artm_model.score_tracker[self.evaluators['top-tokens'].name].last_value
+        toks = self.artm_model.score_tracker[self._eval_name2eval_type['top-tokens'].name].last_value
         return [toks[topic_name] for topic_name in topic_names]
 
     def print_topics(self, topic_names='all'):
         if topic_names == 'all':
             topic_names = self.artm_model.topic_names
-        toks = self.artm_model.score_tracker[self.evaluators['top-tokens'].name].last_value
+        toks = self.artm_model.score_tracker[self._eval_name2eval_type['top-tokens'].name].last_value
         body, max_lens = self._get_rows(toks)
         header = self._get_header(max_lens, topic_names)
         print(header + body)
