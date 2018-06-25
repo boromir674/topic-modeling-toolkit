@@ -1,13 +1,13 @@
 import os
 import sys
+
 import artm
 from tqdm import tqdm
 
-from patm.utils import cfg2model_settings, Spinner
-from ..definitions import collections_dir
+from patm.modeling.parameters.trajectory import get_fit_iteration_chunks
+from patm.utils import Spinner
 from .model_factory import get_model_factory
-from ..evaluation.scorer_factory import ArtmScorerFactory
-from .parameters import get_fit_iteration_chunks
+from ..definitions import collections_dir
 
 
 class ModelTrainer(object):
@@ -54,7 +54,6 @@ class ModelTrainer(object):
             topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=specs.collection_passes)
             self.spinner.stop()
             self.update_observers(topic_model, specs.collection_passes)
-
         else:
             steady_iter_chunks = get_fit_iteration_chunks(map(lambda x: x[1], specs.tau_trajectory_list))
             all_iter_chunks = steady_iter_chunks.to_training_chunks(specs.collection_passes)

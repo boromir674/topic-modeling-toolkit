@@ -40,8 +40,11 @@ class TopicModel(object):
     def regularizer_types(self):
         return [regularizer_class_string2reg_type[type(self.artm_model.regularizers[name]).__name__] for name in self.regularizer_names]
 
-    def get_reg(self, reg_name):
+    def get_reg_obj(self, reg_name):
         return self.artm_model.regularizers[reg_name]
+
+    def get_reg_name(self, reg_type):
+        return self._reg_type2name.get(reg_type, None)
 
     @property
     def evaluator_names(self):
@@ -68,6 +71,8 @@ class TopicModel(object):
     @property
     def document_passes(self):
         return self.artm_model.num_document_passes
+    def set_document_passes(self, iterations):
+        self.artm_model.num_document_passes = iterations
 
     def set_parameter(self, reg_name, reg_param, value):
         if reg_name in self.artm_model.regularizers.data:

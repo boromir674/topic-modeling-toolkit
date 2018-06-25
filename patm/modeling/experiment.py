@@ -34,7 +34,6 @@ class Experiment:
         self.trackables = None
         self.reg_params = []
         self.model_params = {'nb_topics': [], 'document_passes': []}
-        # self._nb_prev_accumulated = 0
         self.train_results_handler = ResultsWL(self, 'train')
         self.phi_matrix_handler = ModelWL(self, 'train')
         self.updc = 0
@@ -84,7 +83,6 @@ class Experiment:
                     except TypeError as er:
                         print 'does not have __len__ implemented'
                     raise EvaluationOutputLoadingException("Could not assign the value of type '{}' with key '{}' as an item in self.trackables'".format(type(value), eval_reportable))
-
 
     @property
     def current_root_dir(self):

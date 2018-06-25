@@ -23,6 +23,12 @@ class ModelFactory(object):
         self._tm = None
         self._eval_factory = EvaluationFactory(self.dict)
 
+    def create_model1(self, label, nb_topics, document_passes, ):
+        model = artm.ARTM(num_topics=nb_topics,
+                          dictionary=self.dict,
+                          topic_names=get_generic_topic_names(nb_topics))
+        model.num_document_passes = document_passes
+
     def create_model(self, label, cfg_file, reg_cfg):
         """
         Creates an artm _topic_model instance based on the input config file. Phi matrix is initialized with random numbers by default\n
@@ -77,7 +83,6 @@ class ModelFactory(object):
     def _set_regularizers(self, reg_list):
         for reg_instance in reg_list:
             self._tm.add_regularizer(reg_instance)
-
 
 def get_generic_topic_names(nb_topics):
     return ['top_' + index for index in map(lambda x: str(x) if len(str(x)) > 1 else '0'+str(x), range(1, nb_topics+1))]

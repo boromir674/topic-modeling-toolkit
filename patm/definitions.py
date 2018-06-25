@@ -8,7 +8,7 @@ from processors.disk_writer_processors import UciFormatWriter, VowpalFormatWrite
 results_root = 'results'
 models_root = 'models'
 
-
+regularizers_param_cfg = '/data/thesis/code/regularizers.cfg'
 
 root_dir = '/data/thesis'
 data_root_dir = '/data/thesis/data'
