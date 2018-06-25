@@ -34,14 +34,15 @@ class Experiment:
         self.trackables = None
         self.reg_params = []
         self.model_params = {'nb_topics': [], 'document_passes': []}
-        # self._nb_prev_accumulated = 0
         self.train_results_handler = ResultsWL(self, 'train')
         self.phi_matrix_handler = ModelWL(self, 'train')
-        self.updc = 0
 
     def init_empty_trackables(self, model):
         self._topic_model = model
         self.trackables = {scorer_name: {inner_k: [] for inner_k in self._topic_model.get_scorer_wrapper(scorer_name).attributes} for scorer_name in self._topic_model.evaluator_names}
+        self.collection_passes = []
+        self.reg_params = []
+        self.model_params = {'nb_topics': [], 'document_passes': []}
 
     @property
     def model_factory(self):
@@ -60,15 +61,14 @@ class Experiment:
 
     # TODO refactor this; remove dubious exceptions
     def update(self, topic_model, span):
-        self.updc += 1
         self.collection_passes.append(span) # iterations
         self.model_params['nb_topics'].append(tuple((span, topic_model.nb_topics)))
         self.model_params['document_passes'].append(tuple((span, topic_model.document_passes)))
         self.reg_params.append(tuple((span, topic_model.get_regs_param_dict())))
 
-        for evaluator_type, evaluator_instance in topic_model.evaluators.items():
+        for evaluator_type, eval_name in zip(topic_model.evaluator_names, topic_model.evaluator_types):
             # print 'Loading score: eval type:', evaluator_type, 'instance name:', evaluator_instance.name
-            current_eval = evaluator_instance.evaluate(topic_model.artm_model)
+            current_eval = topic_model.get_scorer_wrapper(evaluator_type).evaluate(topic_model.artm_model)
             for eval_reportable, value in current_eval.items():
                 try:
                     if type(value) == list:
@@ -85,7 +85,6 @@ class Experiment:
                         print 'does not have __len__ implemented'
                     raise EvaluationOutputLoadingException("Could not assign the value of type '{}' with key '{}' as an item in self.trackables'".format(type(value), eval_reportable))
 
-
     @property
     def current_root_dir(self):
         return self._dir
@@ -98,7 +97,7 @@ class Experiment:
             'model_label': self._topic_model.label,
             'model_parameters': self.model_params,
             'reg_parameters': self.reg_params,
-            '_eval_name2eval_type': sorted(map(lambda x: (x[0], x[1].name), self._topic_model.evaluators.items()), key=lambda x: x[0])
+            # '_eval_name2eval_type': sorted(map(lambda x: (x[0], x[1].name), self._topic_model.evaluators.items()), key=lambda x: x[0])
             # 'topic_names': self.topic_model.topic_names
         }
 
@@ -110,7 +109,7 @@ class Experiment:
             raise DidNotReceiveTrainSignalException('Model probably hasn\'t been fitted since len(self.collection_passes) = {}'.format(len(self.collection_passes)))
         # asserts that the number of observations recorded per tracked metric variables is equal to the number of "collections pass"; training iterations over the document dataset
         # artm.ARTM.scores satisfy this
-        print 'Saving model \'{}\', train set iterations: {}'.format(self.topic_model.label, self.collection_passes)
+        # print 'Saving model \'{}\', train set iterations: {}'.format(self.topic_model.label, self.collection_passes)
         assert all(map(lambda x: len(x) == sum(self.collection_passes), [values_list for eval2scoresdict in self.trackables.values() for values_list in eval2scoresdict.values()]))
         # the above will fail when metrics outside the artm library start to get tracked, because these will be able to only capture the last state of the metric trajectory due to fitting by "junks
         self.train_results_handler.save(self._topic_model.label)

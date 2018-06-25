@@ -2,7 +2,7 @@ import artm
 from patm.utils import cfg2model_settings
 from patm.definitions import collections_dir
 from .topic_model import TopicModel, TrainSpecs
-from .regularizers import init_from_file, init_from_latest_results
+from .regularizers import init_from_file, init_from_latest_results, get_reg_pool_from_files
 from ..evaluation.scorer_factory import get_scorers_factory, EvaluationFactory
 
 
@@ -22,6 +22,35 @@ class ModelFactory(object):
         self.dict = dictionary
         self._tm = None
         self._eval_factory = EvaluationFactory(self.dict)
+        self._scores = {}
+
+    # def _parse_train_cfg(self, cfg):
+    #     _ = cfg2model_settings(cfg)
+    #     self._nb_topics = _['learning']['nb_topicss']
+    #     self._col_passes = _['learning']['collection_passes']
+    #     self._doc_passes = _['learning']['document_passes']
+    #     self._scores = _['scores']
+    #     self._regs = _['regularizers']
+
+    def create_model1(self, label, nb_topics, document_passes, cfg_file, reg_cfg):
+        """
+
+        :param int nb_topics:
+        :param int document_passes:
+        :param str cfg_file:
+        :param str reg_cfg:
+        :return:
+        :rtype: patm.modeling.topic_model.TopicModel
+        """
+        settings = cfg2model_settings(cfg_file)
+        regularizers = get_reg_pool_from_files(cfg_file, reg_cfg)
+        model = artm.ARTM(num_topics=nb_topics,
+                          dictionary=self.dict,
+                          topic_names=get_generic_topic_names(nb_topics))
+        model.num_document_passes = document_passes
+        self._create_topic_model(label, model, settings['scores'])
+        self._set_regularizers(regularizers)
+        return self._tm
 
     def create_model(self, label, cfg_file, reg_cfg):
         """
@@ -77,7 +106,6 @@ class ModelFactory(object):
     def _set_regularizers(self, reg_list):
         for reg_instance in reg_list:
             self._tm.add_regularizer(reg_instance)
-
 
 def get_generic_topic_names(nb_topics):
     return ['top_' + index for index in map(lambda x: str(x) if len(str(x)) > 1 else '0'+str(x), range(1, nb_topics+1))]

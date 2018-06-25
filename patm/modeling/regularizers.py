@@ -3,6 +3,7 @@ from collections import OrderedDict
 from configparser import ConfigParser
 import artm
 
+from ..utils import cfg2model_settings
 
 regularizer2parameters = {
     'kl-function-info': ('function_type', 'power_value'),
@@ -16,23 +17,6 @@ regularizer2parameters = {
     'topic-selection': ('tau', 'topic_names', 'alpha_iter')
     # the reasonable parameters to consider experiment with setting to different values and to also change between training cycles
 }
-
-reg_type2constructor = {
-        'kl-function-info': artm.KlFunctionInfo,
-        'smooth-sparse-phi': artm.SmoothSparsePhiRegularizer,
-        'smooth-sparse-theta': artm.SmoothSparseThetaRegularizer,
-        'decorrelator-phi': artm.DecorrelatorPhiRegularizer,
-        'label-regularization-phi': artm.LabelRegularizationPhiRegularizer,
-        'specified-sparse-phi': artm.SpecifiedSparsePhiRegularizer,
-        'improve-coherence-phi': artm.ImproveCoherencePhiRegularizer,
-        'smooth-ptdw': artm.SmoothPtdwRegularizer,
-        'topic-selection': artm.TopicSelectionThetaRegularizer
-    # There are a few more regularizers implemented in the BigARTM library
-    # artm.BitermsPhiRegularizer(name=None, tau=1.0, gamma=None, class_ids=None, topic_names=None, dictionary=None, config=None)
-    }
-
-regularizer_class_string2reg_type = {constructor.__name__: reg_type for reg_type, constructor in reg_type2constructor.items()}
-
 
 parameter_name2encoder = {
     'tau': float, # the coefficient of regularization for this regularizer
@@ -50,6 +34,36 @@ parameter_name2encoder = {
     'sparse_by_columns': bool, # find max elements in column or row
 }
 
+reg_type2constructor = {
+    'kl-function-info': artm.KlFunctionInfo,
+    'sparse-phi': artm.SmoothSparsePhiRegularizer,
+    'smooth-phi': artm.SmoothSparsePhiRegularizer,
+    'sparse-theta': artm.SmoothSparseThetaRegularizer(),
+    'smooth-theta': artm.SmoothSparseThetaRegularizer(),
+    'decorrelator-phi': artm.DecorrelatorPhiRegularizer,
+    'label-regularization-phi': artm.LabelRegularizationPhiRegularizer,
+    'specified-sparse-phi': artm.SpecifiedSparsePhiRegularizer,
+    'improve-coherence-phi': artm.ImproveCoherencePhiRegularizer,
+    'smooth-ptdw': artm.SmoothPtdwRegularizer,
+    'topic-selection': artm.TopicSelectionThetaRegularizer
+}
+
+
+# class RegularizersFactory(object):
+#
+#     def __init__(self, dictionary):
+#         self._dict = dictionary
+        # self._reg_constructor = {
+        #     'sparse-phi-specific': lambda x: reg_type2constructor[]
+
+        # There are a few more regularizers implemented in the BigARTM library
+        # artm.BitermsPhiRegularizer(name=None, tau=1.0, gamma=None, class_ids=None, topic_names=None, dictionary=None, config=None)
+
+    # def create_regularizer(self, reg_type, name, reg_settings):
+    #     pass
+
+
+regularizer_class_string2reg_type = {constructor: reg_type for reg_type, constructor in reg_type2constructor.items()}
 
 def _construct_regularizer(reg_type, name, reg_settings):
     reg_parameters = {k: v for k, v in reg_settings.items() if v}
@@ -73,6 +87,10 @@ def init_from_file(type_names_list, reg_config):
     reg_settings = cfg2regularizer_settings(reg_config)
     return [_construct_regularizer(reg_type, name, reg_settings[reg_type]) for reg_type, name in type_names_list]
 
+def get_reg_pool_from_files(train_cfg, reg_cfg):
+    train_settings = cfg2model_settings(train_cfg)
+    reg_settings = cfg2regularizer_settings(reg_cfg)
+    return [_construct_regularizer(reg_type, name, reg_settings[reg_type]) for reg_type, name in train_settings['regularizers'].items()]
 
 def init_from_latest_results(results):
     return [_construct_regularizer(reg_type, reg_settings_dict['name'], dict([(attr_name, reg_settings_dict[attr_name])
@@ -84,21 +102,8 @@ def cfg2regularizer_settings(cfg_file):
     return OrderedDict([(str(section), OrderedDict([(str(setting_name), parameter_name2encoder[str(setting_name)](value)) for setting_name, value in config.items(section) if value])) for section in config.sections()])
 
 
+
+
+
 if __name__ == '__main__':
-    reg_inst = artm.SmoothSparsePhiRegularizer(name='gav', tau=0.5)
-    print reg_inst.name
-    print reg_inst.tau
-    print reg_inst.gamma
-
-    res = init_from_file([('smooth-sparse-phi', 'ssp'), ('smooth-sparse-theta', 'sst')], '/data/thesis/code/regularizers.cfg')
-
-    print res, '\n'
-
-    print 'nb regularizers initialized:', len(res), '\n'
-
-    regw1 = RegularizerW(res[0])
-    print regw1.instance, type(regw1.instance)
-
-    print regw1.instance.name
-    regw1.instance.__setattr__('tau', -1)
-    print regw1.instance.name
+    print regularizer_class_string2reg_type

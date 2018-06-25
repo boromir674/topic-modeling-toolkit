@@ -40,8 +40,11 @@ class TopicModel(object):
     def regularizer_types(self):
         return [regularizer_class_string2reg_type[type(self.artm_model.regularizers[name]).__name__] for name in self.regularizer_names]
 
-    def get_reg(self, reg_name):
+    def get_reg_obj(self, reg_name):
         return self.artm_model.regularizers[reg_name]
+
+    def get_reg_name(self, reg_type):
+        return self._reg_type2name.get(reg_type, None)
 
     @property
     def evaluator_names(self):
@@ -68,6 +71,8 @@ class TopicModel(object):
     @property
     def document_passes(self):
         return self.artm_model.num_document_passes
+    def set_document_passes(self, iterations):
+        self.artm_model.num_document_passes = iterations
 
     def set_parameter(self, reg_name, reg_param, value):
         if reg_name in self.artm_model.regularizers.data:
@@ -96,10 +101,8 @@ class TopicModel(object):
         for reg_type in self.regularizer_types:
             d[reg_type] = {}
             cur_reg_obj = self.artm_model.regularizers[self._reg_type2name[reg_type]]
-            # print ' reg {}: {}'.format(score_type, cur_reg_obj.name)
             d[reg_type]['name'] = cur_reg_obj.name
             for key in regularizer2parameters[reg_type]:
-                # print '  recording param:', key
                 d[reg_type][key] = cur_reg_obj.__getattribute__(key)
         return d
 
