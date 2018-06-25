@@ -3,6 +3,9 @@ import abc
 import glob
 import json
 
+from patm.utils import load_results
+
+
 class WriterLoader(object):
 
     __metaclass__ = abc.ABCMeta
@@ -79,9 +82,8 @@ class ResultsWL(ExperimentWL):
             json.dump(results, f)
 
     def load(self, name):
-        with open(self.get_full_path(name), 'rb') as results_file:
-            results = results_file.read()
-        return json.loads(results)
+        return load_results(self.get_full_path(name))
+
 
 
 class ModelWL(ExperimentWL):

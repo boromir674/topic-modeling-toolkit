@@ -11,7 +11,11 @@ def load_results(path_file):
 
 
 def get_latest_top_tokens(results_dict):
-    return sorted(eval(results_dict['trackables']['top-tokens']['tokens'][-1]).items(), key=lambda x: x[0])
+    score_types = ['top-tokens' + str(_) for _ in ['-100', '-10', '']]
+    for token_score in score_types:
+        if token_score in results_dict['trackables']:
+            return sorted(eval(results_dict['trackables'][token_score]['tokens'][-1]).items(), key=lambda x: x[0])
+    return None
 
 def _dictify_results(results):
     tr = results['trackables']
@@ -194,13 +198,19 @@ if __name__ == '__main__':
     col_root = '/data/thesis/data/collections/'
     res_dict = load_results(os.path.join(col_root, args.collection, 'results', args.model + '-train.json'))
     top_toks = get_latest_top_tokens(res_dict)
+
+    table = create_topics_tokens_table('Top tokens per topic', map(lambda k: k[0], top_toks), map(lambda z: z[1], top_toks), width=4, math=True)
+
+    print table
+    
+
     # llt = map(lambda x: map(lambda y: str(y), x[1]), sorted([(topic_name, str(tok)) for topic_name, top_tokens in tok_dic.items() for tok in top_tokens], key=lambda x: x[0]))
 
-    tt = eval(res_dict['trackables']['top-tokens']['tokens'][-1])
-    tw = eval(res_dict['trackables']['top-tokens']['weights'][-1])
+    # tt = eval(res_dict['trackables']['top-tokens-100']['tokens'][-1])
+    # tw = eval(res_dict['trackables']['top-tokens-100']['weights'][-1])
 
-    print tt['top_01']
-    print tw['top_01']
+    # print tt['top_01']
+    # print tw['top_01']
 
     # tuples = []
     # for top in tt.keys():
@@ -213,7 +223,6 @@ if __name__ == '__main__':
     #     print
     #     assert [x[0] for x in l] == [_ for _ in map(lambda y: y[1], top_toks)]
 
-    table = create_topics_tokens_table('Top tokens per topic', map(lambda k: k[0], top_toks), map(lambda z: z[1], top_toks), width=4, math=True)
 
 
     # rows = [[("Trial row", 2), '50'], ['alpha', 'beta', 'gamma']]
@@ -233,6 +242,5 @@ if __name__ == '__main__':
 
     # table = create_topics_tokens_table('Top tokens per topic', ['topic{}'.format(i) for i in range(3)], [['a', 'b', 'c'], ['r', 't', 'y'], ['sdf', 't', 'as']], width=2)
 
-    print table
 
 
