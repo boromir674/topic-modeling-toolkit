@@ -80,16 +80,7 @@ def get_id(pipe_settings):
     return '_'.join(tuple2string(pipeline_component, value) for pipeline_component, value in pipe_settings.items() if tuple2string(pipeline_component, value))
 
 
-def get_id1(pipeline):
-    b = ''
-    for pr_name, proc in pipeline:
-        b += '_'
-        if type(proc) in (int, float):
-            b += '{}-{}'.format(pr_name, proc)
-        else:
-            b += proc.to_id()
-    return b[1:]
-
+############## IDEOLOGY INFORMATION ##############
 
 labels = ('extreme left', 'left', 'left of middle', 'right of middle', 'right', 'extreme right')
 
@@ -162,18 +153,20 @@ obi2 = {
     }
 }
 
-# outlets = 23
-id_label2outlet_dict = OrderedDict([(ide, OrderedDict(sorted(map(lambda x: (x[0], int(x[1])), outlets_by_ideology[ide].items()), key=lambda x: x[0]))) for ide in labels])
-
-
-def id2outlet(_id):
-    assert type(_id) == int
-    for innerdict in id_label2outlet_dict.values():
-        for outlet, idd in innerdict.items():
-            if _id == idd:
-                return outlet
+def id2ideology(_id):
+    for ideology_label, innerdict in outlets_by_ideology.items():
+        for outlet_name, outlet_id in innerdict.items():
+            if _id == outlet_id:
+                return ideology_label
     return None
-
 
 def label2alphanumeric(label):
     return '_'.join(label.lower().split(' '))
+
+poster_id2outlet_label = {poster_id: poster_name for ide_bin_dict in outlets_by_ideology.values() for poster_name, poster_id in ide_bin_dict.items()}
+poster_id2ideology_label = {poster_id: label2alphanumeric(id2ideology(poster_id)) for poster_id in poster_id2outlet_label}
+
+# the outlets_by_ideology dict only sorted as in labels from extreme left to extreme right
+id_label2outlet_dict = OrderedDict([(ide, OrderedDict(sorted(map(lambda x: (x[0], int(x[1])), outlets_by_ideology[ide].items()), key=lambda x: x[0]))) for ide in labels])
+
+IDEOLOGY_LABEL_NAME = 'ideology'

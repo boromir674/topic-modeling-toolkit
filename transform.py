@@ -10,8 +10,8 @@ from gensim.corpora import Dictionary
 from gensim.models.tfidfmodel import TfidfModel
 
 from patm.modeling import get_posts_generator
-from patm import Pipeline, UciDataset, VowpalDataset, get_pipeline
-from patm.definitions import root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, collections_dir
+from patm import Pipeline, get_dataset, get_pipeline
+from patm.definitions import root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, collections_dir, poster_id2ideology_label, IDEOLOGY_LABEL_NAME
 
 
 class PipeHandler(object):
@@ -29,11 +29,17 @@ class PipeHandler(object):
         self.dataset = None
         self._collection = ''
         self.vocab_file = ''
+        self.ideology_labels = []
+        self._pack_data = None
 
     def create_pipeline(self, pipeline_cfg):
         pipe_settings = cfg2pipe_settings(os.path.join(root_dir, 'code', pipeline_cfg), 'preprocessing')
         print 'Pipe-Config:\n' + ',\n'.join('{}: {}'.format(key, value) for key, value in pipe_settings.items())
         self.pipeline = get_pipeline(pipe_settings['format'], pipe_settings)
+        if self.pipeline.settings['format'] == 'uci':
+            self._pack_data = lambda x: x[1]
+        elif self.pipeline.settings['format'] == 'vowpal':
+            self._pack_data = lambda x: [map(lambda y: (self.dct[y[0]], y[1]), x[1]), {IDEOLOGY_LABEL_NAME: self.ideology_labels[x[0]]}]
         return self.pipeline
 
     def set_doc_gen(self, category, num_docs='all', labels=False):
@@ -54,6 +60,7 @@ class PipeHandler(object):
         doc_gens = []
         for i, doc in enumerate(self.text_generator):
             doc_gens.append(a_pipe.pipe_through(doc['text']))
+            self.ideology_labels.append(poster_id2ideology_label[str(doc['poster_id'])])
 
         self.dct = a_pipe[a_pipe.processors_names.index('dict-builder')][1].state
         # self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
@@ -62,7 +69,7 @@ class PipeHandler(object):
         print '\nnum_pos', self.dct.num_pos
         print 'num_nnz', self.dct.num_nnz
         print '{} items in dictionary'.format(len(self.dct.items()))
-        print '\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0))[:5]))
+        print '\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted(self.dct.iteritems(), key=itemgetter(0))[:5]))
 
         print 'filter extremes'
         self.dct.filter_extremes(no_below=a_pipe.settings['nobelow'], no_above=a_pipe.settings['noabove'])
@@ -84,30 +91,29 @@ class PipeHandler(object):
         self._write_vocab()
 
         if self.pipeline.settings['format'] == 'uci':
-            docword_file = os.path.join(collections_dir, collection, 'docword.{}.txt'.format(collection))
-            self.pipeline[-1][1].fname = docword_file
-            # Write the first 3 lines of the uci-formated file that contain stats: nb_docs\n vocab_size\n nb_bow_tuples\n
-            with open(a_pipe.processors[-1].fname, 'w') as f:
-                f.writelines('{}\n{}\n{}\n'.format(self.dct.num_docs, len(self.dct.items()), sum(len(_) for _ in self.corpus)))
-            self.dataset = UciDataset(self._collection, self.get_dataset_id(a_pipe), len(self.corpus), len(self.dct.items()), sum(len(_) for _ in self.corpus), docword_file, self.vocab_file)
+            files = [os.path.join(collections_dir, collection, 'docword.{}.txt'.format(collection)), self.vocab_file]
+            self.pipeline[-1][1].fname = files[0]
         elif self.pipeline.settings['format'] == 'vowpal':
-            vowpal_file = os.path.join(collections_dir, self._collection, 'vowpal.{}.txt'.format(self._collection))
-            self.pipeline[-1][1].fname = vowpal_file
-            self.dataset = VowpalDataset(self._collection, self.get_dataset_id(a_pipe), len(self.corpus), len(self.dct.items()), sum(len(_) for _ in self.corpus), vowpal_file)
+            files = [os.path.join(collections_dir, self._collection, 'vowpal.{}.txt'.format(self._collection))]
+            self.pipeline[-1][1].fname = files[0]
         self._write()
+        self.dataset = get_dataset(self.pipeline.settings['format'], self._collection, self.get_dataset_id(a_pipe), len(self.corpus), len(self.dct.items()), sum(len(_) for _ in self.corpus), files)
         self.dataset.save()
         return self.dataset
 
     def _write(self):
+        if self.pipeline.settings['format'] == 'uci':
+            with open(self.pipeline.processors[-1].fname, 'w') as f:
+                # Write the first 3 lines of the uci-formated file that contain stats: nb_docs\n vocab_size\n nb_bow_tuples\n
+                f.writelines('{}\n{}\n{}\n'.format(self.dct.num_docs, len(self.dct.items()), sum(len(_) for _ in self.corpus)))
         if self.pipeline.settings['weight'] == 'counts':
-            for vec in self.corpus:
-                self.doc_gen_stats['corpus-tokens'] += len(vec)
-                self.pipeline[-1][1].process(vec)
+            gene = (_ for _ in self.corpus)
         elif self.pipeline.settings['weight'] == 'tfidf':
             self.model = TfidfModel(self.corpus)
-            for vec in map(lambda x: self.model[x], self.corpus):
-                self.doc_gen_stats['corpus-tokens'] += len(vec)
-                self.pipeline[-1][1].process(vec)
+            gene = (_ for _ in map(lambda x: self.model[x], self.corpus))
+        for i, vec in enumerate(gene):
+            self.doc_gen_stats['corpus-tokens'] += len(vec)
+            self.pipeline[-1][1].process(self._pack_data((i, vec)))
 
         self.doc_gen_stats.update({'docs-gen': self.cat2textgen_proc.nb_processed, 'docs-failed': len(self.cat2textgen_proc.failed)})
 

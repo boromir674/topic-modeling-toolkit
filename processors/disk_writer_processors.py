@@ -29,12 +29,6 @@ class UciFormatWriter(StateLessDiskWriter):
     def to_id(self):
         return 'uci'
 
-
-def write_uci(fname, doc_vector, doc_num):
-    with open(fname, 'a') as f:
-        f.writelines(map(lambda x: '{} {} {}\n'.format(doc_num, x[0], x[1]), doc_vector))
-
-
 class VowpalFormatWriter(StateLessDiskWriter):
     """
     Injests a (doc_vector, classes_ditct) at a time. For example ([('gav', 1), ('alpha', 4)], {'author': 'Ivan Sokolov'})
@@ -46,6 +40,11 @@ class VowpalFormatWriter(StateLessDiskWriter):
         return 'vowpal'
 
 
+def write_uci(fname, doc_vector, doc_num):
+    with open(fname, 'a') as f:
+        f.writelines(map(lambda x: '{} {} {}\n'.format(doc_num, x[0], x[1]), doc_vector))
+
+
 def write_vowpal(fname, doc_vector, doc_num, class_labels):
     """
     Dumps a doument vector as a single line in the specified target file path in the "Vowpal Wabbit" format.\n
@@ -55,13 +54,9 @@ def write_vowpal(fname, doc_vector, doc_num, class_labels):
     :param dict class_labels: keys are class "category" (i.e. 'author') and values are the actual class the document belongs to (i.e. 'Ivan Sokolov')
     """
     with open(fname, 'a') as f:
-        f.write('doc{} {} {}'.format(
+        f.write('doc{} {} {}\n'.format(
             doc_num,
             ' '.join(map(lambda x: '{}{}'.format(x[0], freq2string.get(x[1], ':{}'.format(x[1]))), doc_vector)),
             ' '.join(map(lambda x: '|{} {}'.format(x[0], x[1]), class_labels.items()))
         ))
-
-
-freq2string = {
-    1: '',
-}
+freq2string = {1: ''}

@@ -6,7 +6,7 @@ import glob
 import argparse
 from patm.dataset import TextDataset
 
-supported_datasets = tuple(['uci'])
+supported_datasets = ('uci', 'vowpal')
 
 def get_datasets(collections_root, details=True):
     collection_names = os.listdir(collections_root)

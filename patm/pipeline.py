@@ -33,7 +33,7 @@ class Pipeline(object):
         return len(self.processors)
 
     def __str__(self):
-        b = 'Pipeline\nlen: {}\n'.format(len(self))
+        b = '{}\nlen: {}\n'.format(type(self).__name__, len(self))
         b += '\n'.join('{}: {}'.format(pr_name, pr_instance) for pr_name, pr_instance in zip(self.processors_names, self.processors))
         return b
 

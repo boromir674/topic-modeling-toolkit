@@ -76,5 +76,13 @@ class VowpalDataset(TextDataset):
     def __init__(self, name, _id, nb_docs, unique_words, nb_words, vowpal_file):
         super(VowpalDataset, self).__init__(self.format, name, _id, nb_docs, unique_words, nb_words)
         self.vowpal = vowpal_file
+        print 'H', self.vowpal
         assert os.path.isfile(self.vowpal)
         assert os.path.dirname(self.vowpal) == self.root_dir
+
+# Tsompania, alla 8a ginei refactor
+def get_dataset(dt_type, name, _id, nb_docs, unique_words, nb_words, files):
+    if dt_type == 'uci':
+        return UciDataset(name, _id, nb_docs, unique_words, nb_words, files[0], files[1])
+    elif dt_type == 'vowpal':
+        return VowpalDataset(name, _id, nb_docs, unique_words, nb_words, files[0])
