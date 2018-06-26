@@ -8,9 +8,6 @@ class StateLessDiskWriter(StateLessProcessor):
         self.fname = fname
         super(StateLessProcessor, self).__init__(func)
 
-    # def __str__(self):
-    #     return super(StateLessDiskWriter, self).__str__() + '(' + str(self.fname) + ')'
-
     def __str__(self):
         return type(self).__name__ + '(' + str(self.fname) + ')'
 
@@ -51,11 +48,11 @@ class VowpalFormatWriter(StateLessDiskWriter):
 
 def write_vowpal(fname, doc_vector, doc_num, class_labels):
     """
-    Dumps a doument as a single line in the specified target file path in the "Vowpal Wabbit" format.\n
+    Dumps a doument vector as a single line in the specified target file path in the "Vowpal Wabbit" format.\n
     :param str fname: path to target file
     :param iterable doc_vector: the representation of a document; an iterable of (token, frequency) tuples; eg [('gav', 1), ('alpha', 4)]
     :param int doc_num: number to represent document number in queue; eg 1,2,3,4,5 ... D
-    :param dict class_labels: keys are class "category" (i.e. 'author') and values are the actuall class the document belongs to (i.e. 'Ivan Sokolov')
+    :param dict class_labels: keys are class "category" (i.e. 'author') and values are the actual class the document belongs to (i.e. 'Ivan Sokolov')
     """
     with open(fname, 'a') as f:
         f.write('doc{} {} {}'.format(

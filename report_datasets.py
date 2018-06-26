@@ -4,7 +4,7 @@ import os
 import pickle
 import glob
 import argparse
-from patm.dataset import Dataset
+from patm.dataset import TextDataset
 
 supported_datasets = tuple(['uci'])
 
@@ -15,7 +15,7 @@ def get_datasets(collections_root, details=True):
         for sup_dt_type in supported_datasets:
             dataset_pattern = '{}/*.{}.pkl'.format(os.path.join(collections_root, col_name), sup_dt_type)
             for pickled_dataset in glob.glob(dataset_pattern):
-                dataset_object = Dataset.load(pickled_dataset)
+                dataset_object = TextDataset.load(pickled_dataset)
                 if details:
                     info_list.append(str(dataset_object))
                 else:

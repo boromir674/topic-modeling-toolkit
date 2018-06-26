@@ -13,22 +13,21 @@ class Pipeline(object):
     def __init__(self, settings):
         assert isinstance(settings, OrderedDict)
         self.settings = settings
-        print settings
         self.processors_names = [processor_name for processor_name, v in settings.items() if settings_value2processors[processor_name](v) is not None]
         self.processors = [settings_value2processors[processor_name](v) for processor_name, v in settings.items() if settings_value2processors[processor_name](v) is not None]
         assert len(self.processors_names) == len(self.processors)
         self.str2gen_processor_index = 0
         self.token_gen2list_index = 0
-        if not self.check_processors_pipeline():
+        if not self._check_processors_pipeline():
             print self
             raise ProcessorsOrderNotSoundException('the first n components of the pipeline have to be StringProcessors and the following m GeneratorProcessors with n,m>0')
         if any(isinstance(x, MonoSpacer) for x in self.processors):
-            # self.insert(0, StringToTokenGenerator(' '), 'single-space-tokenizer')
+            # self._insert(0, StringToTokenGenerator(' '), 'single-space-tokenizer')
             self.str2gen_processor = StringToTokenGenerator(' ')
         else:
             print self
             raise SupportedTokenizerNotFoundException('The implemented \'single-space\' tokenizer requires the presence of a MonoSpacer processor in the pipeline')
-        self.inject_connectors()
+        self._inject_connectors()
 
     def __len__(self):
         return len(self.processors)
@@ -45,21 +44,21 @@ class Pipeline(object):
         for pr_name, pr in zip(self.processors_names, self.processors):
             yield pr_name, pr
 
-    def insert(self, index, processor, type_name):
-        self.processors.insert(index, processor)
-        self.processors_names.insert(index, type_name)
-
-    def inject_connectors(self):
-        assert (self.str2gen_processor_index != 0 and self.token_gen2list_index != 0)
-        self.insert(self.str2gen_processor_index, self.str2gen_processor, 'str2token_gen')
-
     def pipe_through(self, data):
         for proc in self.processors[:-1]:
             if isinstance(proc, Processor):
                 data = proc.process(data)
         return data
 
-    def check_processors_pipeline(self):
+    def _insert(self, index, processor, type_name):
+        self.processors.insert(index, processor)
+        self.processors_names.insert(index, type_name)
+
+    def _inject_connectors(self):
+        assert (self.str2gen_processor_index != 0 and self.token_gen2list_index != 0)
+        self._insert(self.str2gen_processor_index, self.str2gen_processor, 'str2token_gen')
+
+    def _check_processors_pipeline(self):
         i = 0
         proc = self[i][1]
         while isinstance(proc, StringProcessor):
@@ -79,17 +78,17 @@ class Pipeline(object):
 
 
 class UciOutputPipeline(Pipeline):
-    def inject_connectors(self):
-        super(UciOutputPipeline, self).inject_connectors()
-        self.insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
-        self.insert(self.token_gen2list_index + 2, OneElemListOfListToGenerator(), 'list2generator')
+    def _inject_connectors(self):
+        super(UciOutputPipeline, self)._inject_connectors()
+        self._insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
+        self._insert(self.token_gen2list_index + 2, OneElemListOfListToGenerator(), 'list2generator')
 
 
 class VowpalOutputPipeline(Pipeline):
-    def inject_connectors(self):
-        super(VowpalOutputPipeline, self).inject_connectors()
-        self.insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
-        self.insert(self.token_gen2list_index + 2, OneElemListOfListToGenerator(), 'list2generator')
+    def _inject_connectors(self):
+        super(VowpalOutputPipeline, self)._inject_connectors()
+        self._insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
+        self._insert(self.token_gen2list_index + 2, OneElemListOfListToGenerator(), 'list2generator')
 
 
 def get_pipeline(pipe_type, settings):

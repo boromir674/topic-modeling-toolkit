@@ -10,7 +10,7 @@ from gensim.corpora import Dictionary
 from gensim.models.tfidfmodel import TfidfModel
 
 from patm.modeling import get_posts_generator
-from patm import Pipeline, UciDataset, get_pipeline
+from patm import Pipeline, UciDataset, VowpalDataset, get_pipeline
 from patm.definitions import root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, collections_dir
 
 
@@ -25,11 +25,16 @@ class PipeHandler(object):
         self.model = None
         self.corpus = None
         self.nb_docs = 0
+        self.pipeline = None
+        self.dataset = None
+        self._collection = ''
+        self.vocab_file = ''
 
     def create_pipeline(self, pipeline_cfg):
         pipe_settings = cfg2pipe_settings(os.path.join(root_dir, 'code', pipeline_cfg), 'preprocessing')
         print 'Pipe-Config:\n' + ',\n'.join('{}: {}'.format(key, value) for key, value in pipe_settings.items())
-        return get_pipeline(pipe_settings['format'], pipe_settings)
+        self.pipeline = get_pipeline(pipe_settings['format'], pipe_settings)
+        return self.pipeline
 
     def set_doc_gen(self, category, num_docs='all', labels=False):
         self.sample = num_docs
@@ -37,7 +42,9 @@ class PipeHandler(object):
         self.text_generator = self.cat2textgen_proc.process(category)
         print self.cat2textgen_proc, '\n'
 
+    # TODO refactor in OOP style preprocess
     def preprocess(self, a_pipe, collection, labels=False):
+        self._collection = collection
         self.set_doc_gen(self.category, num_docs=self.sample, labels=labels)
         target_folder = os.path.join(collections_dir, collection)
         if not os.path.exists(target_folder):
@@ -74,41 +81,51 @@ class PipeHandler(object):
         print 'total bow tuples in corpus: {}\n'.format(sum(len(_) for _ in self.corpus))
         print 'corpus len (nb_docs):', len(self.corpus), 'empty docs', len([_ for _ in self.corpus if not _])
 
-        docword_file = os.path.join(collections_dir, collection, 'docword.{}.txt'.format(collection))
-        a_pipe[-1][1].fname = docword_file
+        self._write_vocab()
 
-        with open(a_pipe.processors[-1].fname, 'w') as f:
-            f.writelines('{}\n{}\n{}\n'.format(self.dct.num_docs, len(self.dct.items()), sum(len(_) for _ in self.corpus)))
+        if self.pipeline.settings['format'] == 'uci':
+            docword_file = os.path.join(collections_dir, collection, 'docword.{}.txt'.format(collection))
+            self.pipeline[-1][1].fname = docword_file
+            # Write the first 3 lines of the uci-formated file that contain stats: nb_docs\n vocab_size\n nb_bow_tuples\n
+            with open(a_pipe.processors[-1].fname, 'w') as f:
+                f.writelines('{}\n{}\n{}\n'.format(self.dct.num_docs, len(self.dct.items()), sum(len(_) for _ in self.corpus)))
+            self.dataset = UciDataset(self._collection, self.get_dataset_id(a_pipe), len(self.corpus), len(self.dct.items()), sum(len(_) for _ in self.corpus), docword_file, self.vocab_file)
+        elif self.pipeline.settings['format'] == 'vowpal':
+            vowpal_file = os.path.join(collections_dir, self._collection, 'vowpal.{}.txt'.format(self._collection))
+            self.pipeline[-1][1].fname = vowpal_file
+            self.dataset = VowpalDataset(self._collection, self.get_dataset_id(a_pipe), len(self.corpus), len(self.dct.items()), sum(len(_) for _ in self.corpus), vowpal_file)
+        self._write()
+        self.dataset.save()
+        return self.dataset
 
-        if a_pipe.settings['weight'] == 'counts':
+    def _write(self):
+        if self.pipeline.settings['weight'] == 'counts':
             for vec in self.corpus:
                 self.doc_gen_stats['corpus-tokens'] += len(vec)
-                a_pipe[-1][1].process(vec)
-        elif a_pipe.settings['weight'] == 'tfidf':
+                self.pipeline[-1][1].process(vec)
+        elif self.pipeline.settings['weight'] == 'tfidf':
             self.model = TfidfModel(self.corpus)
             for vec in map(lambda x: self.model[x], self.corpus):
                 self.doc_gen_stats['corpus-tokens'] += len(vec)
-                a_pipe[-1][1].process(vec)
+                self.pipeline[-1][1].process(vec)
 
         self.doc_gen_stats.update({'docs-gen': self.cat2textgen_proc.nb_processed, 'docs-failed': len(self.cat2textgen_proc.failed)})
 
-        vocab_file = os.path.join(collections_dir, collection, 'vocab.{}.txt'.format(collection))
-        if not os.path.isfile(vocab_file):
-            with open(vocab_file, 'w') as f:
+    def _write_vocab(self):
+        # Define file and dump the vocabulary (list of unique tokens, one per line)
+        self.vocab_file = os.path.join(collections_dir, self._collection, 'vocab.{}.txt'.format(self._collection))
+        if not os.path.isfile(self.vocab_file):
+            with open(self.vocab_file, 'w') as f:
                 for gram_id, gram_string in self.dct.iteritems():
                     try:
                         f.write('{}\n'.format(gram_string.encode('utf-8')))
                     except UnicodeEncodeError as e:
                         # f.write('\n'.join(map(lambda x: '{}'.format(str(x[1])), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0)))))
                         print 'FAILED', type(gram_string), gram_string
-                        sys.exit(1)
-                print 'Created \'{}\' file'.format(vocab_file)
+                        raise e
+                print 'Created \'{}\' file'.format(self.vocab_file)
         else:
-            print 'File \'{}\' already exists'.format(vocab_file)
-
-        uci_dataset = UciDataset(collection, self.get_dataset_id(a_pipe), docword_file, vocab_file, )
-        uci_dataset.save()
-        return uci_dataset
+            print 'File \'{}\' already exists'.format(self.vocab_file)
 
     def get_words_file_name(self, a_pipe):
         assert isinstance(a_pipe, Pipeline)
@@ -125,7 +142,6 @@ class PipeHandler(object):
         assert isinstance(a_pipe, Pipeline)
         idd = get_id(a_pipe.settings)
         ri = idd.rfind('_')
-        # TODO remove prepended num of docs processed
         return str(self.cat2textgen_proc.nb_processed) + '_' + idd[:ri] + '.' + idd[ri + 1:]
 
 
@@ -153,16 +169,8 @@ if __name__ == '__main__':
     nb_docs = args.sample
     if nb_docs != 'all':
         nb_docs = int(nb_docs)
-
     ph = PipeHandler(args.category, sample=nb_docs)
     pipe = ph.create_pipeline(args.config)
     print '\n', pipe, '\n'
     uci_dt = ph.preprocess(pipe, args.collection, labels=args.labels)
-
     print uci_dt
-
-    print '\nnb docs gen:', ph.doc_gen_stats['docs-gen']
-    print 'nb docs failed:', ph.doc_gen_stats['docs-failed'], ph.cat2textgen_proc.failed
-    print 'unique words:', len(ph.dct.items())
-    print 'total words:', ph.doc_gen_stats['corpus-tokens']
-    print
