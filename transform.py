@@ -106,7 +106,7 @@ class PipeHandler(object):
         else:
             print 'File \'{}\' already exists'.format(vocab_file)
 
-        uci_dataset = UciDataset(collection, self.get_dataset_id(a_pipe), docword_file, vocab_file)
+        uci_dataset = UciDataset(collection, self.get_dataset_id(a_pipe), docword_file, vocab_file, )
         uci_dataset.save()
         return uci_dataset
 
@@ -125,6 +125,7 @@ class PipeHandler(object):
         assert isinstance(a_pipe, Pipeline)
         idd = get_id(a_pipe.settings)
         ri = idd.rfind('_')
+        # TODO remove prepended num of docs processed
         return str(self.cat2textgen_proc.nb_processed) + '_' + idd[:ri] + '.' + idd[ri + 1:]
 
 

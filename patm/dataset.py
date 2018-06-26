@@ -5,7 +5,7 @@ split_tags = ('train', 'dev', 'test')
 
 
 class Dataset(object):
-    def __init__(self, name, _id, collection_length, unique_words=None, nb_words=None):
+    def __init__(self, data_format, name, _id, unique_words=None, nb_words=None):
         """
 
         :param name:
@@ -14,6 +14,7 @@ class Dataset(object):
         :param unique_words:
         :param nb_words:
         """
+        self._type = data_format
         self.name = name
         self.id = _id
         self.col_len = collection_length
@@ -22,10 +23,8 @@ class Dataset(object):
         self._unique_words = unique_words
         self._nb_bows = nb_words
 
-    def add(self, other):
-        pass
-        # doc_id >= 1
-        # datapoint[doc_id] = {class:'ney-york-times'}
+    def __str__(self):
+        return '{}: {}\ntype: {}\nunique: {}\nbows: {}'.format(self.name, self.id, self._type, self._unique_words, self._nb_bows)
 
     @property
     def unigue(self):
@@ -41,19 +40,19 @@ class Dataset(object):
             dataset = pickle.load(f)
         return dataset
 
-    def set_splits(self, splits):
-        """
-        :param splits: possible keys: {train, dev, test}
-        :type splits: dict
-        :return:
-        """
-        assert all(splits.keys()) in split_tags
-        assert sum(splits.values()) == 1
-        self.splits = splits
+    # def set_splits(self, splits):
+    #     """
+    #     :param splits: possible keys: {train, dev, test}
+    #     :type splits: dict
+    #     :return:
+    #     """
+    #     assert all(splits.keys()) in split_tags
+    #     assert sum(splits.values()) == 1
+    #     self.splits = splits
 
 
-class UciDataset(object):
-
+class UciDataset(Dataset):
+    format = 'uci'
     def __init__(self, name, _id, weights, words):
         """
 
@@ -62,8 +61,7 @@ class UciDataset(object):
         :param str weights: full path to a uci docwords (Bag of Words) file: */docword.name.txt
         :param str words: full path to the uci vocabulary file: */vocab.name.txt
         """
-        self.name = name
-        self.id = _id
+        super(UciDataset, self).__init__(self.format, name, _id)
         self.bowf = weights
         self.words = words
         assert os.path.isfile(self.bowf)
@@ -71,10 +69,6 @@ class UciDataset(object):
         assert os.path.dirname(self.bowf) == os.path.dirname(self.words)
         self.root_dir = os.path.dirname(self.bowf)
         assert os.path.basename(self.root_dir) == name
-
-    def __str__(self):
-        b = 'UCI Dataset\nid: {}\nname: {}\nroot-dir: {}\nuci-docwords: {}\nvocab: {}'.format(self.id, self.name, self.root_dir, os.path.basename(self.bowf), os.path.basename(self.words))
-        return b
 
     def save(self):
         name = self.id + '.pkl'
