@@ -59,7 +59,7 @@ class PipeHandler(object):
         self.doc_gen_stats['corpus-tokens'] = 0
         doc_gens = []
         for i, doc in enumerate(self.text_generator):
-            doc_gens.append(a_pipe.pipe_through(doc['text']))
+            doc_gens.append(a_pipe.pipe_through(doc['text'], len(a_pipe)-2))
             self.ideology_labels.append(poster_id2ideology_label[str(doc['poster_id'])])
 
         self.dct = a_pipe[a_pipe.processors_names.index('dict-builder')][1].state

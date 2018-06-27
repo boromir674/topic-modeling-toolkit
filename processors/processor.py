@@ -1,44 +1,46 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod, abstractproperty
 
 
-class MetaProcessor:
+class MetaProcessor(object):
     __metaclass__ = ABCMeta
-
-    def __init__(self):
-        self.__mro__ = [Processor]
 
     @abstractmethod
     def process(self, data):
-        raise NotImplementedError
+        raise NotImplemented
 
     def __str__(self):
         return type(self).__name__
 
-    @classmethod
-    def __subclasshook__(a_class, C):
-        if a_class is Processor:
-            if any('process' in B.__dict__ for B in C.__mro__):
-                # print ['process' in B.__dict__ for B in C.__mro__]
-                return True
-        return NotImplemented
-
 
 class StateFullMetaProcessor(MetaProcessor):
+    __metaclass__ = ABCMeta
+
+    @abstractproperty
+    def state(self):
+        raise NotImplemented
 
     @abstractmethod
     def update(self, data):
-        raise NotImplementedError
-
-    @classmethod
-    def __subclasshook__(a_class, C):
-        if a_class is Processor:
-            if any('update' in B.__dict__ for B in C.__mro__):
-                # print ['process' in B.__dict__ for B in C.__mro__]
-                return True
-        return NotImplemented
+        raise NotImplemented
 
 
-class Processor(object):
+class InitializationNeededComponent(object):
+    __metaclass__ = ABCMeta
+    @abstractmethod
+    def initialize(self):
+        raise NotImplemented
+
+class FinalizationNeededComponent(object):
+    __metaclass__ = ABCMeta
+    @abstractmethod
+    def finalize(self):
+        raise NotImplemented
+
+class DiskWriterMetaProcessor(MetaProcessor, InitializationNeededComponent, FinalizationNeededComponent):
+    __metaclass__ = ABCMeta
+
+
+class Processor(MetaProcessor):
     def __init__(self, func):
         self.func = func
 
@@ -48,11 +50,67 @@ class Processor(object):
     def to_id(self):
         return self.func.__name__
 
+
+class StateFullProcessor(Processor, StateFullMetaProcessor):
+    def __init__(self, func, state):
+        self._state = state
+        super(StateFullProcessor, self).__init__(func)
+
+    @property
+    def state(self):
+        return self._state
+
+    def update(self, data):
+        self._state.__getattribute__(self.callback)(data)
+
     def __str__(self):
-        return type(self).__name__
+        return type(self).__name__ + '(' + str(self.state) + ')'
 
 
-MetaProcessor.register(Processor)
+class PostUpdateSFProcessor(StateFullProcessor):
+    def process(self, data):
+        _ = super(StateUpdatableProcessor, self).process(data)
+        self.update(_)
+        return _
+
+class PreUpdateSFProcessor(StateFullProcessor):
+    def process(self, data):
+        self.update(data)
+        return super(StateUpdatableProcessor, self).process(data)
+
+
+class BaseDiskWriter(Processor, DiskWriterMetaProcessor):
+    """Ingests one doc vector at a time"""
+    def __init__(self, fname, func):
+        self.doc_num = 1
+        self.fname = fname
+        self.file_handler = None
+        super(BaseDiskWriter, self).__init__(func)
+
+    def __str__(self):
+        return type(self).__name__ + '(' + str(self.fname) + ')'
+
+    def process(self, data):
+        _ = super(BaseDiskWriter, self).process(data)
+        self.doc_num += 1
+        return _
+
+    def initialize(self):
+        self.file_handler = open(self.fname, 'a')
+
+    def finalize(self):
+        self.file_handler.close()
+
+
+class BaseDiskWriterWithPrologue(BaseDiskWriter):
+    def __init__(self, fname, func):
+        self.prologue = prologue_lines
+        super(BaseDiskWriterWithPrologue, self).__init__(fname, func)
+
+    def finalize(self, *args):
+        self.file_handler.seek(0)
+        self.file_handler.writelines(self.prologue)
+        super(BaseDiskWriterWithPrologue, self).finalize()
 
 
 class StateLessProcessor(Processor):
@@ -69,35 +127,6 @@ class ElementCountingProcessor(StateLessProcessor):
         return super(StateLessProcessor, self).process(data)
 
 
-class StateFullProcessor(Processor):
-    def __init__(self, func, state, callback):
-        self.state = state
-        self.callback = callback
-        super(StateFullProcessor, self).__init__(func)
-
-    def __str__(self):
-        return type(self).__name__ + '(' + str(self.state) + ')'
-
-    def update(self, data):
-        self.state.__getattribute__(self.callback)(data)
-
-
-StateFullMetaProcessor.register(StateFullProcessor)
-
-
-class PostUpdateSFProcessor(StateFullProcessor):
-    def process(self, data):
-        _ = super(StateFullProcessor, self).process(data)
-        self.update(_)
-        return _
-
-
-class PreUpdateSFProcessor(StateFullProcessor):
-    def process(self, data):
-        self.update(data)
-        return super(StateFullProcessor, self).process(data)
-
-
 if __name__ == '__main__':
 
     s = Processor(lambda x: x + '_proc')
@@ -105,7 +134,7 @@ if __name__ == '__main__':
     # print a
     print isinstance(s, MetaProcessor)
     sl = StateLessProcessor(lambda x: x + '_less')
-    # sf = StateFullProcessor(lambda x: x + '_full', [1, 2], 'append')
+    # sf = StateUpdatableProcessor(lambda x: x + '_full', [1, 2], 'append')
     # sf = PreUpdateSFProcessor(lambda x: x + '_full', [1, 2], 'append')
     #
     # print isinstance(sl, Processor)
