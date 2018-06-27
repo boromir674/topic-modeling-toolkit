@@ -154,8 +154,27 @@ class PipeHandler(object):
 def cfg2pipe_settings(config_path, section):
     config = ConfigParser.ConfigParser()
     config.read(config_path)
-    return OrderedDict([(setting_name, encode_pipeline_cfg[setting_name](value)) for setting_name, value in config.items(section)])
+    return OrderedDict([item for sublist in map(lambda x: [(x[0], encode_pipeline_cfg[x[0]](x[1]))] if x[0] != 'format' else [(x[0]+str(i+1), out_frmt) for i, out_frmt in enumerate(x[1].split(','))], config.items(section)) for item in sublist]) # [(setting_name, encode_pipeline_cfg[setting_name](value)) for setting_name, value in config.items(section)])
 
+
+def create_cooc_file(vowpal_file, vocab_file, cooc_window, tf_f, df_f, ppmi_tf, ppmi_df, min_tf=0, min_df=0):
+    """
+
+    :param str vowpal_file: path to vowpal-formated bag-of-words file
+    :param str vocab_file: path to uci-formated (list of unique tokens) vocabulary file
+    :param int cooc_window: number of tokens around specific token, which are used in calculation of cooccurrences
+    :param int min_tf: minimal value of cooccurrences of a pair of tokens that are saved in dictionary of cooccurrences
+    :param int min_df: minimal value of documents in which a specific pair of tokens occurred together closely
+    :return:
+    """
+    # TF: save dictionary of co-occurrences with frequencies of co-occurrences of every specific pair of tokens in whole collection
+    # DF: save dictionary of co-occurrences with number of documents in which every specific pair occured together
+    # PPMI TF: save values of positive pmi of pairs of tokens from cooc_tf dictionary
+    # PPMI DF: save values of positive pmi of pairs of tokens from cooc_df dictionary
+    cmd = 'bigartm -c {} -v {} --cooc-window {} --cooc-min-tf {} --write-cooc-tf {} --cooc-min-df {} --write-cooc-df {}' \
+          ' --write-ppmi-tf {} --write-ppmi-df {}'.format(vowpal_file, vocab_file, cooc_window, min_tf, tf_f, min_df, df_f, ppmi_tf, ppmi_df)
+    os.system(cmd)
+    # --write-cooc-tf cooc_tf_ --cooc-min-df 200 --write-cooc-df cooc_df_ --write-ppmi-tf ppmi_tf_ --write-ppmi-df ppmi_df_
 
 def get_cl_arguments():
     parser = argparse.ArgumentParser(prog='transform.py', description='Transforms pickled panda.DataFrame\'s into Vowpal Wabbit format', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -180,3 +199,8 @@ if __name__ == '__main__':
     print '\n', pipe, '\n'
     uci_dt = ph.preprocess(pipe, args.collection, labels=args.labels)
     print uci_dt
+
+    vocab_created = 'vowpal.{}.txt'.format(args.collection)
+    if os.path.isfile(vocab_created):
+        print 'Building coocurences information'
+        create_cooc_file(vocab_created, ph.vocab_file, 10, 'cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_', min_tf=200, min_df=200)

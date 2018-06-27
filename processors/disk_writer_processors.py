@@ -16,7 +16,6 @@ class StateLessDiskWriter(StateLessProcessor):
         self.doc_num += 1
         return _
 
-
 class UciFormatWriter(StateLessDiskWriter):
     """
     Injests a doc_vector at a time. For example [('2', 1), ('15', 4), ('18', 5), ('11', 3)]

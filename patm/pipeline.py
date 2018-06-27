@@ -6,6 +6,7 @@ from processors.generator_processors import GeneratorProcessor
 from processors.string2generator import StringToTokenGenerator
 from processors import Processor
 from processors.mutators import GensimDictTokenGeneratorToListProcessor, OneElemListOfListToGenerator
+from processors.disk_writer_processors import StateLessDiskWriter
 
 
 class Pipeline(object):
@@ -45,8 +46,8 @@ class Pipeline(object):
             yield pr_name, pr
 
     def pipe_through(self, data):
-        for proc in self.processors[:-1]:
-            if isinstance(proc, Processor):
+        for proc in self.processors:
+            if isinstance(proc, Processor) and not isinstance(proc, StateLessDiskWriter):
                 data = proc.process(data)
         return data
 
