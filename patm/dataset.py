@@ -2,22 +2,6 @@ import os
 import cPickle as pickle
 from patm.definitions import collections_dir
 
-split_tags = ('train', 'dev', 'test')
-
-
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
-
-# print bcolors.HEADER + "Warning: No active frommets remain. Continue?"  #
-
 class TextDataset(object):
     def __init__(self, name, _id, nb_docs, unique_words, nb_words, weights_file, words_file, vowpal_file):
         """
@@ -44,11 +28,11 @@ class TextDataset(object):
         assert os.path.dirname(self.bowf) == os.path.dirname(self.words) == self.root_dir
         assert os.path.isfile(self.vowpal)
         assert os.path.dirname(self.vowpal) == self.root_dir
-        self.splits = None
-        self.datapoints = dict([(tag, {}) for tag in split_tags])
-# print bcolors.WARNING + "Warning: No active frommets remain. Continue?" + bcolors.ENDC
+        # self.splits = None
+        # self.datapoints = dict([(tag, {}) for tag in split_tags])
+
     def __str__(self):
-        return bcolors.OKBLUE + '{}:{} {}\ndocs: {}\nunique: {}\nbows: {}'.format(self.name, bcolors.ENDC, self.id, self._col_len, self._unique_words, self._nb_bows)
+        return '{}: {}\ndocs: {}\nunique: {}\nbows: {}'.format(self.name, self.id, self._col_len, self._unique_words, self._nb_bows)
 
     @property
     def unigue(self):

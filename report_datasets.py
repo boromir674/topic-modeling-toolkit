@@ -6,6 +6,16 @@ import argparse
 from patm.dataset import TextDataset
 from patm.definitions import BINARY_DICTIONARY_NAME, COOCURENCE_DICT_FILE_NAMES
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 
 class DatasetReporter(object):
     files_info = ('vocab', 'vowpal', 'docword', COOCURENCE_DICT_FILE_NAMES[2], COOCURENCE_DICT_FILE_NAMES[3])
@@ -31,7 +41,11 @@ class DatasetReporter(object):
         if not details:
             return '\n'.join(map(lambda x: '{}/{}'.format(self._cur_col, os.path.basename(x.path)), self.load_dts()))
         else:
-            return '{}\n{}'.format('\n'.join(map(lambda x: str(x), self.load_dts())),  ', '.join(self._extract_files_info()))
+            return '{}\n{}'.format('\n'.join(map(lambda x: self._wrap_color(str(x)), self.load_dts())),  ', '.join(self._extract_files_info()))
+
+    def _wrap_color(self, b):
+        ind = b.index(':')
+        return bcolors.UNDERLINE + b[:ind] + bcolors.ENDC + b[ind:]
 
     def load_dts(self):
         dataset_pattern = '{}/*.pkl'.format(os.path.join(self._r, self._cur_col))
