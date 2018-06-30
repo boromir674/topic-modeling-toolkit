@@ -56,4 +56,4 @@ if __name__ == '__main__':
     print gav.evaluate('taf')
     # print issubclass(ArtmScorer, MetaEvaluator)
     # ass.evaluate()
-    # ae.evaluate('gav')
+    # ae.evaluate('_builder')

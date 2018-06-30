@@ -8,9 +8,9 @@ from ..evaluation.scorer_factory import get_scorers_factory, EvaluationFactory
 
 dicts2model_factory = {}
 
-def get_model_factory(dictionary):
+def get_model_factory(dictionary, ppmi_dicts):
     if dictionary not in dicts2model_factory:
-        dicts2model_factory[dictionary] = ModelFactory(dictionary)
+        dicts2model_factory[dictionary] = ModelFactory(dictionary, ppmi_dicts)
     return dicts2model_factory[dictionary]
 
 
@@ -18,10 +18,11 @@ class ModelFactory(object):
     """
     This class can create a fresh TopicModel or restore a TopicModel's state from disk. In both cases the model is ready to be trained.
     """
-    def __init__(self, dictionary):
+    def __init__(self, dictionary, cooc_dict):
         self.dict = dictionary
+        # self.cooc_dict = cooc_dict
         self._tm = None
-        self._eval_factory = EvaluationFactory(self.dict)
+        self._eval_factory = EvaluationFactory(self.dict, cooc_dict)
         self._scores = {}
 
     # def _parse_train_cfg(self, cfg):
@@ -108,7 +109,7 @@ class ModelFactory(object):
             self._tm.add_regularizer(reg_instance)
 
 def get_generic_topic_names(nb_topics):
-    return ['top_' + index for index in map(lambda x: str(x) if len(str(x)) > 1 else '0'+str(x), range(1, nb_topics+1))]
+    return ['top_' + index for index in map(lambda x: str(x) if len(str(x)) > 1 else '0'+str(x), range(nb_topics))]
 
 class ModelLabelDisagreementException(Exception):
     def __init__(self, msg):

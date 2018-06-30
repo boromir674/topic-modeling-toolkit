@@ -1,7 +1,9 @@
 from processor import BaseDiskWriter, BaseDiskWriterWithPrologue
 
 
-class UciFormatWriter(BaseDiskWriter):
+class UciFormatWriter(BaseDiskWriterWithPrologue):
+# class UciFormatWriter(BaseDiskWriter):
+
     """
     Injests a doc_vector at a time. For example [('2', 1), ('15', 4), ('18', 5), ('11', 3)]
     """
@@ -13,9 +15,9 @@ class UciFormatWriter(BaseDiskWriter):
     def to_id(self):
         return 'uci'
 
-class VowpalFormatWriter(BaseDiskWriterWithPrologue):
+class VowpalFormatWriter(BaseDiskWriter):
     """
-    Injests a (doc_vector, classes_ditct) at a time. For example ([('gav', 1), ('alpha', 4)], {'author': 'Ivan Sokolov'})
+    Injests a (doc_vector, classes_ditct) at a time. For example ([('_builder', 1), ('alpha', 4)], {'author': 'Ivan Sokolov'})
     """
     def __init__(self, fname='/data/thesis/data/myvowpal'):
         super(VowpalFormatWriter, self).__init__(fname, lambda x: write_vowpal(self.file_handler, x[0], self.doc_num, x[1]))
@@ -32,7 +34,7 @@ def write_vowpal(file_handler, doc_vector, doc_num, class_labels):
     """
     Dumps a doument vector as a single line in the specified target file path in the "Vowpal Wabbit" format.\n
     :param str fname: path to target file
-    :param iterable doc_vector: the representation of a document; an iterable of (token, frequency) tuples; eg [('gav', 1), ('alpha', 4)]
+    :param iterable doc_vector: the representation of a document; an iterable of (token, frequency) tuples; eg [('_builder', 1), ('alpha', 4)]
     :param int doc_num: number to represent document number in queue; eg 1,2,3,4,5 ... D
     :param dict class_labels: keys are class "category" (i.e. 'author') and values are the actual class the document belongs to (i.e. 'Ivan Sokolov')
     """

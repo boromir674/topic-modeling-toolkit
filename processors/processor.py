@@ -52,8 +52,9 @@ class Processor(MetaProcessor):
 
 
 class StateFullProcessor(Processor, StateFullMetaProcessor):
-    def __init__(self, func, state):
+    def __init__(self, func, state, callback):
         self._state = state
+        self.callback = callback
         super(StateFullProcessor, self).__init__(func)
 
     @property
@@ -69,14 +70,14 @@ class StateFullProcessor(Processor, StateFullMetaProcessor):
 
 class PostUpdateSFProcessor(StateFullProcessor):
     def process(self, data):
-        _ = super(StateUpdatableProcessor, self).process(data)
+        _ = super(PostUpdateSFProcessor, self).process(data)
         self.update(_)
         return _
 
 class PreUpdateSFProcessor(StateFullProcessor):
     def process(self, data):
         self.update(data)
-        return super(StateUpdatableProcessor, self).process(data)
+        return super(PreUpdateSFProcessor, self).process(data)
 
 
 class BaseDiskWriter(Processor, DiskWriterMetaProcessor):
@@ -96,7 +97,7 @@ class BaseDiskWriter(Processor, DiskWriterMetaProcessor):
         return _
 
     def initialize(self):
-        self.file_handler = open(self.fname, 'a')
+        self.file_handler = open(self.fname, 'w+')
 
     def finalize(self):
         self.file_handler.close()
@@ -104,12 +105,13 @@ class BaseDiskWriter(Processor, DiskWriterMetaProcessor):
 
 class BaseDiskWriterWithPrologue(BaseDiskWriter):
     def __init__(self, fname, func):
-        self.prologue = prologue_lines
         super(BaseDiskWriterWithPrologue, self).__init__(fname, func)
 
     def finalize(self, *args):
         self.file_handler.seek(0)
-        self.file_handler.writelines(self.prologue)
+        _ = self.file_handler.read()
+        self.file_handler.seek(0, 0)
+        self.file_handler.write(reduce(lambda x,y: x+y, map(lambda x: x + '\n', args[0])).rstrip('\r\n') + '\n' + _)
         super(BaseDiskWriterWithPrologue, self).finalize()
 
 
@@ -130,7 +132,7 @@ class ElementCountingProcessor(StateLessProcessor):
 if __name__ == '__main__':
 
     s = Processor(lambda x: x + '_proc')
-    # a = s.process('gav')
+    # a = s.process('_builder')
     # print a
     print isinstance(s, MetaProcessor)
     sl = StateLessProcessor(lambda x: x + '_less')
@@ -142,14 +144,14 @@ if __name__ == '__main__':
     # print isinstance(sf, Processor)
     # print isinstance(sf, MetaProcessor)
     #
-    # # print sl.process('gav')
+    # # print sl.process('_builder')
     #
     # print sf.state
-    # print sf.process('gav')
+    # print sf.process('_builder')
     # print sf.state
     #
     # sf.update(100)
     # print
     # print sf.state
-    # print sf.process('gav')
+    # print sf.process('_builder')
     # print sf.state

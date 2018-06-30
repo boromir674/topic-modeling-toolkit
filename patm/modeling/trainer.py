@@ -1,9 +1,10 @@
 import os
+import re
 import sys
 import artm
 from patm.modeling.parameters.trajectory import get_fit_iteration_chunks
 from .model_factory import get_model_factory
-from ..definitions import collections_dir
+from ..definitions import collections_dir, COOCURENCE_DICT_FILE_NAMES
 
 
 class ModelTrainer(object):
@@ -11,6 +12,7 @@ class ModelTrainer(object):
         self.col_root = collection_dir
         self.batch_vectorizer = None
         self.dictionary = artm.Dictionary()
+        self.cooc_dicts = {}  # ppmi: positive pmi (Point-Mutual Information)
         self.observers = []
         self.bar = None
 
@@ -33,7 +35,7 @@ class ModelTrainer(object):
 
     @property
     def model_factory(self):
-        return get_model_factory(self.dictionary)
+        return get_model_factory(self.dictionary, self.cooc_dicts)
 
     def train(self, topic_model, specs, effects=False):
         """
@@ -77,6 +79,7 @@ class TrainerFactory(object):
         root_dir = os.path.join(collections_dir, collection)
         bin_dict = os.path.join(root_dir, 'mydic.dict')
         text_dict = os.path.join(root_dir, 'mydic.txt')
+        vocab = os.path.join(root_dir, 'vocab.' + collection + '.txt')
         if not os.path.exists(root_dir):
             os.makedirs(root_dir)
         batches = [_ for _ in os.listdir(root_dir) if '.batch' in _]
@@ -97,9 +100,18 @@ class TrainerFactory(object):
             mod_tr.dictionary.load(bin_dict)
             print 'loaded binary dictionary', bin_dict
         else:
-            mod_tr.dictionary.gather(data_path=root_dir, vocab_file_path=os.path.join(root_dir, 'vocab.'+collection+'.txt'), symmetric_cooc_values=True)
+            mod_tr.dictionary.gather(data_path=root_dir, vocab_file_path=vocab, symmetric_cooc_values=True)
             mod_tr.dictionary.save(bin_dict)
             mod_tr.dictionary.save_text(text_dict, encoding='utf-8')
             print 'saved binary dictionary as', bin_dict
             print 'saved textual dictionary as', text_dict
+
+        # TODO replace with nested map/lambdas and regex
+        for fname in os.listdir(root_dir):
+            name = os.path.basename(fname)
+            matc = re.match('^ppmi_(\w\w)_(\d*)', name)
+            if matc:
+                mod_tr.cooc_dicts[matc.group(1)] = {'obj': artm.Dictionary(), 'min': int(matc.group(2))}
+                mod_tr.cooc_dicts[matc.group(1)]['obj'].gather(data_path=root_dir, cooc_file_path=os.path.join(root_dir, name), vocab_file_path=vocab, symmetric_cooc_values=True)
+                print "Loaded positive pmi '{}' dictionary from '{}' text file".format(matc.group(1), name)
         return mod_tr

@@ -76,11 +76,8 @@ class Tuner(object):
         self._traj_attr2index = OrderedDict([('deactivation_period_pct', 0), ('start', 1), ('end', 2)])
         self._traj_param_name2reg_type = {
             'sparse_phi_reg': 'smooth-phi',
-            'sparse_theta_reg': 'smooth-theta'
-        }
-        self._vector_gen = {
-            'grid-search': ParameterGrid([_ for _ in self._extract_simple_space()] + [__ for __ in self._extract_trajectory_space()])
-        }
+            'sparse_theta_reg': 'smooth-theta'}
+        self._vector_gen = {'grid-search': ParameterGrid([_ for _ in self._extract_simple_space()] + [__ for __ in self._extract_trajectory_space()])}
 
     def _iter_prepend(self, int_num):
         nb_digits = len(str(int_num))

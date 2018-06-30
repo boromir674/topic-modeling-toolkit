@@ -1,7 +1,6 @@
-from collections import Mapping
 from patm.utils import cfg2model_settings
-from .regularizers import regularizer2parameters, parameter_name2encoder
 from regularizers import regularizer_class_string2reg_type
+from .regularizers import regularizer2parameters, parameter_name2encoder
 
 
 class TopicModel(object):

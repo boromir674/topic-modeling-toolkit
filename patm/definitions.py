@@ -31,6 +31,18 @@ cat2file_ids = dict(zip(categories, ((2, 5, 38),
 
 cat2files = {cat: [os.path.join(cat2dir[cat], '{}_{}_{}.pkl'.format(pre, iid, cat)) for iid in cat2file_ids[cat]] for cat in categories}
 
+
+###### TOKEN COOCURENCE INFORMATION #####
+COOCURENCE_DICT_FILE_NAMES = ['cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
+
+###### CONSTANTS #####
+BINARY_DICTIONARY_NAME = 'mydic.dict'
+
+# def full_path_creator(collection_name):
+#     return lambda x: os.path.join(collections_dir, collection_name, x)
+###### ###### ###### ###### ###### ######
+
+
 encode_pipeline_cfg = {
     'lowercase': lambda x: bool(eval(x)),
     'monospace': lambda x: bool(eval(x)),
@@ -169,4 +181,4 @@ poster_id2ideology_label = {poster_id: label2alphanumeric(id2ideology(poster_id)
 # the outlets_by_ideology dict only sorted as in labels from extreme left to extreme right
 id_label2outlet_dict = OrderedDict([(ide, OrderedDict(sorted(map(lambda x: (x[0], int(x[1])), outlets_by_ideology[ide].items()), key=lambda x: x[0]))) for ide in labels])
 
-IDEOLOGY_LABEL_NAME = 'ideology'
+IDEOLOGY_CLASS_NAME = 'ideology'

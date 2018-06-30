@@ -5,8 +5,14 @@ from .base_evaluator import AbstractEvaluator
 
 
 class EvaluationFactory(object):
-    def __init__(self, dictionary):
+    def __init__(self, dictionary, cooc_dict):
+        """
+
+        :param artm.Dictionary dictionary:
+        :param dict cooc_dict:
+        """
         self._dict = dictionary
+        self.cooc_df_dict = cooc_dict['df']['obj']
         self.score_type2constructor = {
             'background-tokens-ratio': lambda x: artm.BackgroundTokensRatioScore(name=x, delta_threshold=0.3),
             # Computes KL - divergence between p(t) and p(t | w) distributions \mathrm{KL}(p(t) | | p(t | w)) (or vice versa)
@@ -18,11 +24,12 @@ class EvaluationFactory(object):
             'sparsity-theta': lambda x: artm.SparsityThetaScore(name=x),
             'theta-snippet': lambda x: artm.ThetaSnippetScore(name=x),
             'topic-mass-phi': lambda x: artm.TopicMassPhiScore(name=x),
-            'topic-kernel': lambda x: artm.TopicKernelScore(name=x, probability_mass_threshold=0.25),
+            'topic-kernel': lambda x: artm.TopicKernelScore(name=x, probability_mass_threshold=0.6, dictionary=self.cooc_df_dict),
             # p(t|w) > probability_mass_threshold
-            'top-tokens-10': lambda x: artm.TopTokensScore(name=x, num_tokens=10),
-            'top-tokens-100': lambda x: artm.TopTokensScore(name=x, num_tokens=100)
+            'top-tokens-10': lambda x: artm.TopTokensScore(name=x, num_tokens=10, dictionary=self.cooc_df_dict),
+            'top-tokens-100': lambda x: artm.TopTokensScore(name=x, num_tokens=100, dictionary=self.cooc_df_dict)
         }
+
 
 score_type2_reportables = {
     'background-tokens-ratio': ('tokens', # the actual tokens with value greater than delta

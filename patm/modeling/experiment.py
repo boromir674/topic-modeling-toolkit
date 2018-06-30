@@ -132,6 +132,8 @@ class Experiment:
         """
         results = self.train_results_handler.load(model_label)
         assert model_label == results['model_label']
+        print len(results['trackables']['per']['value'])
+        print sum(results['collection_passes'])
         assert len(results['trackables']['perplexity']['value']) == sum(results['collection_passes'])
         self.collection_passes = results['collection_passes']
         self.trackables = results['trackables']

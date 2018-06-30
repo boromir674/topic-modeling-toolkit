@@ -6,17 +6,16 @@ from processors.generator_processors import GeneratorProcessor
 from processors.string2generator import StringToTokenGenerator
 from processors import Processor, InitializationNeededComponent, FinalizationNeededComponent, BaseDiskWriterWithPrologue
 from processors.mutators import GensimDictTokenGeneratorToListProcessor, OneElemListOfListToGenerator
-from processors.disk_writer_processors import StateLessDiskWriter
 
 
 class Pipeline(object):
 
     def __init__(self, settings):
         assert isinstance(settings, OrderedDict)
-        self._tr = lambda x: ('format', x[1]) if x[0][:6] == 'format' else x
+        self._parser = lambda x: ('format', x[1]) if x[0][:6] == 'format' else x
         self.settings = settings
-        self.processors_names = [processor_name for processor_name, v in map(self.tr, settings.items()) if settings_value2processors[processor_name](v) is not None]
-        self.processors = [settings_value2processors[processor_name](v) for processor_name, v in map(self.tr, settings.items()) if settings_value2processors[processor_name](v) is not None]
+        self.processors_names = [processor_name for processor_name, v in map(self._parser, settings.items()) if settings_value2processors[processor_name](v) is not None]
+        self.processors = [settings_value2processors[processor_name](v) for processor_name, v in map(self._parser, settings.items()) if settings_value2processors[processor_name](v) is not None]
         assert len(self.processors_names) == len(self.processors)
         self.str2gen_processor_index = 0
         self.token_gen2list_index = 0
@@ -60,7 +59,7 @@ class Pipeline(object):
     def finalize(self, prologs=tuple([])):
         i = 0
         for pr_name, pr_obj in self:
-            if isinstance(object, BaseDiskWriterWithPrologue):
+            if isinstance(pr_obj, BaseDiskWriterWithPrologue):
                 pr_obj.finalize(prologs[i])
                 i += 1
             elif isinstance(pr_obj, FinalizationNeededComponent):
@@ -73,6 +72,8 @@ class Pipeline(object):
     def _inject_connectors(self):
         assert (self.str2gen_processor_index != 0 and self.token_gen2list_index != 0)
         self._insert(self.str2gen_processor_index, self.str2gen_processor, 'str2token_gen')
+        self._insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
+        self._insert(self.token_gen2list_index + 2, OneElemListOfListToGenerator(), 'list2generator')
 
     def _check_processors_pipeline(self):
         i = 0
@@ -93,24 +94,10 @@ class Pipeline(object):
         return True
 
 
-class UciOutputPipeline(Pipeline):
-    def _inject_connectors(self):
-        super(UciOutputPipeline, self)._inject_connectors()
-        self._insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
-        self._insert(self.token_gen2list_index + 2, OneElemListOfListToGenerator(), 'list2generator')
-
-
-class VowpalOutputPipeline(Pipeline):
-    def _inject_connectors(self):
-        super(VowpalOutputPipeline, self)._inject_connectors()
-        self._insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
-        self._insert(self.token_gen2list_index + 2, OneElemListOfListToGenerator(), 'list2generator')
-
-
-def get_pipeline(pipe_type, settings):
-    if pipe_type == 'uci': return UciOutputPipeline(settings)
-    if pipe_type == 'vowpal': return VowpalOutputPipeline(settings)
-    return None
+def get_pipeline(settings):
+    # if pipe_type == 'uci': return UciOutputPipeline(settings)
+    # if pipe_type == 'vowpal': return VowpalOutputPipeline(settings)
+    return Pipeline(settings)
 
 
 class SupportedTokenizerNotFoundException(Exception):
@@ -121,3 +108,17 @@ class SupportedTokenizerNotFoundException(Exception):
 class ProcessorsOrderNotSoundException(Exception):
     def __init__(self, msg):
         super(Exception, self).__init__(msg)
+
+
+        # class UciOutputPipeline(Pipeline):
+        #     def _inject_connectors(self):
+        #         super(UciOutputPipeline, self)._inject_connectors()
+        #
+        #
+        #
+        # class VowpalOutputPipeline(Pipeline):
+        #     def _inject_connectors(self):
+        #         super(VowpalOutputPipeline, self)._inject_connectors()
+        #         self._insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
+        #         self._insert(self.token_gen2list_index + 2, OneElemListOfListToGenerator(), 'list2generator')
+        #
