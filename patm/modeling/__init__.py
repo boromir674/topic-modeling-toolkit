@@ -6,3 +6,5 @@ from .trainer import TrainerFactory
 
 trainer_factory = TrainerFactory()
 from patm.modeling.parameters.trajectory import trajectory_builder
+
+from .regularizers import regularizers_factory

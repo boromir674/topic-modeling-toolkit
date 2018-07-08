@@ -52,10 +52,13 @@ class ParameterGrid(object):
             elif type(sp) == ParameterSpan:
                 self._spans.append(sp)
             else:
+                print sp
                 raise InvalidSpanException("Invalid span object given of type " + type(sp).__name__)
 
     def __len__(self):
-        return reduce(lambda x, y: len(x)*len(y), self._spans)
+        if len(self._spans) == 1:
+            return len(self._spans[0])
+        return reduce(lambda x,y: x*y, map(len, self._spans))
 
     def _init(self):
         self._span_lens = [len(_) for _ in self._spans]

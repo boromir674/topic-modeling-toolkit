@@ -1,8 +1,8 @@
 import artm
 from patm.utils import cfg2model_settings
-from patm.definitions import collections_dir
+from .regularizers import regularizers_factory
+from patm.definitions import collections_dir, get_generic_topic_names
 from .topic_model import TopicModel, TrainSpecs
-from .regularizers import init_from_file, init_from_latest_results, get_reg_pool_from_files
 from ..evaluation.scorer_factory import get_scorers_factory, EvaluationFactory
 
 
@@ -23,34 +23,27 @@ class ModelFactory(object):
         # self.cooc_dict = cooc_dict
         self._tm = None
         self._eval_factory = EvaluationFactory(self.dict, cooc_dict)
-        self._scores = {}
 
-    # def _parse_train_cfg(self, cfg):
-    #     _ = cfg2model_settings(cfg)
-    #     self._nb_topics = _['learning']['nb_topicss']
-    #     self._col_passes = _['learning']['collection_passes']
-    #     self._doc_passes = _['learning']['document_passes']
-    #     self._scores = _['scores']
-    #     self._regs = _['regularizers']
+    def create_model_from_pool(self, label, nb_topics, document_passes, cfg_file):
+        settings = cfg2model_settings(cfg_file)
+        regularizers = regularizers_factory.construct_reg_pool_from_files(cfg_file, reg_cfg)
+        self._create_topic_model(label, nb_topics, document_passes, settings['scores'])
+        self._set_regularizers(regularizers)
+        return self._tm
 
-    def create_model1(self, label, nb_topics, document_passes, cfg_file, reg_cfg):
+    def create_model1(self, label, nb_topics, document_passes, cfg_file):
         """
 
         :param int nb_topics:
         :param int document_passes:
         :param str cfg_file:
-        :param str reg_cfg:
         :return:
         :rtype: patm.modeling.topic_model.TopicModel
         """
         settings = cfg2model_settings(cfg_file)
-        regularizers = get_reg_pool_from_files(cfg_file, reg_cfg)
-        model = artm.ARTM(num_topics=nb_topics,
-                          dictionary=self.dict,
-                          topic_names=get_generic_topic_names(nb_topics))
-        model.num_document_passes = document_passes
-        self._create_topic_model(label, model, settings['scores'])
-        self._set_regularizers(regularizers)
+        # regularizers = get_reg_pool_from_files(cfg_file, reg_cfg)
+        self._create_topic_model(label, nb_topics, document_passes, settings['scores'])
+        # self._set_regularizers(regularizers)
         return self._tm
 
     def create_model(self, label, cfg_file, reg_cfg):
@@ -63,13 +56,8 @@ class ModelFactory(object):
         :rtype: patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs
         """
         settings = cfg2model_settings(cfg_file)
-        nb_topics = settings['learning']['nb_topics']
-        regularizers = init_from_file(settings['regularizers'].items(), reg_cfg)
-        model = artm.ARTM(num_topics=nb_topics,
-                          dictionary=self.dict,
-                          topic_names=get_generic_topic_names(nb_topics))
-        model.num_document_passes = settings['learning']['document_passes']
-        self._create_topic_model(label, model, settings['scores'])
+        regularizers = regularizers_factory.construct_pool_from_file(settings['regularizers'].items(), reg_cfg)
+        self._create_topic_model(label, settings['learning']['nb_topics'], settings['learning']['document_passes'], settings['scores'])
         self._set_regularizers(regularizers)
         return self._tm, TrainSpecs(settings['learning']['collection_passes'], [], [])
 
@@ -86,30 +74,34 @@ class ModelFactory(object):
         :return: tuple of initialized model and training specifications
         :rtype: (patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs)
         """
-        regularizers = init_from_latest_results(results)
+        regularizers = regularizers_factory.get_reg_pool_from_latest_results(results)
         nb_topics = int(results['model_parameters']['nb_topics'][-1][1])
         model = artm.ARTM(num_topics=nb_topics,
                           dictionary=self.dict,
                           topic_names=get_generic_topic_names(nb_topics)) # number of topics have to be set, but doesn't matter, because they are overridden by the phi matrix loaded below
         model.load(filename=phi_file_path)
         model.num_document_passes = results['model_parameters']['document_passes'][-1][1]
-        self._create_topic_model(results['model_label'], model, dict(results['_eval_name2eval_type']))
+        for score_setting_name, eval_instance_name in results['_eval_name2eval_type']:
+            model.scores.add(self._eval_factory.score_type2constructor[score_setting_name](eval_instance_name))
+            scorers[score_setting_name] = get_scorers_factory(score_type2score_name).create_scorer(eval_instance_name)
+        self._tm = TopicModel(label, model, dict(results['_eval_name2eval_type']))
         self._set_regularizers(regularizers)
         return self._tm
 
-    def _create_topic_model(self, label, artm_model, score_type2score_name):
+    def _create_topic_model(self, label, nb_topics, document_passes, score_type2score_name):
         scorers = {}
+        model = artm.ARTM(num_topics=nb_topics,
+                          dictionary=self.dict,
+                          topic_names=get_generic_topic_names(nb_topics))
+        model.num_document_passes = document_passes
         for score_setting_name, eval_instance_name in score_type2score_name.items():
-            artm_model.scores.add(self._eval_factory.score_type2constructor[score_setting_name](eval_instance_name))
+            model.scores.add(self._eval_factory.score_type2constructor[score_setting_name](eval_instance_name))
             scorers[score_setting_name] = get_scorers_factory(score_type2score_name).create_scorer(eval_instance_name)
-        self._tm = TopicModel(label, artm_model, scorers)
+        self._tm = TopicModel(label, model, scorers)
 
     def _set_regularizers(self, reg_list):
         for reg_instance in reg_list:
-            self._tm.add_regularizer(reg_instance)
-
-def get_generic_topic_names(nb_topics):
-    return ['top_' + index for index in map(lambda x: str(x) if len(str(x)) > 1 else '0'+str(x), range(nb_topics))]
+            self._tm.   add_regularizer(reg_instance, regularizers_factory.get_type(reg_instance))
 
 class ModelLabelDisagreementException(Exception):
     def __init__(self, msg):

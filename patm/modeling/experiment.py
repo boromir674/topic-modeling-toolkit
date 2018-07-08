@@ -23,11 +23,12 @@ class Experiment:
     - _eval_name2eval_type
     """
 
-    def __init__(self, root_dir):
+    def __init__(self, root_dir, cooc_dict):
         """
         Encapsulates experimentation by doing topic modeling on a 'collection' in the given root_dir. A 'collection' is a proccessed document collection into BoW format and possibly split into 'train' and 'test' splits
         """
         self._dir = root_dir
+        self.cooc_dict = cooc_dict
         self._loaded_dictionary = None # artm.Dictionary object. Data population happens uppon artm.Artm object creation in model_factory; dictionary.load(bin_dict_path) is called there
         self._topic_model = None
         self.collection_passes = []
@@ -39,14 +40,14 @@ class Experiment:
 
     def init_empty_trackables(self, model):
         self._topic_model = model
-        self.trackables = {scorer_name: {inner_k: [] for inner_k in self._topic_model.get_scorer_wrapper(scorer_name).attributes} for scorer_name in self._topic_model.evaluator_names}
+        self.trackables = {self._topic_model.evaluator_types[self._topic_model.evaluator_names.index(scorer_name)]: {inner_k: [] for inner_k in self._topic_model.get_scorer_wrapper(scorer_name).attributes} for scorer_name in self._topic_model.evaluator_names}
         self.collection_passes = []
         self.reg_params = []
         self.model_params = {'nb_topics': [], 'document_passes': []}
 
     @property
     def model_factory(self):
-        return get_model_factory(self.dictionary)
+        return get_model_factory(self.dictionary, self.cooc_dict)
 
     @property
     def topic_model(self):
@@ -65,10 +66,9 @@ class Experiment:
         self.model_params['nb_topics'].append(tuple((span, topic_model.nb_topics)))
         self.model_params['document_passes'].append(tuple((span, topic_model.document_passes)))
         self.reg_params.append(tuple((span, topic_model.get_regs_param_dict())))
-
-        for evaluator_type, eval_name in zip(topic_model.evaluator_names, topic_model.evaluator_types):
-            # print 'Loading score: eval type:', evaluator_type, 'instance name:', evaluator_instance.name
-            current_eval = topic_model.get_scorer_wrapper(evaluator_type).evaluate(topic_model.artm_model)
+        # print topic_model._e
+        for eval_name, evaluator_type in zip(topic_model.evaluator_names, topic_model.evaluator_types):
+            current_eval = topic_model.get_scorer_wrapper(eval_name).evaluate(topic_model.artm_model)
             for eval_reportable, value in current_eval.items():
                 try:
                     if type(value) == list:
@@ -83,6 +83,7 @@ class Experiment:
                         raise e
                     except TypeError as er:
                         print 'does not have __len__ implemented'
+                        print er
                     raise EvaluationOutputLoadingException("Could not assign the value of type '{}' with key '{}' as an item in self.trackables'".format(type(value), eval_reportable))
 
     @property
@@ -97,7 +98,7 @@ class Experiment:
             'model_label': self._topic_model.label,
             'model_parameters': self.model_params,
             'reg_parameters': self.reg_params,
-            # '_eval_name2eval_type': sorted(map(lambda x: (x[0], x[1].name), self._topic_model.evaluators.items()), key=lambda x: x[0])
+            '_eval_name2eval_type': zip(self._topic_model.evaluator_names, self._topic_model.evaluator_types)
             # 'topic_names': self.topic_model.topic_names
         }
 
@@ -139,7 +140,7 @@ class Experiment:
         self.trackables = results['trackables']
         self.reg_params = results['reg_parameters']
         self.model_params = results['model_parameters']
-        self._topic_model = self.phi_matrix_handler.load(model_label, results=results)
+        self._topic_model = self.phi_matrix_handler.load(model_label, results)
         return self._topic_model
 
     # def set_parameters(self, expressions_list):

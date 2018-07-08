@@ -8,9 +8,7 @@ from collections import OrderedDict
 _section2encoder = {
         'learning': int,
         'regularizers': str,
-        'scores': str
-    }
-
+        'scores': str}
 
 def cfg2model_settings(cfg_file):
     config = ConfigParser()

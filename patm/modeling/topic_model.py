@@ -1,5 +1,4 @@
 from patm.utils import cfg2model_settings
-from regularizers import regularizer_class_string2reg_type
 from .regularizers import regularizer2parameters, parameter_name2encoder
 
 
@@ -16,19 +15,20 @@ class TopicModel(object):
         :param artm.ARTM artm_model: a reference to an artm model object
         :param dict evaluators: mapping from evaluator_types to evaluator_names; i.e. {'sparsity-phi': 'sp', 'top-tokens': 'tt'}
         """
-        self.observers = []
         self.label = label
         self.artm_model = artm_model
         self._eval_type2eval_wrapper_obj = evaluators
         self._eval_name2eval_type = {v.name: k for k, v in evaluators.items()} # {'sp': 'sparsity-phi', 'tt10': 'top-tokens10'}
-        self._reg_type2name = {}  # ie {'smooth-sparse-theta': 'sst', 'smooth-sparse-phi': 'ssp'}
+        self._reg_type2name = {}  # ie {'smooth-theta': 'sb_t', 'sparse-phi': 'sd_p'} (eg abbreviation for 'smooth background theta')
+        self._reg_name2type = {}
 
-    def add_regularizer(self, reg_object):
+    def add_regularizer(self, reg_object, reg_type):
         """
         Adds a regularizer component to the optimization likelihood function. Adds the given object to the underlying artm model.\n
         :param artm.BaseRegularizer reg_object: the object to add
         """
-        self._reg_type2name[regularizer_class_string2reg_type[type(reg_object).__name__]] = reg_object.name
+        self._reg_type2name[reg_type] = reg_object.name
+        self._reg_name2type[reg_object.name] = reg_type
         self.artm_model.regularizers.add(reg_object)
 
     @property
@@ -37,7 +37,7 @@ class TopicModel(object):
 
     @property
     def regularizer_types(self):
-        return [regularizer_class_string2reg_type[type(self.artm_model.regularizers[name]).__name__] for name in self.regularizer_names]
+        return map(lambda x: self._reg_name2type[x], self.regularizer_names)
 
     def get_reg_obj(self, reg_name):
         return self.artm_model.regularizers[reg_name]

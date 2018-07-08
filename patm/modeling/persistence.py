@@ -18,6 +18,10 @@ class WriterLoader(object):
     def list(self):
         raise NotImplemented
 
+    @abc.abstractproperty
+    def saved(self):
+        raise NotImplemented
+
     @abc.abstractmethod
     def save(self, name):
         raise NotImplemented
@@ -36,6 +40,7 @@ class BaseWriterLoader(WriterLoader):
         if not os.path.isdir(self._loc):
             os.mkdir(self._loc)
             print 'Created \'{}\' dir to persist experimental results'.format(self._loc)
+        self._saved = []
 
     @property
     def location(self):
@@ -44,6 +49,10 @@ class BaseWriterLoader(WriterLoader):
     @property
     def list(self):
         return [os.path.basename(file_path) for file_path in glob.glob('{}/*{}{}'.format(self._loc, self._post, self._extension))]
+
+    @property
+    def saved(self):
+        return self._saved
 
     def save(self, name):
         raise NotImplementedError
@@ -66,7 +75,7 @@ class ExperimentWL(BaseWriterLoader):
 
     def save(self, name):
         raise NotImplementedError
-    def load(self, name):
+    def load(self, name, *args):
         raise NotImplementedError
 
 
@@ -80,8 +89,9 @@ class ResultsWL(ExperimentWL):
         results = _stringify_trackable_dicts(self._exp.get_results())
         with open(self.get_full_path(name), 'w') as f:
             json.dump(results, f)
+        self._saved.append(self.get_full_path(name))
 
-    def load(self, name):
+    def load(self, name, *args):
         return load_results(self.get_full_path(name))
 
 
@@ -95,8 +105,9 @@ class ModelWL(ExperimentWL):
 
     def save(self, name):
         self._exp.topic_model.artm_model.save(self.get_full_path(name), model_name=self._phi_matrix_label)  # saves one Phi-like matrix to disk
+        self._saved.append(self.get_full_path(name))
 
-    def load(self, name, results=None):
+    def load(self, name, *args):
         """
         Loaded model will overwrite ARTM.topic_names and class_ids fields.
         All class_ids weights will be set to 1.0, (if necessary, they have to be specified by hand. The method call will empty ARTM.score_tracker.
@@ -104,7 +115,7 @@ class ModelWL(ExperimentWL):
         :param name:
         :return:
         """
-        return self._exp.model_factory.create_model_with_phi_from_disk(self.get_full_path(name), results)
+        return self._exp.model_factory.create_model_with_phi_from_disk(self.get_full_path(name), args[0])
 
 
 

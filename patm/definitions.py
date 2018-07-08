@@ -38,8 +38,8 @@ COOCURENCE_DICT_FILE_NAMES = ['cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
 ###### CONSTANTS #####
 BINARY_DICTIONARY_NAME = 'mydic.dict'
 
-# def full_path_creator(collection_name):
-#     return lambda x: os.path.join(collections_dir, collection_name, x)
+def get_generic_topic_names(nb_topics):
+    return ['top_' + index for index in map(lambda x: str(x) if len(str(x)) > 1 else '0'+str(x), range(nb_topics))]
 ###### ###### ###### ###### ###### ######
 
 

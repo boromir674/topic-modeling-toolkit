@@ -29,8 +29,8 @@ if __name__ == '__main__':
     root_dir = os.path.join(collections_dir, args.collection)
     regularizers_param_cfg = '/data/thesis/code/regularizers.cfg'
 
-    experiment = Experiment(root_dir)
     model_trainer = trainer_factory.create_trainer(args.collection)
+    experiment = Experiment(root_dir, model_trainer.cooc_dicts)
     model_trainer.register(experiment)  # when the model_trainer trains, the experiment object listens to changes
 
     train_iters = 50

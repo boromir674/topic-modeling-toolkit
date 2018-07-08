@@ -13,6 +13,7 @@ class EvaluationFactory(object):
         """
         self._dict = dictionary
         self.cooc_df_dict = cooc_dict['df']['obj']
+
         self.score_type2constructor = {
             'background-tokens-ratio': lambda x: artm.BackgroundTokensRatioScore(name=x, delta_threshold=0.3),
             # Computes KL - divergence between p(t) and p(t | w) distributions \mathrm{KL}(p(t) | | p(t | w)) (or vice versa)
@@ -45,8 +46,6 @@ score_type2_reportables = {
     'top-tokens-10': ('average_coherence', 'coherence', 'num_tokens', 'tokens', 'weights'),
     'top-tokens-100': ('average_coherence', 'coherence', 'num_tokens', 'tokens', 'weights')
 }
-
-
 
 
 class ArtmScorer(AbstractEvaluator):

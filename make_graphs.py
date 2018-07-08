@@ -63,11 +63,6 @@ class GraphMaker(object):
 
         self._cross_tau_titler = lambda x: 'tau coefficient for {} matrix sparsing regularization'.format(x)
         self._all_taus_titler = lambda x, y: 'tau coefficients for {} sparsing regularization for model {}'.format(x, y)
-        # self.traj_plots = {
-        #     'sprasity-phi-all':
-        #     'sprasity-theta-all':
-        #     'both-sparsities':
-        # }
         # linestyle / ls: Plot linestyle['-', '--', '-.', ':', 'None', ' ', '']
         # marker: '+', 'o', '*', 's', 'D', ',', '.', '<', '>', '^', '1', '2'
         self.plot = {
@@ -141,6 +136,7 @@ class GraphMaker(object):
         for graph_type, plot in graph_plots:
             self._save_plot(graph_type, plot)
 
+    # def create_easy_plot(self):
     def save_plot(self, graph_type, results):
         """
         Creates plots of various metrics and saves png files

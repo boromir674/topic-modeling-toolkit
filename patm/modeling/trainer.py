@@ -60,7 +60,7 @@ class ModelTrainer(object):
             gener = all_iter_chunks
             if effects:
                 print 'Training with dynamic trajectories'
-                gener = tqdm(all_iter_chunks)
+                # gener = tqdm(all_iter_chunks)
             for chunk in gener:
                 topic_model.set_parameters(specs.to_taus_slice(iter_sum))
                 topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=chunk.span)
