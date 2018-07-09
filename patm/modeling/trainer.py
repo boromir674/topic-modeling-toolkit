@@ -68,50 +68,73 @@ class ModelTrainer(object):
                 iter_sum += chunk.span
 
 class TrainerFactory(object):
+    ideology_flag2data_format = {True: 'vowpal_wabbit', False: 'bow_uci'}
+    ideology_flag2batches_dir_name = {True: 'vow-batches', False: 'uci-batches'}
 
-    def create_trainer(self, collection):
+    def create_trainer(self, collection, exploit_ideology_labels=False, force_new_batches=False):
         """
         :param collection: the collection name which matches the root directory of all the files related to the collection
         :type collection: str
         :return: an artm model trainer
         :rtype: ModelTrainer
         """
-        root_dir = os.path.join(collections_dir, collection)
-        bin_dict = os.path.join(root_dir, 'mydic.dict')
-        text_dict = os.path.join(root_dir, 'mydic.txt')
-        vocab = os.path.join(root_dir, 'vocab.' + collection + '.txt')
-        if not os.path.exists(root_dir):
-            os.makedirs(root_dir)
-        batches = [_ for _ in os.listdir(root_dir) if '.batch' in _]
-        mod_tr = ModelTrainer(collections_dir)
+        self._col = collection
+        self._root_dir = os.path.join(collections_dir, self._col)
+        self._mod_tr = ModelTrainer(collections_dir)
+        self._batches_dir_name = self.ideology_flag2batches_dir_name[exploit_ideology_labels]
+        self._batches_target_dir = os.path.join(self._root_dir, self._batches_dir_name)
+        self._data_path_hash = {True: os.path.join(self._root_dir, 'vowpal.'+self._col+'.txt'), False: self._root_dir}
+        self._create_dirs([self._root_dir, self._batches_target_dir])
+        bin_dict = os.path.join(self._root_dir, 'mydic.dict')
+        text_dict = os.path.join(self._root_dir, 'mydic.txt')
+        vocab = os.path.join(self._root_dir, 'vocab.' + self._col + '.txt')
 
-        if batches:
-            mod_tr.batch_vectorizer = artm.BatchVectorizer(collection_name=collection,
-                                                           data_path=root_dir,
-                                                           data_format='batches')
-            print 'vectorizer initialized from \'batches\' file'
+        batches = [_ for _ in os.listdir(self._batches_target_dir) if '.batch' in _]
+        print 'batches', batches
+        if not force_new_batches and batches:
+            self.load_batches()
         else:
-            mod_tr.batch_vectorizer = artm.BatchVectorizer(collection_name=collection,
-                                                           data_path=root_dir,
-                                                           data_format='bow_uci',
-                                                           target_folder=root_dir)
-            print 'vectorizer initialized from \'uci\' file'
+            self.create_batches(use_ideology_information=exploit_ideology_labels)
+
         if os.path.exists(bin_dict):
-            mod_tr.dictionary.load(bin_dict)
-            print 'loaded binary dictionary', bin_dict
+            self._mod_tr.dictionary.load(bin_dict)
+            print 'Loaded binary dictionary', bin_dict
         else:
-            mod_tr.dictionary.gather(data_path=root_dir, vocab_file_path=vocab, symmetric_cooc_values=True)
-            mod_tr.dictionary.save(bin_dict)
-            mod_tr.dictionary.save_text(text_dict, encoding='utf-8')
-            print 'saved binary dictionary as', bin_dict
-            print 'saved textual dictionary as', text_dict
+            self._mod_tr.dictionary.gather(data_path=self._root_dir, vocab_file_path=vocab, symmetric_cooc_values=True)
+            self._mod_tr.dictionary.save(bin_dict)
+            self._mod_tr.dictionary.save_text(text_dict, encoding='utf-8')
+            print 'Saved binary dictionary as', bin_dict
+            print 'Saved textual dictionary as', text_dict
 
         # TODO replace with nested map/lambdas and regex
-        for fname in os.listdir(root_dir):
+        for fname in os.listdir(self._root_dir):
             name = os.path.basename(fname)
             matc = re.match('^ppmi_(\w\w)_(\d*)', name)
             if matc:
-                mod_tr.cooc_dicts[matc.group(1)] = {'obj': artm.Dictionary(), 'min': int(matc.group(2))}
-                mod_tr.cooc_dicts[matc.group(1)]['obj'].gather(data_path=root_dir, cooc_file_path=os.path.join(root_dir, name), vocab_file_path=vocab, symmetric_cooc_values=True)
+                self._mod_tr.cooc_dicts[matc.group(1)] = {'obj': artm.Dictionary(), 'min': int(matc.group(2))}
+                self._mod_tr.cooc_dicts[matc.group(1)]['obj'].gather(data_path=self._root_dir, cooc_file_path=os.path.join(self._root_dir, name), vocab_file_path=vocab, symmetric_cooc_values=True)
                 print "Loaded positive pmi '{}' dictionary from '{}' text file".format(matc.group(1), name)
-        return mod_tr
+        return self._mod_tr
+
+    def create_batches(self, use_ideology_information=False):
+        self._mod_tr.batch_vectorizer = artm.BatchVectorizer(collection_name=self._col,
+                                                               data_path=self._data_path_hash[use_ideology_information],
+                                                               data_format=self.ideology_flag2data_format[use_ideology_information],
+                                                               target_folder=self._batches_target_dir)
+        print "Vectorizer initialized from '{}' file".format(self.ideology_flag2data_format[use_ideology_information])
+
+    def load_batches(self):
+        self._mod_tr.batch_vectorizer = artm.BatchVectorizer(collection_name=self._col,
+                                                       data_path=self._batches_target_dir,
+                                                       data_format='batches')
+        print "Vectorizer initialized from 'batches'"
+
+    def _create_dirs(self, dir_paths):
+        for _ in dir_paths:
+            if not os.path.exists(_):
+                os.makedirs(_)
+
+
+if __name__ == '__main__':
+    trainer_factory = TrainerFactory()
+    model_trainer = trainer_factory.create_trainer('articles', exploit_ideology_labels=False, force_new_batches=False)
