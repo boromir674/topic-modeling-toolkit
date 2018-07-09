@@ -67,6 +67,10 @@ class ModelReporter(object):
             return map(self._detail_switch[details], sorted(map(lambda x: load_reportables1(x), self.result_paths), key=lambda x: self.fitness_computer.compute_fitness(x, add_info=add_fitness_info), reverse=True))
         return map(self._detail_switch[details], map(lambda x: load_reportables1(x), self.result_paths))
 
+    def get_model_labels_string(self, sorting_function):
+        il = self.get_info_list(sort_function=sorting_function, add_fitness_info=False)
+        return '\n'.join(map(lambda x: x['model_label'], il))
+
     def to_string(self, reportables):
         r = reportables
 
@@ -239,10 +243,18 @@ def get_cli_arguments():
 if __name__ == '__main__':
     collections_root_dir = '/data/thesis/data/collections'
     args = get_cli_arguments()
+
     if args.sort:
         fitness_function = fitness_function_factory.get_metric_function(args.sort)
     else:
         fitness_function = False
     model_reporter = ModelReporter(args.dataset)
-    b = model_reporter.get_highlighted_detailed_string(fitness_function, model_reporter.UNDERLINE)
+    from patm.utils import Spinner
+    spinner = Spinner(delay=0.2)
+    spinner.start()
+    if args.details:
+        b = model_reporter.get_highlighted_detailed_string(fitness_function, model_reporter.UNDERLINE)
+    else:
+        b = model_reporter.get_model_labels_string(fitness_function)
+    spinner.stop()
     print b
