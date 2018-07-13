@@ -285,6 +285,10 @@ class TrajectoryBuilder(object):
     def create(self):
         return ParameterTrajectory(self._name, self._values)
 
+    def create_tau_trajectory(self, values_list):
+        """Typical factory method"""
+        return ParameterTrajectory('tau', values_list)
+
 def get_fit_iteration_chunks(parameter_trajectories):
     """
     Given a list of parameter trajectories along the iteration count "dimension", returns a list of iterations tuples/steady_chunks.
