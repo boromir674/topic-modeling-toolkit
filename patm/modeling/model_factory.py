@@ -1,3 +1,4 @@
+from collections import defaultdict
 import artm
 from patm.utils import cfg2model_settings
 from .regularizers import regularizers_factory
@@ -18,6 +19,8 @@ class ModelFactory(object):
     """
     This class can create a fresh TopicModel or restore a TopicModel's state from disk. In both cases the model is ready to be trained.
     """
+    # weigth2modalities = {0: {'@default_class': 1.0, '@ideology': x}, }
+
     def __init__(self, dictionary, cooc_dict):
 
         self._tm = None
@@ -82,10 +85,12 @@ class ModelFactory(object):
         self._set_regularizers(regularizers)
         return self._tm
 
-    def _create_topic_model(self, label, nb_topics, document_passes, score_type2score_name):
+    def _create_topic_model(self, label, nb_topics, document_passes, score_type2score_name, perspective_modality=0.0):
+        assert type(perspective_modality) == float
         scorers = {}
         model = artm.ARTM(num_topics=nb_topics,
                           dictionary=self.dict,
+                          class_ids={'@default_class': 1.0, '@ideology': perspective_modality},
                           topic_names=get_generic_topic_names(nb_topics))
         model.num_document_passes = document_passes
         for score_setting_name, eval_instance_name in score_type2score_name.items():
