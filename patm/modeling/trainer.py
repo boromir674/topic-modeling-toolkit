@@ -127,7 +127,7 @@ class TrainerFactory(object):
         self._mod_tr.batch_vectorizer = artm.BatchVectorizer(collection_name=self._col,
                                                        data_path=self._batches_target_dir,
                                                        data_format='batches')
-        print "Vectorizer initialized from 'batches'"
+        print "Vectorizer initialized from 'batches' found in '{}'".format(self._batches_target_dir)
 
     def _create_dirs(self, dir_paths):
         for _ in dir_paths:

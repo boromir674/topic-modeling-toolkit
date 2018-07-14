@@ -5,7 +5,7 @@ import argparse
 
 from tqdm import tqdm
 from collections import OrderedDict, Counter
-from patm.utils import cfg2model_settings
+from patm.utils import cfg2model_settings, load_results
 from patm.modeling import trajectory_builder, regularizers_factory
 from patm.modeling.parameters import ParameterGrid
 from patm.definitions import collections_dir, regularizers_param_cfg, get_generic_topic_names
@@ -16,24 +16,26 @@ from patm.modeling.regularizers import construct_regularizer
 class Tuner(object):
     """
     This class is able to perform a search over the parameter space (grid-search supported).
-    Supports Static:
-    - nb_topics              eg: 80
-    - collection_passes      eg: 100
-    - document_passes        eg:5
 
-    # - sparse_phi_reg_coef_trajectory         eg: []
-    # - sparse_theta_reg_coef_trajectory           []
+    Supports Static:\n
+    - nb_topics                          eg: 80\n
+    - collection_passes                  eg: 100\n
+    - document_passes                    eg: 5\n
+    - sparse_phi_reg_coef_trajectory     eg: {'deactivation_period_pct': 0.1, 'start': -0.2, 'end' = -8}\n
+    - sparse_theta_reg_coef_trajectory   eg: {'deactivation_period_pct': 0.2, 'start': -0.1, 'end' = -4}\n\n
+    - decorrelate_topics_reg_coef        eg: 1e+5\n
 
-    and Explorable
+    and Explorable\n
 
-    - nb_topics                       eg: [20, 40, 60, 80, 100]\n
-    - collection_passes               eg: [100]\n
-    - document_passes                 eg: [1, 5, 10, 15]\n
-    - sparse_phi_reg_coef_trajectory    eg: {'deactivation_period_pct': [0.1, 0.15, 0.2], 'start': [-0.1, -0.2, -0.3, -0.4], 'end' = [-1, -2, -3, -4]}
-    - sparse_theta_reg_coef_trajectory  eg: {'deactivation_period_pct': [0.8, 0.14, 0.2], 'start': [-0.2, -0.3, -0.4], 'end' = [-1, -3, -5]}
+    - nb_topics                          eg: [20, 40, 60, 80, 100]\n
+    - collection_passes                  eg: [100]\n
+    - document_passes                    eg: [1, 5, 10, 15]\n
+    - sparse_phi_reg_coef_trajectory     eg: {'deactivation_period_pct': [0.1, 0.2], 'start': [-0.1, -0.2, -0.3, -0.4], 'end' = [-1, -2, -3, -4]}\n
+    - sparse_theta_reg_coef_trajectory   eg: {'deactivation_period_pct': [0.2], 'start': [-0.2, -0.3, -0.4], 'end' = [-1, -3, -5]}\n
+    - decorrelate_topics_reg_coef        eg: 1e+5\n
 
     """
-    def __init__(self, collection, train_config, regularizers_cfg, static_parameters, explorable_parameters, prefix_label=None, append_explorables='all', append_static=True):
+    def __init__(self, collection, train_config, regularizers_cfg, static_parameters, explorable_parameters, enable_ideology_labels=False, prefix_label=None, append_explorables='all', append_static=True):
         """
 
         :param str collection:
@@ -41,6 +43,7 @@ class Tuner(object):
         :param str regularizers_cfg:
         :param list_of_tuples static_parameters:
         :param list of tuples explorable_parameters: the order of this affects the order in which vectors of the parameter space are generated
+        :param bool enable_ideology_labels:
         :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix when building the names/paths of the trained models
         :param list or str append_explorables: if parameter names are defined, it appends the parameter values (static or explorable) when building the names/paths of the trained models
         :param bool append_static: indicates whether to append, after any possible prefix, the values of the static parameters used in the tuning process
@@ -52,13 +55,14 @@ class Tuner(object):
         self._expl_params = explorable_parameters
         self._expl_params_start_indices = {} # OrderedDict([(k, 0) for k in self.explorable_parameters])
         self._regex = re.compile('^(\w+)_coef_trajectory$')
+        self._ideology_information_flag = enable_ideology_labels
         t = 0
         for k in self.explorable_parameters:
             self._expl_params_start_indices[k] = t
-            if self._regex.match(k):
+            if self._regex.match(k): # if trajectory parameter it takes 3 slots
                 t += 3
             else:
-                t += 1
+                t += 1  # else it takes one slot
         print self._expl_params_start_indices
         self._prefix = prefix_label
 
@@ -69,17 +73,18 @@ class Tuner(object):
         self.experiment = Experiment(self._dir, self.trainer.cooc_dicts)
         self.trainer.register(self.experiment)  # when the model_trainer trains, the experiment object listens to changes
 
-
         if append_static:
-            self._labeling_params = [i for i,j  in static_parameters if not self._regex.match(i)]
+            self._labeling_params = [i for i,j in static_parameters if not self._regex.match(i)]
+        print 'P', self._labeling_params
         self._versioning_needed = False
         if append_explorables == 'all':
-            expl_labeling_params = [i for i,j  in self._expl_params if not self._regex.match(i)]
+            expl_labeling_params = [i for i,j in self._expl_params if not self._regex.match(i)]
         else:
             expl_labeling_params = [i for i in append_explorables if not self._regex.match(i)]
         if len(expl_labeling_params) != len(self._expl_params):
             self._versioning_needed = True
         self._labeling_params.extend(expl_labeling_params)
+        print 'P', self._labeling_params
 
         self._check_parameters()
         self._tm = None
@@ -116,7 +121,11 @@ class Tuner(object):
             self._cur_label = '_'.join(filter(None, [self._prefix] + ['v{}'.format(self._iter_prepend(self._label_groups[self._cur_label]))] + self._cached))
 
     def _create_model(self):
-        self._tm = self.trainer.model_factory.create_model1(self._cur_label, self._val('nb_topics'), self._val('document_passes'), self._train_cfg)
+        if self._ideology_information_flag:
+            # self._tm = self.trainer.model_factory.
+            pass
+        else:
+            self._tm = self.trainer.model_factory.create_model1(self._cur_label, self._val('nb_topics'), self._val('document_passes'), self._train_cfg)
 
     def _set_parameters(self, reg_specs):
         """
@@ -130,22 +139,25 @@ class Tuner(object):
             _ = int(reg_specs[0] * self._val('nb_topics'))
             background_topics = get_generic_topic_names(self._val('nb_topics'))[:_]
             domain_topics = get_generic_topic_names(self._val('nb_topics'))[_:]
-            for l in ('sparse-phi', 'sparse-theta', 'decorrelate'):
+            for l in ('sparse-phi', 'sparse-theta', 'decorrelator-phi'):
                 if l in reg_specs[1]:
                     reg_specs[1][l]['topic_names'] = domain_topics
             for l in ('smooth-phi', 'smooth-theta'):
                 if l in reg_specs[1]:
                     reg_specs[1][l]['topic_names'] = background_topics
+            if 'decorrelator-phi' in reg_specs[1]:
+                reg_specs[1]['decorrelator-phi']['tau'] = self._val('decorrelate_topics_reg_coef')
             pool = map(lambda x: regularizers_factory.construct_reg_obj(x[0], x[1]['name'], x[1]), reg_specs[1].items())
         for reg_obj in pool:
             self._tm.add_regularizer(reg_obj, regularizers_factory.get_type(reg_obj))
 
         for tau_traj_parameter_name in map(lambda x: x+'_coef_trajectory', self._tau_traj_to_build):
-            assert type(self._val('collection_passes')) == int
-            print 'Building', tau_traj_parameter_name, 'trajectory', self._val(tau_traj_parameter_name)
-            # print self._expl_params
-            trs.append(self._build_traj(self._val(tau_traj_parameter_name), self._val('collection_passes')))
-
+            if type(self._val(tau_traj_parameter_name)) == dict:
+                trs.append(self._build_traj(self._val(tau_traj_parameter_name), self._val('collection_passes')))
+                print 'Building', tau_traj_parameter_name, 'trajectory', self._val(tau_traj_parameter_name)
+            else:
+                trs.append(self._val(tau_traj_parameter_name))
+                print 'Trajectory', tau_traj_parameter_name, 'provided already built'
             reg_type = re.match('^(sparse_\w+)_reg_coef_trajectory$', tau_traj_parameter_name).group(1).replace('_', '-')
             ns.append(self._tm.regularizer_names[self._tm.regularizer_types.index(reg_type)])
 
@@ -159,7 +171,6 @@ class Tuner(object):
             return self.parameter_vector[self._expl_params_start_indices[parameter_name]]
         if parameter_name in self.explorable_parameters:
             # print 'VAL', self.parameter_vector, parameter_name, self.explorable_parameters.index(parameter_name),
-
             return {'deactivation_period_pct': self.parameter_vector[self._expl_params_start_indices[parameter_name]+self._traj_attr2index['deactivation_period_pct']],
                     'start': self.parameter_vector[self._expl_params_start_indices[parameter_name]+self._traj_attr2index['start']],
                     'end': self.parameter_vector[self._expl_params_start_indices[parameter_name]+self._traj_attr2index['end']]}
@@ -209,6 +220,31 @@ class ParameterFoundInStaticAndExplorablesException(Exception):
     def __init__(self, msg):
         super(Exception, self).__init__(msg)
 
+
+def get_model_settings(label):
+    base = '/data/thesis/data/collections/articles/results'
+    results = load_results(os.path.join(base, label))
+    reg_set = results['reg_parameters'][-1][1]
+    back_topics = {}
+    domain_topics = {}
+    reg_tau_trajectories = {}
+    reg_specs = [0, {}]
+    for k,v  in reg_set.items():
+        reg_specs[1][k] = v
+        if re.match('^smooth-(?:phi|theta)', k):
+            back_topics[k] = reg_set[k]['topic_names']
+        if re.match('^sparse-(?:phi|theta)', k):
+            domain_topics[k] = reg_set[k]['topic_names']
+            reg_tau_trajectories[k] = [_ for sublist in map(lambda x: [x[1][k]['tau']] * x[0], results['reg_parameters']) for _ in sublist]
+    if back_topics:
+        assert len(set(map(lambda x: '.'.join(x), back_topics.values()))) == 1  # assert that all regularizers that sparse and smooth
+        # have the same domain and background topics respectively to comply with the restriction in 'tune' method that all regularizers "share" the same domain and bacjground topics.
+        assert len(set(map(lambda x: '.'.join(x), domain_topics.values()))) == 1
+        reg_specs[0] = float(len(back_topics.values()[0])) / (len(back_topics.values()[0]) + len(domain_topics.values()[0]))
+        return reg_specs, reg_tau_trajectories
+    return None
+
+
 def get_cli_arguments():
     parser = argparse.ArgumentParser(description='Performs grid-search over the parameter space by creating and training topic models', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('dataset', metavar='collection_name', help='the collection to report models trained on')
@@ -227,52 +263,44 @@ if __name__ == '__main__':
 
     sparse_tau_start = [-0.1, -0.2, -0.3, -0.4]
     sparse_tau_end = [-1, -2, -3, -4]
-    deactivation_period = [10, 20, 30]
-    deactivation_period_pct = [10, 20, 30]
+    deactivation_period = [0.1, 0.15, 0.2]
     splines = ['linear']
 
-    nb_topics = [20, 40]
-    train_iters = [100]
-    doc_iterations = [10]
-
-    p_sparse_tau_start = [-0.1, -0.2, -0.3, -0.4]
-    p_sparse_tau_end = [-1, -2, -3, -4]
-    p_deactivation_period = [10, 20, 30]
-    p_deactivation_period_pct = [10, 20, 30]
-
-    t_sparse_tau_start = [-0.1, -0.2, -0.3, -0.4]
-    t_sparse_tau_end = [-1, -2, -3, -4]
-    t_deactivation_period = [10, 20, 30]
-    t_deactivation_period_pct = [10, 20, 30]
-
-    #####################
-    # REGULARIZERS POOL
-
-    reg_pool_specs = [1, {'sparse-theta': {'name': 'spd_t', 'tau': -0.1}, 'smooth-theta': {'name': 'smb_t', 'tau': 1},
-                            'sparse-phi': {'name': 'spd_p', 'tau': -0.1}, 'smooth-phi': {'name': 'smb_p', 'tau': 1},
-                            'decorrelator-phi': {'name': 'ddt', 'tau': 1e+5}}]
-    reg_pool_specs = [1, {'smooth-theta': {'name': 'smb_t', 'tau': 1},
-                          'smooth-phi': {'name': 'smb_p', 'tau': 1}}
-                          ]
-    ####### EXPLORABLE TRAJECTORIES
-    tr0 = {'deactivation_period_pct': 0.2, 'start': -0.4, 'end': -8}
+    ############ GRID SEARCH ############
     tr1 = {'deactivation_period_pct': [0.2], 'start': [-0.2, -0.5, -0.8], 'end': [-1, -4, -7]}
     tr2 = {'deactivation_period_pct': [0.2], 'start': [-0.1, -0.3, -0.5], 'end': [-1, -3, -5]}
-    tr1 = {'deactivation_period_pct': [0.2], 'start': [-0.2, -0.5], 'end': [-3]}
-    tr2 = {'deactivation_period_pct': [0.2], 'start': [-0.1, -0.7], 'end': [-5]}
-    ##############################
+    decor = {'name': 'dec_p', 'tau': 1e+5}
 
+    # iit = get_model_settings('plsa+ssp+sst_v0{}_100_5_20-train.json'.format(vold))
+    iit = get_model_settings('t3-plsa+ssp+sst+dec_v004_100_5_20')
+
+    trajs = map(lambda x: ((x[0]+'_reg_coef_trajectory').replace('-', '_'), trajectory_builder.create_tau_trajectory(x[1])), iit[1].items())
+
+    reg_pool = [iit[0][0], dict(iit[0][1], **{'decorrelator-phi': {'name': 'dec_p', 'tau': 1e+5}})]
+
+    tuner = Tuner(args.dataset, args.train_cfg, reg_cfg,
+                  [('collection_passes', 100), ('document_passes', 5), ('nb_topics', 20)] + trajs,
+                  [('decorrelate_topics_reg_coef', [2e+5, 1e+5, 1e+4, 1e+3])],
+                  prefix_label='test-ide',
+                  enable_ideology_labels=True,
+                  append_explorables=[],
+                  append_static=True)
+    tuner.tune(reg_pool)
+
+
+#####################
+    # REGULARIZERS POOL
+    # reg_pool_specs = [1, {'sparse-theta': {'name': 'spd_t', 'tau': -0.1}, 'smooth-theta': {'name': 'smb_t', 'tau': 1},
+    #                         'sparse-phi': {'name': 'spd_p', 'tau': -0.1}, 'smooth-phi': {'name': 'smb_p', 'tau': 1},
+    #                         'decorrelator-phi': {'name': 'ddt', 'tau': 1e+5}}]
+    # reg_pool_specs = [1, {'smooth-theta': {'name': 'smb_t', 'tau': 1},
+    #                       'smooth-phi': {'name': 'smb_p', 'tau': 1}}]
+    ####### EXPLORABLE TRAJECTORIES
+    # tr1 = {'deactivation_period_pct': [0.2], 'start': [-0.2, -0.5], 'end': [-3]}
+    # tr2 = {'deactivation_period_pct': [0.2], 'start': [-0.1, -0.7], 'end': [-5]}
+    # tr0 = {'deactivation_period_pct': 0.2, 'start': -0.4, 'end': -8}
+    ##############################
     # static = [('collection_passes', 100), ('document_passes', 5), ('sparse_theta_reg_coef_trajectory', tr2), ('sparse_phi_reg_coef_trajectory', traj1)]
     # wlabel =
     # static = [('collection_passes', 100)]
     # static = [('collection_passes', 100), ('document_passes', 5)]
-
-    tuner = Tuner(args.dataset, args.train_cfg, reg_cfg,
-                  [('collection_passes', 10), ('document_passes', 5), ('nb_topics', 20), ('sparse_theta_reg_coef_trajectory', tr0)],
-                  [('sparse_phi_reg_coef_trajectory', tr2)],
-                  prefix_label='plsa+sss+test1',
-                  append_explorables=[],
-                  append_static=True)
-
-    tuner.tune([0.2, {'sparse-theta': {'name': 'spd_t', 'tau': -0.1}, 'smooth-theta': {'name': 'smb_t', 'tau': 1},
-                            'sparse-phi': {'name': 'spd_p', 'tau': -0.1}, 'smooth-phi': {'name': 'smb_p', 'tau': 1}}])
