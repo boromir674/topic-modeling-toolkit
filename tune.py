@@ -294,11 +294,16 @@ if __name__ == '__main__':
     #               append_static=True)
     # tuner.tune([])
 
-    ##### LDA MODELS
+    # ############ GRID SEARCH ############
+    tr1 = {'deactivation_period_pct': [0.1], 'start': [-0.2], 'end': [-4, -7]}
+    tr2 = {'deactivation_period_pct': [0.1], 'start': [-0.1], 'end': [-3, -5]}
+
+    # trajs = map(lambda x: ((x[0]+'_reg_coef_trajectory').replace('-', '_'), trajectory_builder.create_tau_trajectory(x[1])), iit[1].items())
+
     # tuner = Tuner(args.dataset, args.train_cfg, reg_cfg,
-    #               [('collection_passes', 100)],
-    #               [('document_passes', [5, 10, 15]), ('nb_topics', [20, 40, 60])],
-    #               prefix_label='lda',
+    #               [('collection_passes', 20), ('nb_topics', 20)],
+    #               [('document_passes', [5, 10])],
+    #               prefix_label='test-b2',
     #               enable_ideology_labels=False,
     #               append_explorables='all',
     #               append_static=True)
@@ -370,6 +375,29 @@ if __name__ == '__main__':
         # reg_pool = [iit[0][0], dict(iit[0][1], **{'decorrelator-phi': decor})]
         # [('decorrelate_topics_reg_coef', [2e+5, 1e+5, 1e+4, 1e+3])],
         # decor = {'name': 'dec_p', 'tau': 1e+5}
+
+    # ############ GRID SEARCH ############
+    # tr1 = {'deactivation_period_pct': [0.2], 'start': [-0.2, -0.5, -0.8], 'end': [-1, -4, -7]}
+    # tr2 = {'deactivation_period_pct': [0.2], 'start': [-0.1, -0.3, -0.5], 'end': [-1, -3, -5]}
+    # decor = {'name': 'dec_p', 'tau': 1e+5}
+    #
+    # # iit = get_model_settings('plsa+ssp+sst_v0{}_100_5_20-train.json'.format(vold))
+    # iit = get_model_settings('t3-plsa+ssp+sst+dec_v004_100_5_20')
+    #
+    # trajs = map(lambda x: ((x[0]+'_reg_coef_trajectory').replace('-', '_'), trajectory_builder.create_tau_trajectory(x[1])), iit[1].items())
+    #
+    # reg_pool = [iit[0][0], dict(iit[0][1], **{'decorrelator-phi': {'name': 'dec_p', 'tau': 1e+5}})]
+    #
+    # tuner = Tuner(args.dataset, args.train_cfg, reg_cfg,
+    #               [('collection_passes', 100), ('document_passes', 5), ('nb_topics', 20)] + trajs,
+    #               [('decorrelate_topics_reg_coef', [2e+5, 1e+5, 1e+4, 1e+3])],
+    #               prefix_label='test-ide',
+    #               enable_ideology_labels=True,
+    #               append_explorables=[],
+    #               append_static=True)
+    # tuner.tune(reg_pool)
+
+
 
     # ############ GRID SEARCH ############
     # tr1 = {'deactivation_period_pct': [0.2], 'start': [-0.2, -0.5, -0.8], 'end': [-1, -4, -7]}
