@@ -31,6 +31,9 @@ class EvaluationFactory(object):
             'top-tokens-100': lambda x: artm.TopTokensScore(name=x, num_tokens=100, dictionary=self.cooc_df_dict)
         }
 
+    def create_artm_scorer(self, score_type, scorer_name):
+        return self.score_type2constructor[score_type](scorer_name)
+
 
 score_type2_reportables = {
     'background-tokens-ratio': ('tokens', # the actual tokens with value greater than delta
