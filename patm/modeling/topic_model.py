@@ -13,13 +13,14 @@ class TopicModel(object):
         Creates a topic model object\n. The model is ready to add regularizers to it.
         :param str label: a unique identifier for the model; model name
         :param artm.ARTM artm_model: a reference to an artm model object
-        :param dict evaluators: mapping from evaluator_types to evaluator_names; i.e. {'sparsity-phi': 'sp', 'top-tokens': 'tt'}
+        :param dict evaluators: mapping from scorer_types to evaluator_wrapper_objects to e; i.e. {'sparsity-phi': obj1, 'top-tokens-10': obj2}
         """
         self.label = label
         self.artm_model = artm_model
         self._eval_type2eval_wrapper_obj = evaluators
-        self._eval_name2eval_type = {v.name: k for k, v in evaluators.items()} # {'sp': 'sparsity-phi', 'tt10': 'top-tokens10'}
-        self._reg_type2name = {}  # ie {'smooth-theta': 'sb_t', 'sparse-phi': 'sd_p'} (eg abbreviation for 'smooth background theta')
+        self._eval_type2name = {k: v.name for k, v in evaluators.items()} # {'sparsity-phi': 'spd_p', 'top-tokens-10': 'tt10'}
+        self._eval_name2eval_type = {v.name: k for k, v in evaluators.items()} # {'sp_p': 'sparsity-phi', 'tt10': 'top-tokens-10'}
+        self._reg_type2name = {}  # ie {'smooth-theta': 'smb_t', 'sparse-phi': 'spd_p'}
         self._reg_name2type = {}
 
     def add_regularizer(self, reg_object, reg_type):
@@ -57,7 +58,10 @@ class TopicModel(object):
         return self._eval_type2eval_wrapper_obj[self._eval_name2eval_type[eval_name]]
 
     def get_scorer(self, eval_name):
-        return self.artm_model.scorer[eval_name]
+        return self.artm_model.scores[eval_name]
+
+    def get_scorer_by_type(self, eval_type):
+        return self.artm_model.scores[self._eval_type2name[eval_type]]
 
     @property
     def topic_names(self):
@@ -136,6 +140,7 @@ class TrainSpecs(object):
         self._col_iter = collection_passes
         assert len(reg_names) == len(tau_trajectories)
         self._reg_name2tau_trajectory = dict(zip(reg_names, tau_trajectories))
+        # print "TRAIN SPECS", self._col_iter, map(lambda x: len(x), self._reg_name2tau_trajectory.values())
         assert all(map(lambda x: len(x) == self._col_iter, self._reg_name2tau_trajectory.values()))
 
     def tau_trajectory(self, reg_name):
