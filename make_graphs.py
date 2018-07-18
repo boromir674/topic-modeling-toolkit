@@ -57,8 +57,8 @@ class GraphMaker(object):
                              'r'
                              ]
         self._tau_traj_extractor = {
-            'phi': lambda x: self._infer_trajectory([(span, params['smooth-sparse-phi']['tau']) for span, params in x['reg_parameters']]),
-            'theta': lambda x: self._infer_trajectory([(span, params['smooth-sparse-theta']['tau']) for span, params in x['reg_parameters']]),
+            'phi': lambda x: self._infer_trajectory([(span, params['sparse-phi']['tau']) for span, params in x['reg_parameters']]),
+            'theta': lambda x: self._infer_trajectory([(span, params['sparse-theta']['tau']) for span, params in x['reg_parameters']]),
         }
 
         self._cross_tau_titler = lambda x: 'tau coefficient for {} matrix sparsing regularization'.format(x)
@@ -136,26 +136,26 @@ class GraphMaker(object):
         for graph_type, plot in graph_plots:
             self._save_plot(graph_type, plot)
 
-    # def create_easy_plot(self):
-    def save_plot(self, graph_type, results):
-        """
-        Creates plots of various metrics and saves png files
-        :param graph_type:
-        :param results:
-        :return:
-        """
-        assert graph_type in self.plot or graph_type == 'all'
-        if graph_type == 'all':
-            graphs = create_graphs(results)
-            for gr in graphs:
-                self._save_plot(gr[0], gr[1])
-        else:
-            plot = self.plot[graph_type](results)
-            self._save_plot(graph_type, plot)
+    # # def create_easy_plot(self):
+    # def save_plot(self, graph_type, results):
+    #     """
+    #     Creates plots of various metrics and saves png files
+    #     :param graph_type:
+    #     :param results:
+    #     :return:
+    #     """
+    #     assert graph_type in self.plot or graph_type == 'all'
+    #     if graph_type == 'all':
+    #         graphs = create_graphs(results)
+    #         for gr in graphs:
+    #             self._save_plot(gr[0], gr[1])
+    #     else:
+    #         plot = self.plot[graph_type](results)
+    #         self._save_plot(graph_type, plot)
 
     def save_cross_models_plots(self, results, nb_points=None):
         """
-        Currently supported maximum 8 plots on the same figure\n.
+        Call this method to create and save comparison plots between the tracked metrics of the given experimental results. all possible metrics Currently supported maximum 8 plots on the same figure\n.
         :param list of dicts results: experimental results, gathered after model training
         :param int nb_points: number of points to plot. Defaults to plotting all measurements found
         """
@@ -184,7 +184,45 @@ class GraphMaker(object):
         print('Saved figure as', target_name)
         self._inds[graph_type] += 1
 
-    # Advanced grid modification
+    def build_metric_graphs(self, results, scores='all', nb_point=None):
+        if scores == 'all':
+            scores = sorted(results[0]['trackables'].keys())
+        for score in scores:
+            self._build_metric_graphs(results, score, limit_iteration=nb_point)
+
+    def _build_metric_graphs(self, results, score, limit_iteration=None):
+        assert len(results) <= len(self.line_designs)
+        max_len = max(map(lambda x: len(x['trackables'][score].items()[0][1]), results))
+        labels_list = map(lambda x: x['model_label'], results)
+        graph_plots = []
+        if limit_iteration:
+            x = range(limit_iteration)
+        else:
+            x = range(max_len)
+        for sub_score in sorted(results[0]['trackables'][score].keys()):
+            measure_name = score + '-' + sub_score
+            try:
+                graph_plots.append((
+                    '{}-{}'.format('-'.join(labels_list), measure_name),
+                    self._build_graph(x,
+                                      map(lambda x: self._adjust_len(x['trackables'][score][sub_score], max_len)[:limit_iteration], results),
+                                      self.line_designs[:len(results)], labels_list, measure_name.replace('-', '.'), 'iteration', 'y')))
+            except TypeError:
+                print("Did not sub-score '{}' plot of '{}'".format(sub_score, measure_name)
+        return graph_plots
+
+    def _build_graph(self, x, ys, line_designs, labels, title, xlabel, ylabel, grid='on'):
+        assert len(ys) == len(line_designs) == len(labels)
+        pl = EasyPlot(x, ys[0], line_designs[0], label=labels[0], showlegend=True, xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
+        for i, y_vals in enumerate(ys[1:]):
+            pl.add_plot(x, ys, line_designs[i], label=labels[i])
+        return pl
+
+    def _adjust_len(self, input_list, desired_len):
+        return input_list + [0] * (desired_len - len(input_list))
+
+
+            # Advanced grid modification
     # eplot.new_plot(x, 1 / (1 + x), '-s', label=r"$y = \frac{1}{1+x}$", c='#fdb462')
     # eplot.grid(which='major', axis='x', linewidth=2, linestyle='--', color='b', alpha=0.5)
     # eplot.grid(which='major', axis='y', linewidth=2, linestyle='-', color='0.85', alpha=0.5)
@@ -192,27 +230,6 @@ class GraphMaker(object):
 
 #     eplot = EasyPlot(x, res_dict['trackables'], 'b-o', label='y1 != x**2', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
 #     eplot.iter_plot(x, y_dict, linestyle=linestyle_dict, marker=marker_dict, label=labels_dict, linewidth=3, ms=10, showlegend=True, grid='on')
-
-
-def create_perplexity_graph(results):
-    if 'perplexity' not in results['trackables']:
-        raise NoDataGivenPlotCreationException("Key 'perplexity' not found in the result keys: {}".format(', '.join(results['trackables'].keys())))
-    struct = results['trackables']['perplexity']
-    return EasyPlot(range(len(struct['value'])), struct['value'], 'b-o', label='perplexity', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
-
-
-def create_graphs(results):
-    grs = []
-    for eval_name, sub_score2values in results['trackables'].items():
-        for sub_score, values in sub_score2values.items():
-            sub_plot_name = eval_name+'-'+sub_score
-            try:
-                grs.append((
-                    sub_plot_name,
-                    EasyPlot(range(len(values)), values, 'b-o', label=sub_plot_name, showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')))
-            except TypeError as e:
-                print('Failed to create {} plot: type({}) = {}'.format(sub_plot_name, sub_score, type(values)))
-    return grs
 
 
 def create_cross_graphs(results_list, line_design_list, labels_list, limit_iterations=None):
@@ -235,7 +252,7 @@ def create_cross_graphs(results_list, line_design_list, labels_list, limit_itera
                 for j, result in enumerate(results_list[1:]):
                     graph_plots[-1][1].add_plot(x, result['trackables'][eval_name][sub_score][:limit_iterations], line_design_list[j+1], label=labels_list[j+1])
             except TypeError as e:
-                print('Failed to create {} plot: type({}) = {}'.format(measure_name, sub_score, type(values)))
+                print('Did not create {} plot: type({}) = {}'.format(measure_name, sub_score, type(values)))
     assert all(len(i) == len(_vals[0]) for i in _vals)
     return graph_plots
 
@@ -244,6 +261,25 @@ class NoDataGivenPlotCreationException(Exception):
     def __init__(self, msg):
         super(NoDataGivenPlotCreationException, self).__init__(msg)
 
+def create_perplexity_graph(results):
+    if 'perplexity' not in results['trackables']:
+        raise NoDataGivenPlotCreationException("Key 'perplexity' not found in the result keys: {}".format(', '.join(results['trackables'].keys())))
+    struct = results['trackables']['perplexity']
+    return EasyPlot(range(len(struct['value'])), struct['value'], 'b-o', label='perplexity', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
+
+
+def create_graphs(results):
+    grs = []
+    for eval_name, sub_score2values in results['trackables'].items():
+        for sub_score, values in sub_score2values.items():
+            sub_plot_name = eval_name+'-'+sub_score
+            try:
+                grs.append((
+                    sub_plot_name,
+                    EasyPlot(range(len(values)), values, 'b-o', label=sub_plot_name, showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')))
+            except TypeError as e:
+                print('Failed to create {} plot: type({}) = {}'.format(sub_plot_name, sub_score, type(values)))
+    return grs
 
 def get_cl_arguments():
     parser = argparse.ArgumentParser(prog='make_graphs.py', description='Creates graphs of evaluation scores tracked along the training process and saves them to disk', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
