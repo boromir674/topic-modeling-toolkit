@@ -103,15 +103,32 @@ class Tuner(object):
         print 'Search space', ses
         self._parameter_grid_searcher = ParameterGrid(ses)
 
+    @property
+    def explorable_parameters(self):
+        return map(lambda x: x[0], self._expl_params)
+
+    def tune(self, reg_specs):
+        expected_iters = len(self._parameter_grid_searcher)
+        print 'Doing grid-search, taking {} samples'.format(expected_iters)
+        for self.parameter_vector in tqdm(self._parameter_grid_searcher, total=expected_iters, unit='model'):
+        # for self.parameter_vector in self._parameter_grid_searcher:
+            self._build_label()
+            self._create_model()
+            self._set_parameters(reg_specs)
+            self.experiment.init_empty_trackables(self._tm)
+            self.trainer.train(self._tm, self._specs)
+            self.experiment.save_experiment(save_phi=True)
+            del self._tm
+        self._experiments_saved.extend([os.path.basename(_) for _ in self.experiment.train_results_handler.saved[-expected_iters:]])
+        print 'Produced {} experiments'.format(len(self._experiments_saved[-expected_iters:]))
+        for _ in self._experiments_saved[-expected_iters:]:
+            print _
+
     def _iter_prepend(self, int_num):
         nb_digits = len(str(int_num))
         if nb_digits == self._max_digits_version:
             return str(int_num)
         return '{}{}'.format((self._max_digits_version - nb_digits) * '0', int_num)
-
-    @property
-    def explorable_parameters(self):
-        return map(lambda x: x[0], self._expl_params)
 
     def _build_label(self):
         self._cached = map(lambda x: str(self._val(x)), self._labeling_params)
@@ -195,23 +212,6 @@ class Tuner(object):
 
     def _extract_trajectory_space(self):
         return map(lambda x: [x['deactivation_period_pct'], x['start'], x['end']], [v for k, v in self._expl_params if k in ('sparse_phi_reg_coef_trajectory', 'sparse_theta_reg_coef_trajectory')])
-
-    def tune(self, reg_specs):
-        expected_iters = len(self._parameter_grid_searcher)
-        print 'Doing grid-search, taking {} samples'.format(expected_iters)
-        for self.parameter_vector in tqdm(self._parameter_grid_searcher, total=expected_iters, unit='model'):
-        # for self.parameter_vector in self._parameter_grid_searcher:
-            self._build_label()
-            self._create_model()
-            self._set_parameters(reg_specs)
-            self.experiment.init_empty_trackables(self._tm)
-            self.trainer.train(self._tm, self._specs)
-            self.experiment.save_experiment(save_phi=True)
-            del self._tm
-        self._experiments_saved.extend([os.path.basename(_) for _ in self.experiment.train_results_handler.saved[-expected_iters:]])
-        print 'Produced {} experiments'.format(len(self._experiments_saved[-expected_iters:]))
-        for _ in self._experiments_saved[-expected_iters:]:
-            print _
 
     def _check_parameters(self):
         for i in self._static_params_hash.keys():
@@ -328,28 +328,33 @@ if __name__ == '__main__':
     ##### LOAD REGULARIZATION SETTINGS FROM SELECTED MODEL
     # pre_models = ['plsa+sm+sp_v076_20_5_20', 'plsa+sm+sp_v073_20_5_20']
 
-    lbl1 = 'plsa+sm+sp_v076_100_5_20'
-    old_model = 'plsa+sm+sp_v076_20_5_20'
-    l2 = '_20_5_20'
-
-    reg_specs, tau_trajs = get_model_settings(old_model, args.dataset)
-    print 'REGS', reg_specs
-    print 'TRAJS', tau_trajs
+    # lbl1 = 'plsa+sm+sp_v076_100_5_20'
+    # old_model = 'plsa+sm+sp_v076_20_5_20'
+    # l2 = '_20_5_20'
+    #
+    # reg_specs, tau_trajs = get_model_settings(old_model, args.dataset)
+    # print 'REGS', reg_specs
+    # print 'TRAJS', tau_trajs
     #
     # trajs = map(lambda x: ((x[0]+'_reg_coef_trajectory').replace('-', '_'), trajectory_builder.create_tau_trajectory(x[1])), tau_trajs.items())
-    #
-    # tuner = Tuner(args.dataset, args.train_cfg, reg_cfg,
-    #                   [('collection_passes', 20), ('document_passes', 5), ('nb_topics', 20)] + trajs,
-    #                   [('decorrelate_topics_reg_coef', [2e+5, 1.5e+5, 1e+5, 1e+4])],
-    #                   prefix_label='pss76',
-    #                   enable_ideology_labels=False,
-    #                   append_explorables='all',
-    #                   append_static=True)
+
+    trajs = [('sparse_phi_reg_coef_trajectory', trajectory_builder.begin_trajectory('tau').deactivate(10).interpolate_to(10, -7).steady_prev(80).create()),
+             ('sparse_theta_reg_coef_trajectory', trajectory_builder.begin_trajectory('tau').deactivate(10).interpolate_to(20, -1).steady_prev(70).create())]
+
+    tuner = Tuner(args.dataset, args.train_cfg, reg_cfg,
+                      [('collection_passes', 100), ('document_passes', 5)] + trajs,
+                      [('nb_topics', [10, 20])], # ('decorrelate_topics_reg_coef', [2e+5, 1.5e+5, 1e+5, 1e+4])],
+                      prefix_label='cm1',
+                      enable_ideology_labels=False,
+                      append_explorables='all',
+                      append_static=True)
+    tuner.tune([0.1, {'sparse-theta': {'name': 'spd_t', 'tau': -0.1}, 'smooth-theta': {'name': 'smb_t', 'tau': 1},
+                            'sparse-phi': {'name': 'spd_p', 'tau': -0.1}, 'smooth-phi': {'name': 'smb_p', 'tau': 1}}])
     # tuner.tune([reg_specs[0], dict(reg_specs[1], **{'decorrelator-phi': {'name': 'decd_p', 'tau': 1e+5}})])
 
     # ##### LOAD REGULARIZATION SETTINGS FROM SELECTED MODEL
     # num = [76, 46, 73]
-    # # pre = [ 'plsa+sm+sp_v076_100_5_20', 'plsa+sm+sp_v076_100_5_20', 'plsa+sm+sp_v073_100_5_20']
+    # # pre = ['plsa+sm+sp_v076_100_5_20', 'plsa+sm+sp_v076_100_5_20', 'plsa+sm+sp_v073_100_5_20']
     # for ml in num:
     #     lbl1 = 'plsa+sm+sp_v0{}'.format(ml)
     #     l2 = '_100_5_20'
