@@ -40,7 +40,6 @@ def load_results(path_file):
 
 
 class GraphMaker(object):
-    # tau_type2
     def __init__(self, plot_dir):
         self.line_designs = ['b',
                              'y',
@@ -52,10 +51,11 @@ class GraphMaker(object):
                              'r'
                              ]
         self._tau_traj_extractor = {
-            'phi': lambda x: _infer_trajectory_values_list([(span, params['sparse-phi']['tau']) for span, params in x['reg_parameters']]),
-            'theta': lambda x: _infer_trajectory_values_list([(span, params['sparse-theta']['tau']) for span, params in x['reg_parameters']]),
+            'phi': lambda x: _infer_trajectory_values_list([(span, params['sparse-phi']['tau']) for span, params in x['reg_parameters']]) if 'sparse-phi' in x['reg_parameters'][-1][1] else None,
+            'theta': lambda x: _infer_trajectory_values_list([(span, params['sparse-theta']['tau']) for span, params in x['reg_parameters']]) if 'sparse-theta' in x['reg_parameters'][-1][1] else None,
         }
         self._cross_tau_titler = lambda x: 'Coefficient tau for {}-matrix-sparsing regularizer'.format(x)
+        self._results_indices = []
         # self._all_taus_titler = lambda x, y: 'Coefficients tau for {} sparsing regularizer for model {}'.format(x, y)
         # linestyle / ls: Plot linestyle['-', '--', '-.', ':', 'None', ' ', '']
         # marker: '+', 'o', '*', 's', 'D', ',', '.', '<', '>', '^', '1', '2'
@@ -83,9 +83,10 @@ class GraphMaker(object):
         graph_plots = []
         labels_list = list(map(lambda x: x['model_label'], results))
         for tau_type, extractor in self._tau_traj_extractor.items():
-            ys, xs = self._build_ys(results, extractor, nb_points=nb_points)
+            ys, xs = self._build_ys_n_xs(results, extractor, nb_points=nb_points)
+            print("Ommiting '{}' model(s) for not having a {}-matrix-sparse regularizer".format(', '.join([labels_list[_] for _ in range(len(results)) if _ not in self._results_indices]), tau_type))
             graph_plots.append(('{}-tau-{}'.format('-'.join(map(lambda x: x['model_label'], results)), tau_type),
-                                _build_graph(xs, ys, self.line_designs[:len(results)], labels_list, self._cross_tau_titler(tau_type), 'iteration', 'τ')))
+                                _build_graph(xs, ys, [self.line_designs[_] for _ in self._results_indices], [labels_list[_] for _ in self._results_indices], self._cross_tau_titler(tau_type), 'iteration', 'τ')))
         for graph_type, plot in graph_plots:
             self._save_plot(graph_type, plot)
 
@@ -106,10 +107,6 @@ class GraphMaker(object):
             except KeyError:
                 print("Score '{}' is not found in tracked experimental result metrics".format(score))
 
-    def _build_ys(self, results, extractor, nb_points=None):
-        ys = list(map(lambda x: _limit_points(extractor(x), nb_points), results))
-        return ys, [range(len(_)) for _ in ys]
-
     def _build_metric_graphs(self, results, score, sub_scores='all', limit_iteration=None):
         assert len(results) <= len(self.line_designs)
         if score not in results[0]['trackables']:
@@ -121,7 +118,7 @@ class GraphMaker(object):
         for sub_score in sub_scores:
             measure_name = score + '-' + sub_score
             try:
-                ys, xs = self._build_ys(results, lambda x: x['trackables'][score][sub_score], limit_iteration)
+                ys, xs = self._build_ys_n_xs(results, lambda x: x['trackables'][score][sub_score], limit_iteration)
                 graph_plots.append(('{}-{}'.format('-'.join(labels_list), measure_name),
                                     _build_graph(xs, ys, self.line_designs[:len(results)], labels_list, measure_name.replace('-', '.'), 'iteration', 'y')))
             except TypeError:
@@ -139,6 +136,19 @@ class GraphMaker(object):
         self._plot_counter[graph_type] += 1
         return os.path.join(self.gr_dir, '{}_{}.png'.format(graph_type, self._iter_prepend(self._plot_counter[graph_type])))
 
+    def _build_ys_n_xs(self, results, extractor, nb_points=None):
+        _ = list(map(extractor, results))
+        self._results_indices = [ind for ind, el in enumerate(_) if el is not None]
+        ys = list(map(lambda x: self._limit_points(x, nb_points), filter(None, _)))
+
+        return ys, [range(len(_)) for _ in ys]
+
+    def _limit_points(self, value_list, limit):
+        if limit is None:
+            return value_list
+        else:
+            return value_list[:limit]
+
     def _iter_prepend(self, int_num):
         nb_digits = len(str(int_num))
         if nb_digits >= self._max_digits_prepend:
@@ -151,12 +161,6 @@ def _infer_trajectory_values_list(iterspan_value_tuples):
     for span, val in list(iterspan_value_tuples):
         _.extend([val] * span)
     return _
-
-def _limit_points(value_list, limit):
-    if limit is None:
-        return value_list
-    else:
-        return value_list[:limit]
 
 def _build_graph(xs, ys, line_designs, labels, title, xlabel, ylabel, grid='on'):
     assert len(ys) == len(xs) == len(line_designs) == len(labels)
@@ -186,7 +190,7 @@ def get_cl_arguments():
     parser.add_argument('--metrics', help='Enable pltotting for specific metrics tracked. Supports comma separated values i.e. "perplexity,sparsity-phi"')
     parser.add_argument('--all-metrics', '--a-m', dest='all_metrics', action='store_true', default=False, help='Enable pltotting of all possible metrics tracked')
     parser.add_argument('--tau-trajectories', '--t-t', action='store_true', dest='plot_tau_trajectories', default=False, help='Enable ploting of the dynamic tau coefficients\' trajectories')
-    parser.add_argument('--iterations', '-i', metavar='nb_points', type=int, help='limit or not the dapoints plotted, to the specified number')
+    parser.add_argument('--iterations', '-i', metavar='nb_points', type=int, help='limit or not the datapoints plotted, to the specified number')
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
@@ -200,8 +204,7 @@ if __name__ == '__main__':
     elif args.metrics:
         metrics = args.metrics.split(',')
     else:
-        print("Either enable '--all-metrics' or use '--metrics'")
-        sys.exit(1)
+        metrics = ''
     col_root = os.path.join(collections_dir, args.collection)
     if os.path.isdir(col_root):
         plotter = GraphMaker(os.path.join(col_root, 'graphs'))
@@ -212,9 +215,9 @@ if __name__ == '__main__':
     for model_label in args.models:
         exp_results.append(load_results(os.path.join(col_root, 'results', model_label + '-train.json')))
 
-    plotter.build_metric_graphs(exp_results, scores=metrics, nb_points=args.iterations)
+    if metrics:
+        plotter.build_metric_graphs(exp_results, scores=metrics, nb_points=args.iterations)
     if args.plot_tau_trajectories:
-        # plotter.save_tau_trajectories(exp_results, nb_points=args.iterations, cross=True)
         plotter.save_tau_trajectories(exp_results, nb_points=args.iterations)
 
 # eplot = EasyPlot(xlabel=r'$x$', ylabel='$y$', fontsize=16,
