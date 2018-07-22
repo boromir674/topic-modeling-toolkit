@@ -3,36 +3,57 @@ import sys
 import json
 import argparse
 
+results_root = 'results'
+models_root = 'models'
+collections_dir = '/data/thesis/data/collections'
 
-def load_results(path_file):
+
+def load_trackables(path_file):
     with open(path_file, 'r') as results_file:
         results_text = results_file.read()
-    return json.loads(results_text)
+    return json.loads(results_text)['trackables']
+
+# def get_topics(model_path, metric, nb_tokens, nb_topics):
+#     tracked = load_trackables(model_path)
+#     assert metric in ['coherence', 'contrast', 'purity']
+#     topics_dict = eval(tracked['top-tokens-100']['tokens'][-1])
+#     gav = eval(tracked['topic-kernel'][metric][-1])
+#     # print(type(gav), len(gav))
+#     # for i in range(50):
+#     #     print(gav[i])
+#     for k, v in topics_dict.items():
+#         print(k, gav[k], v)
+#
+#     ll = sorted(topics_dict.items(), key=lambda x: gav[x[0]], reverse=True)[:nb_topics]
+#     print([x for x,y in ll])
+#     c = map(lambda x: (x[0], x[1][:nb_tokens]), ll)
+#     # print(c)
+#     return c
+#     # loaded['trackables']['topic-kernel'][metric][-1]
 
 
-def get_latest_top_tokens(results_dict):
-    score_types = ['top-tokens' + str(_) for _ in ['-100', '-10', '']]
-    for token_score in score_types:
-        if token_score in results_dict['trackables']:
-            return sorted(eval(results_dict['trackables'][token_score]['tokens'][-1]).items(), key=lambda x: x[0])
-    return None
+# def get_latest_top_tokens(results_dict):
+#     score_types = ['top-tokens' + str(_) for _ in ['-100', '-10', '']]
+#     for token_score in score_types:
+#         if token_score in results_dict['trackables']:
+#             return sorted(eval(results_dict['trackables'][token_score]['tokens'][-1]).items(), key=lambda x: x[0])
+#     return None
 
-def _dictify_results(results):
-    tr = results['trackables']
-    for k, v in tr.items():
-        if type(v) == str:
-            tr[k] = eval(v)
-        elif type(v) == dict:
-            for in_k, in_v in v.items():
-                if type(in_v) == list:
-                    try:
-                        # print(type(constructor[in_k]))
-                        v[in_k] = [eval(_) for _ in in_v]
-                        # print(type(constructor[in_k]))
-                    except RuntimeError as e:
-                        print(e)
-    return results
-
+# def _dictify_results(results):
+#     tr = results['trackables']
+#     for k, v in tr.items():
+#         if type(v) == str:
+#             tr[k] = eval(v)
+#         elif type(v) == dict:
+#             for in_k, in_v in v.items():
+#                 if type(in_v) == list:
+#                     try:
+#                         # print(type(constructor[in_k]))
+#                         v[in_k] = [eval(_) for _ in in_v]
+#                         # print(type(constructor[in_k]))
+#                     except RuntimeError as e:
+#                         print(e)
+#     return results
 
 
 def get_table(caption, column_headers, row_headers, data_row_entries, title=None):
@@ -187,22 +208,96 @@ def create_topics_tokens_table(caption, topic_names, tokens_lists, nb_tokens=10,
 def get_cli_arguments():
     parser = argparse.ArgumentParser(description='Creates various components for reporting on inffered topics', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('collection', metavar='name', help='the name of the collection on which experiments were conducted')
-    parser.add_argument('model', metavar='name', help='the name of model used to infer topics')
-    parser.add_argument('--topic-tokens', '-tt', dest='topic_tokens', action='store_true', help='enable creating table showing top tokens per topic, according to p(w|t)')
+    parser.add_argument('model', metavar='name', help='the name of model that was trained to infer topics')
+    parser.add_argument('--topic-tokens', '-tt', dest='topic_tokens', action='store_true', help='enable creating table in latex code, showing top tokens per topic, according to p(w|t)')
     parser.add_argument('--topics', '-t', metavar='indices', type=list, default='all', help='filter topics to consider')
     return parser.parse_args()
 
 
+class TopicReporter:
+    def __init__(self):
+        self._topics = []
+        self._model_path = ''
+        self._nb_tokens = 0
+        self._max_token_lens = []
+        # self._topic_quality_metrics = {'kernel-coherence': 'coherence', 'kernel-contrast': 'contrast', 'kernel-purity': 'purity'}
+        self._transf_metrics = {'coh': 'coherence', 'con': 'contrast', 'pur': 'purity'}
+        self._quality_labels = ['coh', 'con', 'pur']
+
+    def _report_quality(self, metric, topic):
+        return eval(self._tracked['topic-kernel'][metric][-1])[topic]
+
+    def get_domain_topics(self, collection_name, model_label, metric, nb_tokens, top_n_topics):
+        self._nb_tokens = nb_tokens
+        self._model_path = os.path.join(collections_dir, collection_name, results_root, model_label + '-train.json')
+        self._topics = self._get_topics(self._model_path, metric, nb_tokens, top_n_topics)
+        for i in self._topics:
+            print('tpc', i)
+        self._max_token_lens = list(map(lambda x: max(map(len, x[1])), self._topics))
+        print(self._max_token_lens, len(self._max_token_lens))
+        # for i in self._max_token_lens:
+        #     print('max', i)
+        # print(self._max_token_lens)
+        # ldict = load_trackables(get_latest_top_tokens())
+        # self._topics = sorted(load_trackables(get_latest_top_tokens(os.path.join(collections_dir, collection_name, results_root, model_label))))
+
+    def get_topics_string(self, collection_name, model_name, metric='kernel-coherence', nb_tokens='10', top_n_topics='3'):
+        self.get_domain_topics(collection_name, model_name, metric, nb_tokens, top_n_topics)
+        header = self._get_header()
+        print(header)
+        print('----')
+        body = self._get_rows()
+        print('----')
+        print(body)
+        return header + body
+
+    def _get_topics(self, model_path, metric, nb_tokens, nb_topics):
+        self._tracked = load_trackables(model_path)
+        return list(map(lambda x: (x[0], x[1][:nb_tokens]), sorted(eval(self._tracked['top-tokens-100']['tokens'][-1]).items(),
+                                                              key=lambda x: eval(self._tracked['topic-kernel'][metric][-1])[x[0]],
+                                                              reverse=True)[:nb_topics]))
+
+    def _get_header(self):
+        # print(eval(self._tracked['topic-kernel'][self._transf_metrics['coh']][-1]))
+        # print(len(self._tracked['topic-kernel'][self._transf_metrics['coh']]))
+        self._headers = list(map(lambda y: [y[0]] + list(map(lambda x: '{}: {:.4f}'.format(x, self._report_quality(self._transf_metrics[x], y[0]))
+                                                             , self._quality_labels)), self._topics))
+        # self._headers = map(lambda x: [x[0]] + [], self._topics)
+        for i in self._headers:
+            print('H', i)
+        gaps = map(lambda x: [self._max_token_lens[x[0]] - len(x) if self._max_token_lens[x[0]] > len(x) else 0], enumerate(self._headers))
+        return '\n'.join(' '.join(map(lambda x: '{} {}'.format(x[0], ' '*(1+x[1])), map(lambda x: (x[0][i], x[1][i]), zip(self._headers, gaps)))) for i in range(len(self._quality_labels)+1))
+        # return ' - '.join('{}'.format(tp_id) + ' ' * (prec + max_lens[i] - len(str(len(cl))) - 6) for i, cl in enumerate(self.gen_clusters(selected_clusters))) + '\n'
+
+    def _get_rows(self):
+        b = ''
+        # for tp in self._topics:
+        #     print('L', len(tp[1]))
+        for i in range(self._nb_tokens):
+            # g = ' '.join(list(map(lambda x: len(x[1]), enumerate(self._topics))))
+            try:
+                b += ' | '.join(map(lambda x: '{} {}'.format(x[1][i], ' '*(self._max_token_lens[x[0]] - len(str(x[1][i])))), enumerate(self._topics))) + '\n'
+            except IndexError as ie:
+                print(ie)
+                # print(self._topics)
+        return b
+            # .format(self._topics[j][i]) + ' ' * (self._max_token_lens[j] - len(self._topics[j][i])) for j, cl in enumerate(self.clusters)) + '\n'
+
 if __name__ == '__main__':
     args = get_cli_arguments()
     col_root = '/data/thesis/data/collections/'
-    res_dict = load_results(os.path.join(col_root, args.collection, 'results', args.model + '-train.json'))
-    top_toks = get_latest_top_tokens(res_dict)
+    # res_dict = load_trackables(os.path.join(col_root, args.collection, 'results', args.model + '-train.json'))
+    # top_toks = get_latest_top_tokens(res_dict)
 
-    table = create_topics_tokens_table('Top tokens per topic', map(lambda k: k[0], top_toks), map(lambda z: z[1], top_toks), width=4, math=True)
+    # table = create_topics_tokens_table('Top tokens per topic', map(lambda k: k[0], top_toks), map(lambda z: z[1], top_toks), width=4, math=True)
+    #
+    # print table
 
-    print table
-    
+    tr = TopicReporter()
+    tr.get_domain_topics('arts', 'cm1_100_5_20', 'coherence', 10, 3)
+
+    st = tr.get_topics_string('arts', 'cm1_100_5_20', 'coherence', 10, 3)
+    # print(st)
 
     # llt = map(lambda x: map(lambda y: str(y), x[1]), sorted([(topic_name, str(tok)) for topic_name, top_tokens in tok_dic.items() for tok in top_tokens], key=lambda x: x[0]))
 

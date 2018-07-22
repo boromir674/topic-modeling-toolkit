@@ -30,10 +30,10 @@ if __name__ == '__main__':
     regularizers_param_cfg = '/data/thesis/code/regularizers.cfg'
 
     model_trainer = trainer_factory.create_trainer('articles', exploit_ideology_labels=False, force_new_batches=True)
-    # experiment = Experiment(root_dir, model_trainer.cooc_dicts)
-    # model_trainer.register(experiment)  # when the model_trainer trains, the experiment object listens to changes
+    experiment = Experiment(root_dir, model_trainer.cooc_dicts)
+    model_trainer.register(experiment)  # when the model_trainer trains, the experiment object listens to changes
     #
-    # train_iters = 50
+    # train_iters = 100
     # deact = 10
     # train_specs = get_trajs_specs(train_iters)
     #
