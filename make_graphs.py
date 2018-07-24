@@ -174,7 +174,7 @@ def _build_graph(xs, ys, line_designs, labels, title, xlabel, ylabel, grid='on')
     # eplot.grid(which='major', axis='x', linewidth=2, linestyle='--', color='b', alpha=0.5)
     # eplot.grid(which='major', axis='y', linewidth=2, linestyle='-', color='0.85', alpha=0.5)
 
-#     eplot = EasyPlot(x, res_dict['trackables'], 'b-o', label='y1 != x**2', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
+#     eplot = EasyPlot(x, tracked_metrics_dict['trackables'], 'b-o', label='y1 != x**2', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
 #     eplot.iter_plot(x, y_dict, linestyle=linestyle_dict, marker=marker_dict, label=labels_dict, linewidth=3, ms=10, showlegend=True, grid='on')
 
 

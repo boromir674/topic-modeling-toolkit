@@ -57,9 +57,9 @@ class ModelFactory(object):
 
     def create_model_with_phi_from_disk(self, phi_file_path, results):
         """
-        Given a phi file path, a unique label and a dictionary of experimental res_dict, initializes a TopicModel object with the restored state of a model stored in disk. Configures to track the same
+        Given a phi file path, a unique label and a dictionary of experimental tracked_metrics_dict, initializes a TopicModel object with the restored state of a model stored in disk. Configures to track the same
         evaluation metrics/scores. Uses the self.dictionary for indexing.\n
-        Sets the below parameters with the latest corresponding values found in the expermental res_dict:\n
+        Sets the below parameters with the latest corresponding values found in the expermental tracked_metrics_dict:\n
         - number of phi-matrix-updates/passes-per-document\n
         - number of train iterations to perform on the whole documents collection\n
         - regularizers to use and their parameters\n
