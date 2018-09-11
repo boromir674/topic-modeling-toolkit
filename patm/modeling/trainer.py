@@ -83,6 +83,7 @@ class TrainerFactory(object):
         self._mod_tr = ModelTrainer(collections_dir)
         self._batches_dir_name = self.ideology_flag2batches_dir_name[exploit_ideology_labels]
         self._batches_target_dir = os.path.join(self._root_dir, self._batches_dir_name)
+
         self._data_path_hash = {True: os.path.join(self._root_dir, 'vowpal.'+self._col+'.txt'), False: self._root_dir}
         self._create_dirs([self._root_dir, self._batches_target_dir])
         bin_dict = os.path.join(self._root_dir, 'mydic.dict')

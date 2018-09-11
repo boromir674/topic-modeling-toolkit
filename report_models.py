@@ -23,7 +23,7 @@ def load_results(results_path):
 
 def load_reportables(results_path):
     d = load_results(results_path)
-    return {'model_label': d['model_label'],
+    _ = {'model_label': d['model_label'],
             'nb_topics': d['model_parameters']['nb_topics'][-1][1],
             'total': sum(d['collection_passes']) * d['model_parameters']['document_passes'][-1][1],
             'collection_passes': sum(d['collection_passes']),
@@ -39,6 +39,8 @@ def load_reportables(results_path):
             'top-10-coherence': float(d['trackables']['top-tokens-10']['average_coherence'][-1]),
             'top-100-coherence': float(d['trackables']['top-tokens-100']['average_coherence'][-1])
             }
+    assert all(map(lambda x: _[x] not in (None, ''), _.keys()))
+    return _
 
 
 class ModelReporter(object):
@@ -52,9 +54,9 @@ class ModelReporter(object):
     def __init__(self, collection_name):
         self._r = None
         results_dir = os.path.join(collections_dir, collection_name, results_root)
-        self._transf = {'fit-func':'fitness_value', 'tpcs':'nb_topics', 'col-iters':'collection_passes', 'total': 'total', 'prplx':'perplexity', 'coher':'kernel-coherence', 'contr':'kernel-contrast', 'purity':'kernel-purity',
+        self._transf = {'fit-func':'fitness_value', 'tpcs':'nb_topics', 'col-i':'collection_passes', 'doc-i':'document_passes', 'total':'total', 'prplx':'perplexity', 'coher':'kernel-coherence', 'contr':'kernel-contrast', 'purity':'kernel-purity',
                         '10coher':'top-10-coherence', '100coher':'top-100-coherence', 'sprst-p':'sparsity-phi', 'sprst-t':'sparsity-theta', 'regs':'reg_names'}
-        self._to_string_defs = {'fitness_value':'', 'nb_topics':'{}', 'collection_passes':'{}', 'total':'{}', 'perplexity': '{:.1f}', 'kernel-coherence': '{:.4f}', 'kernel-contrast': '{:.4f}', 'kernel-purity': '{:.4f}',
+        self._to_string_defs = {'fitness_value':'', 'nb_topics':'{}', 'collection_passes':'{}', 'document_passes':'{}', 'total':'{}', 'perplexity': '{:.1f}', 'kernel-coherence': '{:.4f}', 'kernel-contrast': '{:.4f}', 'kernel-purity': '{:.4f}',
                                 'top-10-coherence': '{:.4f}', 'top-100-coherence': '{:.4f}', 'sparsity-phi': '{:.2f}', 'sparsity-theta': '{:.2f}', 'reg_names':'[{}]'}
         self.result_paths = glob.glob('{}/*-train.json'.format(results_dir))
         self._biggest_len = max(map(lambda x: len(os.path.basename(x).replace('-train.json', '')), self.result_paths))
@@ -64,9 +66,9 @@ class ModelReporter(object):
         self._infos = []
         self._row_strings = []
         self._insertions = []
-        self._columns_titles = ['fit-func', 'tpcs', 'col-iters', 'total', 'prplx', 'coher', 'contr', 'purity', '10coher', '100coher', 'sprst-p', 'sprst-t', 'regs'] # 13
+        self._columns_titles = ['fit-func', 'tpcs', 'col-i', 'doc-i', 'total', 'prplx', 'coher', 'contr', 'purity', '10coher', '100coher', 'sprst-p', 'sprst-t', 'regs'] # 13
         # self._header_space_offsets = map(lambda x: 0 if len(x) >= self._to_string_defs[self._transf[x]], self._columns_titles)
-        self._header_space_offsets = [0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0] # fitted design of column headers detailed string output
+        self._header_space_offsets = [0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0] # fitted design of column headers detailed string output
         self._header = ' '.join(map(lambda x: x[1] + ' '*self._header_space_offsets[x[0]], enumerate(self._columns_titles)))
         self._max_col_lens = []
         # stripped_phi_names = [os.path.basename(phi_path).replace('.phi', '') for phi_path in glob.glob('{}/*-train.phi'.format(models_dir))]
@@ -74,24 +76,23 @@ class ModelReporter(object):
         #     print '{} phi matrices do not correspond to resuls jsons'.format([_ for _ in stripped_phi_names if _ not in stripped_result_names], )
         #     print '{} results jsons do not correspond to phi matrices'.format([_ for _ in stripped_result_names if _ not in stripped_phi_names])
 
-    def get_info_list(self, sort_function=False, add_fitness_info=False):
+    def compute_info_list(self, sort_function=False, add_fitness_info=False):
         if sort_function:
             self.fitness_computer = FitnessCalculator(sort_function)
             self._to_string_defs['fitness_value'] = self._to_string_defs[sort_function.single_metric]
             self._infos = sorted(map(lambda x: load_reportables(x), self.result_paths), key=lambda x: self.fitness_computer.compute_fitness(x, add_info=add_fitness_info), reverse=True)
-            self._max_col_lens = list(map(lambda col_abrv: max(map(lambda reportable: len(self._stringnify1(reportable[self._transf[col_abrv]], col_abrv)), self._infos)), self._columns_titles))
+            self._max_col_lens = list(map(lambda col_abrv: max(map(lambda reportable: len(self._stringnify(reportable[self._transf[col_abrv]], col_abrv)), self._infos)), self._columns_titles))
         else:
             self._infos = map(lambda x: load_reportables(x), self.result_paths)
         self._insertions = [[] for _ in range(len(self._infos))]
-        return self._infos
 
     def get_model_labels_string(self, sorting_function):
-        il = self.get_info_list(sort_function=sorting_function, add_fitness_info=False)
-        return '\n'.join(map(lambda x: x['model_label'], il))
+        self.compute_info_list(sort_function=sorting_function, add_fitness_info=False)
+        return '\n'.join(map(lambda x: x['model_label'], self._infos))
 
-    def get_highlighted_detailed_string1(self, sorting_function, highlight_type):
+    def get_highlighted_detailed_string(self, sorting_function, highlight_type):
         self.highlight = highlight_type
-        _ = self.get_info_list(sort_function=sorting_function, add_fitness_info=True)
+        self.compute_info_list(sort_function=sorting_function, add_fitness_info=True)
         return '{}\n{}'.format(' '*(self._biggest_len+2)+self._header, '\n'.join(map(lambda x: self._convert_to_row_string(x[0], list(x[1])), map(lambda x: self._make_columns(x), self._infos))))
 
     def _make_columns(self, reportable):
@@ -103,7 +104,7 @@ class ModelReporter(object):
     def _transform(self, column_value, column_index):
         column_full_name = self._transf[self._columns_titles[column_index]] # +' '*(self._max_col_lens[x[0]]-len()
         string_value = self._to_string_defs[column_full_name].format(column_value)
-        if self._columns_titles[column_index] == 'col-iters':
+        if self._columns_titles[column_index] == 'col-i':
             assert len(self._columns_titles[column_index]) > self._max_col_lens[column_index]
         if len(self._columns_titles[column_index]) > self._max_col_lens[column_index]:
             gaps = len(self._columns_titles[column_index]) - len(string_value)
@@ -114,10 +115,7 @@ class ModelReporter(object):
             return self.highlight + string_value + self.ENDC + space_post_fix
         return string_value + space_post_fix
 
-    def _stringnify(self, column_value, column_index):
-        return self._to_string_defs[self._transf[self._columns_titles[column_index]]].format(column_value)
-
-    def _stringnify1(self, column_value, column_abrv):
+    def _stringnify(self, column_value, column_abrv):
         return self._to_string_defs[self._transf[column_abrv]].format(column_value)
 
 class FitnessFunction:
@@ -288,7 +286,7 @@ if __name__ == '__main__':
     spinner.start()
     try:
         if cli_args.details:
-            b1 = model_reporter.get_highlighted_detailed_string1(fitness_function, model_reporter.UNDERLINE)
+            b1 = model_reporter.get_highlighted_detailed_string(fitness_function, model_reporter.UNDERLINE)
         else:
             b1 = model_reporter.get_model_labels_string(fitness_function)
     except RuntimeError as e:

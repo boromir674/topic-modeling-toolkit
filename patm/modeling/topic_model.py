@@ -4,7 +4,7 @@ from .regularizers import regularizer2parameters, parameter_name2encoder
 
 class TopicModel(object):
     """
-    An instance of this class encapsulates the behaviour of a _topic_model.
+    An instance of this class encapsulates the behaviour of a topic_model.
     - LIMITATION:
         Does not support dynamic changing of the number of topics between different training cycles.
     """
@@ -18,6 +18,9 @@ class TopicModel(object):
         self.label = label
         self.artm_model = artm_model
         self._eval_type2eval_wrapper_obj = evaluators
+        print 'GAV', self._eval_type2eval_wrapper_obj['sparsity-phi']
+        import sys
+        sys.exit()
         self._eval_type2name = {k: v.name for k, v in evaluators.items()} # {'sparsity-phi': 'spd_p', 'top-tokens-10': 'tt10'}
         self._eval_name2eval_type = {v.name: k for k, v in evaluators.items()} # {'sp_p': 'sparsity-phi', 'tt10': 'top-tokens-10'}
         self._reg_type2name = {}  # ie {'smooth-theta': 'smb_t', 'sparse-phi': 'spd_p'}
@@ -74,6 +77,7 @@ class TopicModel(object):
     @property
     def document_passes(self):
         return self.artm_model.num_document_passes
+
     def set_document_passes(self, iterations):
         self.artm_model.num_document_passes = iterations
 
@@ -87,7 +91,7 @@ class TopicModel(object):
             else:
                 raise ParameterNameNotFoundException("Regularizer '{}' with name '{}' has no attribute (parameter) '{}'".format(type(self.artm_model.regularizers[reg_name]).__name__, reg_name, reg_param))
         else:
-            raise RegularizerNameNotFoundException("Did not find a regularizer set in the artm_model with name '{}'".format(reg_name))
+            raise RegularizerNameNotFoundException("Did not find a regularizer in the artm_model with name '{}'".format(reg_name))
 
     def set_parameters(self, reg_name2param_settings):
         for reg_name, settings in reg_name2param_settings.items():

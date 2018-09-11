@@ -22,7 +22,6 @@ class Experiment:
     - regularization parameters
     - _eval_name2eval_type
     """
-
     def __init__(self, root_dir, cooc_dict):
         """
         Encapsulates experimentation by doing topic modeling on a 'collection' in the given root_dir. A 'collection' is a proccessed document collection into BoW format and possibly split into 'train' and 'test' splits
@@ -66,13 +65,20 @@ class Experiment:
         self.model_params['nb_topics'].append(tuple((span, topic_model.nb_topics)))
         self.model_params['document_passes'].append(tuple((span, topic_model.document_passes)))
         self.reg_params.append(tuple((span, topic_model.get_regs_param_dict())))
-        # print topic_model._e
         for eval_name, evaluator_type in zip(topic_model.evaluator_names, topic_model.evaluator_types):
             current_eval = topic_model.get_scorer_wrapper(eval_name).evaluate(topic_model.artm_model)
+            if evaluator_type == 'perplexity':
+                print 'EVAL', evaluator_type
             for eval_reportable, value in current_eval.items():
                 try:
+                    if evaluator_type == 'perplexity':
+                        print 'V', value[-span:], eval_reportable
+                        if type(value) == list:
+                            print 'TV', len(value)
+                        else:
+                            print 'TV', type(value)
                     if type(value) == list:
-                        self.trackables[evaluator_type][eval_reportable].extend(value[-span:]) # append only the newly produced tracked values
+                        self.trackables[evaluator_type][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values
                     else:
                         print type(value)
                         raise RuntimeError

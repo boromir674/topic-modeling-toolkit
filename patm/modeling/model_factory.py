@@ -30,10 +30,9 @@ class ModelFactory(object):
 
     def create_model1(self, label, nb_topics, document_passes, cfg_file):
         """
-
         :param int nb_topics:
         :param int document_passes:
-        :param str cfg_file:
+        :param str cfg_file: full path
         :return:
         :rtype: patm.modeling.topic_model.TopicModel
         """
@@ -90,7 +89,7 @@ class ModelFactory(object):
         scorers = {}
         model = artm.ARTM(num_topics=nb_topics,
                           dictionary=self.dict,
-                          class_ids={'@default_class': 1.0, '@ideology': perspective_modality},
+                          class_ids={'@default_class': 1.0, '@ideology_class': perspective_modality},
                           topic_names=get_generic_topic_names(nb_topics))
         model.num_document_passes = document_passes
         for score_setting_name, eval_instance_name in score_type2score_name.items():

@@ -5,10 +5,9 @@ from patm.definitions import collections_dir
 from patm import get_model_factory, trainer_factory, Experiment, TrainSpecs
 from patm.utils import cfg2model_settings
 
-from patm.modeling import trajectory_builder
 
 def get_cl_arguments():
-    parser = argparse.ArgumentParser(prog='train.py', description='Trains a artm _topic_model and stores \'evaluation\' scores', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(prog='train.py', description='Trains an artm topic model and stores \'evaluation\' scores', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('collection', help='the name for the collection to train on')
     parser.add_argument('config', help='the .cfg file to use for constructing and training the topic_model')
     parser.add_argument('label', metavar='id', default='def', help='a unique identifier used for a newly created model')
@@ -29,27 +28,47 @@ if __name__ == '__main__':
     root_dir = os.path.join(collections_dir, args.collection)
     regularizers_param_cfg = '/data/thesis/code/regularizers.cfg'
 
-    model_trainer = trainer_factory.create_trainer('articles', exploit_ideology_labels=False, force_new_batches=True)
+    model_trainer = trainer_factory.create_trainer('test', exploit_ideology_labels=False, force_new_batches=False)
     experiment = Experiment(root_dir, model_trainer.cooc_dicts)
     model_trainer.register(experiment)  # when the model_trainer trains, the experiment object listens to changes
-    #
-    # train_iters = 100
-    # deact = 10
+
+    if args.load:
+        topic_model = experiment.load_experiment(args.label)
+        print '\nLoaded experiment and model state'
+        settings = cfg2model_settings(args.config)
+        train_specs = TrainSpecs(15, [], [])
+    else:
+        topic_model, train_specs = model_trainer.model_factory.create_model(args.label, args.config, regularizers_param_cfg)
+        experiment.init_empty_trackables(topic_model)
+        print 'Initialized new experiment and model'
+
+    # model_trainer.train(topic_model, train_specs)
+
+    ## TRAIN WITH DYNAMICALLY CHANGING TAU COEEFICIENT VALUE
+    train_iters = 100
+    deact = 2
+    next1 = 10
+    next2 = 10
+    next3 = 10
+    next4 = 10
+    next5 = 10
+    next6 = 10
+
+    from patm.modeling import trajectory_builder
+    tr1 = trajectory_builder.begin_trajectory('tau').deactivate(deact).\
+        interpolate_to(next1, -10).interpolate_to(next2, -10). \
+        interpolate_to(next3, -10).interpolate_to(next4, -10). \
+        interpolate_to(next5, -10).interpolate_to(next6, -10).steady_prev(train_iters-deact-sum(map(lambda x: eval('next'+str(x)), range(1,7)))).create()
+    print tr1
+    # tr2 = trajectory_builder.begin_trajectory('tau').deactivate(deact).interpolate_to(iters - deact, -0.1, start=-0.8).create()
+
     # train_specs = get_trajs_specs(train_iters)
     #
     # print train_specs.tau_trajectory_list[0][1]
     # print train_specs.tau_trajectory_list[1][1]
     #
-    # if args.load:
-    #     topic_model = experiment.load_experiment(args.label)
-    #     print '\nLoaded experiment and model state'
-    #     settings = cfg2model_settings(args.config)
-    #     # train_specs = TrainSpecs(15, [], [])
-    #
-    # else:
-    #     topic_model, train_specs = model_trainer.model_factory.create_model(args.label, args.config, regularizers_param_cfg)
-    #     experiment.init_empty_trackables(topic_model)
-    #     print 'Initialized new experiment and model'
+
+
     #
     # print topic_model.regularizer_names
     # print topic_model.regularizer_types

@@ -106,6 +106,7 @@ class GraphMaker(object):
                     self._save_plot(graph_type, eplot_obj)
             except KeyError:
                 print("Score '{}' is not found in tracked experimental result metrics".format(score))
+                print("Try a metric in [{}]".format(', '.join(sorted(results[0]['trackables'].keys()))))
 
     def _build_metric_graphs(self, results, score, sub_scores='all', limit_iteration=None):
         assert len(results) <= len(self.line_designs)
@@ -122,7 +123,7 @@ class GraphMaker(object):
                 graph_plots.append(('{}-{}'.format('-'.join(labels_list), measure_name),
                                     _build_graph(xs, ys, self.line_designs[:len(results)], labels_list, measure_name.replace('-', '.'), 'iteration', 'y')))
             except TypeError:
-                print("Did not create sub-score '{}' plot of '{}'".format(sub_score, score))
+                print("Not creating sub-score '{}' plot of '{}', because either the format is not supported or the average of the same metric is plotted".format(sub_score, score))
         return graph_plots
 
     def _save_plot(self, graph_type, eplot):

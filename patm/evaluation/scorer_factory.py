@@ -32,6 +32,7 @@ class EvaluationFactory(object):
         }
 
     def create_artm_scorer(self, score_type, scorer_name):
+        print score_type, scorer_name
         return self.score_type2constructor[score_type](scorer_name)
 
 
