@@ -66,9 +66,10 @@ class ModelReporter(object):
         self._infos = []
         self._row_strings = []
         self._insertions = []
-        self._columns_titles = ['fit-func', 'tpcs', 'col-i', 'doc-i', 'total', 'prplx', 'coher', 'contr', 'purity', '10coher', '100coher', 'sprst-p', 'sprst-t', 'regs'] # 13
+        self._columns_titles = ['fit-func', 'tpcs', 'col-i', 'doc-i', 'total', 'prplx', 'coher', 'contr', 'purity', '10coher', '100coher', 'sprst-p', 'sprst-t', 'regs'] # 14
         # self._header_space_offsets = map(lambda x: 0 if len(x) >= self._to_string_defs[self._transf[x]], self._columns_titles)
         self._header_space_offsets = [0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0] # fitted design of column headers detailed string output
+        # assert len(self._columns_titles) == len(self._header_space_offsets)
         self._header = ' '.join(map(lambda x: x[1] + ' '*self._header_space_offsets[x[0]], enumerate(self._columns_titles)))
         self._max_col_lens = []
         # stripped_phi_names = [os.path.basename(phi_path).replace('.phi', '') for phi_path in glob.glob('{}/*-train.phi'.format(models_dir))]
