@@ -13,22 +13,23 @@ def get_cl_arguments():
     parser.add_argument('label', metavar='id', default='def', help='a unique identifier used for a newly created model')
     parser.add_argument('--save', default=False, action='store_true', help='saves the state of the model and experimental results after the training iterations finish')
     parser.add_argument('--load', default=False, action='store_true', help='restores the model state and progress of tracked entities from disk')
+    parser.add_argument('--new-batches', '--n-b', default=False, dest='new_batches', action='store_true', help='whether to force the creation of new batches, regardless of finding batches already existing')
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
     return parser.parse_args()
 
 def get_trajs_specs(iters):
-    tr1 = trajectory_builder.begin_trajectory('tau').deactivate(deact).interpolate_to(iters - deact, -0.1, start=-1).create()
-    tr2 = trajectory_builder.begin_trajectory('tau').deactivate(deact).interpolate_to(iters - deact, -0.1, start=-0.8).create()
-    return TrainSpecs(train_iters, ['ssp', 'sst'], [tr1, tr2])
+    traj_1 = trajectory_builder.begin_trajectory('tau').deactivate(deact).interpolate_to(iters - deact, -0.1, start=-1).create()
+    traj_2 = trajectory_builder.begin_trajectory('tau').deactivate(deact).interpolate_to(iters - deact, -0.1, start=-0.8).create()
+    return TrainSpecs(train_iters, ['ssp', 'sst'], [traj_1, traj_2])
 
 if __name__ == '__main__':
     args = get_cl_arguments()
     root_dir = os.path.join(collections_dir, args.collection)
     regularizers_param_cfg = '/data/thesis/code/regularizers.cfg'
 
-    model_trainer = trainer_factory.create_trainer('test', exploit_ideology_labels=False, force_new_batches=False)
+    model_trainer = trainer_factory.create_trainer('test', exploit_ideology_labels=False, force_new_batches=args.new_batches)
     experiment = Experiment(root_dir, model_trainer.cooc_dicts)
     model_trainer.register(experiment)  # when the model_trainer trains, the experiment object listens to changes
 
@@ -45,20 +46,15 @@ if __name__ == '__main__':
     # model_trainer.train(topic_model, train_specs)
 
     ## TRAIN WITH DYNAMICALLY CHANGING TAU COEEFICIENT VALUE
+    nexta = [10, 10, 10, 10, 10, 10]
     train_iters = 100
     deact = 2
-    next1 = 10
-    next2 = 10
-    next3 = 10
-    next4 = 10
-    next5 = 10
-    next6 = 10
 
     from patm.modeling import trajectory_builder
     tr1 = trajectory_builder.begin_trajectory('tau').deactivate(deact).\
-        interpolate_to(next1, -10).interpolate_to(next2, -10). \
-        interpolate_to(next3, -10).interpolate_to(next4, -10). \
-        interpolate_to(next5, -10).interpolate_to(next6, -10).steady_prev(train_iters-deact-sum(map(lambda x: eval('next'+str(x)), range(1,7)))).create()
+        interpolate_to(nexta[0], -10).interpolate_to(nexta[1], -10). \
+        interpolate_to(nexta[2], -10).interpolate_to(nexta[3], -10). \
+        interpolate_to(nexta[4], -10).interpolate_to(nexta[5], -10).steady_prev(train_iters - deact - sum(map(lambda x: eval('nexta' + str(x)), range(1, 7)))).create()
     print tr1
     # tr2 = trajectory_builder.begin_trajectory('tau').deactivate(deact).interpolate_to(iters - deact, -0.1, start=-0.8).create()
 
@@ -66,10 +62,7 @@ if __name__ == '__main__':
     #
     # print train_specs.tau_trajectory_list[0][1]
     # print train_specs.tau_trajectory_list[1][1]
-    #
 
-
-    #
     # print topic_model.regularizer_names
     # print topic_model.regularizer_types
     # print topic_model.evaluator_names
