@@ -41,12 +41,6 @@ class TopicModel(object):
     def regularizer_types(self):
         return map(lambda x: self._reg_name2type[x], self.regularizer_names)
 
-    def get_reg_obj(self, reg_name):
-        return self.artm_model.regularizers[reg_name]
-
-    def get_reg_name(self, reg_type):
-        return self._reg_type2name.get(reg_type, None)
-
     @property
     def evaluator_names(self):
         return sorted(self._eval_name2eval_type.keys())
@@ -54,15 +48,6 @@ class TopicModel(object):
     @property
     def evaluator_types(self):
         return [self._eval_name2eval_type[eval_name] for eval_name in self.evaluator_names]
-
-    def get_scorer_wrapper(self, eval_name):
-        return self._eval_type2eval_wrapper_obj[self._eval_name2eval_type[eval_name]]
-
-    def get_scorer(self, eval_name):
-        return self.artm_model.scores[eval_name]
-
-    def get_scorer_by_type(self, eval_type):
-        return self.artm_model.scores[self._eval_type2name[eval_type]]
 
     @property
     def topic_names(self):
@@ -75,6 +60,21 @@ class TopicModel(object):
     @property
     def document_passes(self):
         return self.artm_model.num_document_passes
+
+    def get_reg_obj(self, reg_name):
+        return self.artm_model.regularizers[reg_name]
+
+    def get_reg_name(self, reg_type):
+        return self._reg_type2name.get(reg_type, None)
+
+    def get_scorer_wrapper(self, eval_name):
+        return self._eval_type2eval_wrapper_obj[self._eval_name2eval_type[eval_name]]
+
+    def get_scorer(self, eval_name):
+        return self.artm_model.scores[eval_name]
+
+    def get_scorer_by_type(self, eval_type):
+        return self.artm_model.scores[self._eval_type2name[eval_type]]
 
     def set_document_passes(self, iterations):
         self.artm_model.num_document_passes = iterations
@@ -98,7 +98,6 @@ class TopicModel(object):
 
     def get_regs_param_dict(self):
         """
-
         :return:
         :rtype dict
         """
