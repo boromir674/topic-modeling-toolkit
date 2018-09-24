@@ -110,7 +110,7 @@ class PipeHandler(object):
 
     def _write(self):
         for processor in self.pipeline.processors[-2:]: # iterate through the last two processors, which are the disk writers
-            for i, vector in enumerate(self._get_iterable_data_model(self.pipeline.settings['weight'])):
+            for i, vector in enumerate(self._get_iterable_data_model(self.pipeline.settings['weight'])):  # 'counts' only supported (future work: 'tfidf')
                 processor.process(self._format_data_tr[processor.to_id()]((i, vector)))
                 # self.doc_gen_stats['nb-bows'] += len(vec)
         self.doc_gen_stats.update({'docs-gen': self.cat2textgen_proc.nb_processed, 'docs-failed': len(self.cat2textgen_proc.failed)})
