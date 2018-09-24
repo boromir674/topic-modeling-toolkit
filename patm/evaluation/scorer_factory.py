@@ -7,7 +7,6 @@ from .base_evaluator import AbstractEvaluator
 class EvaluationFactory(object):
     def __init__(self, dictionary, cooc_dict):
         """
-
         :param artm.Dictionary dictionary:
         :param dict cooc_dict:
         """
@@ -20,7 +19,7 @@ class EvaluationFactory(object):
             # for each token and counts the part of tokens that have this value greater than given delta.
             # Such tokens are considered to be background ones. Also returns all these tokens, if it was requested.
             'items-processed': lambda x: artm.ItemsProcessedScore(name=x),
-            'perplexity': lambda x: artm.PerplexityScore(name=x, dictionary=self._dict),
+            'perplexity': lambda x: artm.PerplexityScore(name=x, dictionary=self._dict, class_ids=['@default_class']),
             'sparsity-phi': lambda x: artm.SparsityPhiScore(name=x),
             'sparsity-theta': lambda x: artm.SparsityThetaScore(name=x),
             'theta-snippet': lambda x: artm.ThetaSnippetScore(name=x),
@@ -32,6 +31,12 @@ class EvaluationFactory(object):
         }
 
     def create_artm_scorer(self, score_type, scorer_name):
+        """
+        :param str score_type:
+        :param str scorer_name:
+        :return:
+        :rtype: artm.scores.BaseScore
+        """
         print score_type, scorer_name
         return self.score_type2constructor[score_type](scorer_name)
 
@@ -53,12 +58,22 @@ score_type2_reportables = {
 
 
 class ArtmScorer(AbstractEvaluator):
-
+    """A wrapper class around each individual artm.BaseScore that provides a common 'evaluate' interface"""
     def __init__(self, name, attributes):
+        """
+        :param str name: a custom name for this "evaluator"
+        :param tuple attributes: the attributes that can be referenced from the artm.BaseScore object; supported reportable metrics/quantities
+        """
         super(ArtmScorer, self).__init__(name)
         self._attrs = attributes
 
     def evaluate(self, model):
+        """
+        Given an artm model object, this method provides an evaluation on all the supported reportable attributes and gives information for every training cycle performed so far.\n
+        :param artm.ARTM model: the model to compute evaluation metrics on
+        :return: the attribute => metrics-4all-cycles information
+        :rtype: dict
+        """
         return {attr: model.score_tracker[self.name].__getattribute__(attr) for attr in sorted(self._attrs)}
         # return {attr: model.score_tracker[self.name].__getattribute__('last_{}'.format(attr)) for attr in sorted(self._attrs)}
 
@@ -70,19 +85,30 @@ class ArtmScorer(AbstractEvaluator):
 class ArtmScorerFactory(object):
     def __init__(self, scorers):
         """
-        :param scorers: a mapping of 'scorers' types to 'scorers' names. This structure can be parsed out of the 'scores' section of a 'train.cfg'
-        :type scorers: dict
+        :param dict scorers: a str => str mapping of 'scorers' types to 'scorers' names. This structure can be parsed out of the 'scores' section of a 'train.cfg'
         """
         self.scorers = scorers
+        self._reversed_scorers = {v: k for k, v in self.scorers.items()}
 
     def create_scorer(self, name):
+        """
+        Given a name which should be present as a value in the self.scorers dictionary, constructs an ArtScorer wrapper object.\n
+        :param str name: the supported name of the artm score object
+        :return: the scorer object reference
+        :rtype: ArtmScorer
+        """
         assert name in self.scorers.values()
-        return ArtmScorer(name, tuple(score_type2_reportables[{v: k for k, v in self.scorers.items()}[name]]))
+        return ArtmScorer(name, tuple(score_type2_reportables[self._reversed_scorers[name]]))
 
 
 # TODO change this suspicious code
 scorer_factories = {}
 def get_scorers_factory(scorers):
+    """
+    :param dict scorers:
+    :return:
+    :rtype: ArtmScorerFactory
+    """
     key = '.'.join(sorted(scorers.values()))
     if key not in scorer_factories:
         scorer_factories[key] = ArtmScorerFactory(scorers)
