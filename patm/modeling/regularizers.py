@@ -1,10 +1,12 @@
 import re
 import sys
+import artm
 from collections import OrderedDict
 from configparser import ConfigParser
-import artm
 
 from ..utils import cfg2model_settings
+from ..definitions import REGULARIZERS_CFG
+
 
 smooth_sparse_phi = ('tau', 'gamma', 'class_ids', 'topic_names')
 smooth_sparse_theta = ('tau', 'topic_names', 'alpha_iter', 'doc_titles', 'doc_topic_coef')
@@ -104,51 +106,69 @@ regularizer_pool_builder = RegularizerPoolBuilder()
 
 
 class RegularizersFactory:
-    def __init__(self):
+    def __init__(self, regularizers_cfg=REGULARIZERS_CFG):
         self._registry = {}
-        # self._regs = [smooth_phi, sparse_phi, smooth_theta, sparse_theta]
-        # assert type(background_topics_ratio) == float and any(map(lambda x: bool(x), self._regs))
-        pass
+        self._regularizers_cfg = regularizers_cfg
+        self._reg_settings = cfg2regularizer_settings(self._regularizers_cfg)
 
     def get_type(self, regularizer_obj):
         return self._registry.get(regularizer_obj, None)
 
     def construct_reg_obj(self, reg_type, name, settings):
+        """
+        :param str reg_type: the regularizer's type
+        :param str name: the regularizers name
+        :param dict settings: key, values pairs to initialize the regularizer parameters
+        :return: the regularizer's object reference
+        :rtype: artm.regularizers.BaseRegularizer
+        """
         _ = construct_regularizer(reg_type, name, settings)
         self._registry[_] = reg_type
         return _
 
-    def construct_pool_from_file(self, type_names_list, reg_config):
+    def construct_pool_from_file(self, type_names_list, reg_config=None):
         """
         Initializes a set of regularizers given the type of regularizers desired to create, a custom name to use and a static configuration file containing initialization settings\n
         :param list of tuples type_names_list: the desired regularizers to initialize. Elements should correspond to pairs of 'sections' in the input cfg file and names; eg: [('smooth-theta', 'sst'), ('decorrelator-phi', 'dp')]
-        :param str reg_config: a cfg file having as sections the type of regularizers supported. Each section attributes can be optionally set to values (if unset inits with defaults)
+        :param str reg_config: a config file containing values to initialize the regularizer parameters; it has as sections the type of regularizers supported. Each section's attributes in the file can be optionally set to values (if unset inits with defaults)
         :return: a list of instantiated regularizer objects,
         :rtype: list
         """
-        reg_settings = cfg2regularizer_settings(reg_config)
-        return [self.construct_reg_obj(reg_type, name, reg_settings[reg_type]) for reg_type, name in type_names_list]
+        self._set_reg_settings(reg_config)
+        return [self.construct_reg_obj(reg_type, name, self.reg_settings[reg_type]) for reg_type, name in type_names_list]
 
-    def construct_reg_pool_from_files(self, train_cfg, reg_cfg):
+    def construct_reg_pool_from_files(self, train_cfg, reg_cfg=self._regularizers_cfg):
         train_settings = cfg2model_settings(train_cfg)
-        reg_settings = cfg2regularizer_settings(reg_cfg)
-        return [self.construct_reg_obj(reg_type, name, reg_settings[reg_type]) for reg_type, name in train_settings['regularizers'].items()]
+        self._set_reg_settings(reg_cfg)
+        return [self.construct_reg_obj(reg_type, name, self.reg_settings[reg_type]) for reg_type, name in train_settings['regularizers'].items()]
 
     def get_reg_pool_from_latest_results(self, results):
         return [self.construct_reg_obj(reg_type, reg_settings_dict['name'], dict([(attr_name, reg_settings_dict[attr_name]) for attr_name in regularizer2parameters[reg_type]])) for reg_type, reg_settings_dict in results['reg_parameters'][-1][1].items()]
+
+    def _set_reg_settings(self, a_train_cfg):
+        if a_train_cfg:
+            self._reg_settings = cfg2regularizer_settings(a_train_cfg)
 
 regularizers_factory = RegularizersFactory()
 
 
 def construct_regularizer(reg_type, name, reg_settings):
+    """
+    Constructs a new artm regularizer object given its type, a name and optional initialization values for its attributes.\n
+    :param str reg_type: the regularizer's type
+    :param str name: the regularizers name
+    :param dict reg_settings: key, values pairs to initialize the regularizer parameters
+    :return: the regularizer's object reference
+    :rtype: artm.regularizers.BaseRegularizer
+    """
     reg_parameters = {k: v for k, v in reg_settings.items() if v}
     if reg_type != 'kl-function-info':
         reg_parameters = dict(reg_parameters, **{'name': name})
     elif 'name' in reg_settings:
         reg_parameters = {k: v for k, v in reg_settings.items() if k != 'name'}
     artm_reg = reg_type2constructor[reg_type](**reg_parameters)
-    found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), reg_parameters.items()))
-    not_found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), {k: v for k, v in reg_settings.items() if not v}.items()))
+    # found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), reg_parameters.items()))
+    # not_found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), {k: v for k, v in reg_settings.items() if not v}.items()))
     # print 'Constructed reg: {}: set params: ({}); using defaults: ({})'.format(reg_type+'.'+name, found, not_found)
     return artm_reg
 
