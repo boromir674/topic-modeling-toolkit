@@ -95,7 +95,6 @@ class ResultsWL(ExperimentWL):
         return load_results(self.get_full_path(name))
 
 
-
 class ModelWL(ExperimentWL):
     def __init__(self, experiment, split_label):
         self._my_root = 'models'
@@ -107,6 +106,8 @@ class ModelWL(ExperimentWL):
         self._exp.topic_model.artm_model.save(self.get_full_path(name), model_name=self._phi_matrix_label)  # saves one Phi-like matrix to disk
         self._saved.append(self.get_full_path(name))
 
+    # TODO enable loading modality weights through 'model_parameters' -> 'results' -> 'create_model_with_phi_from_disk' -> here
+    @deprecated
     def load(self, name, *args):
         """
         Loaded model will overwrite ARTM.topic_names and class_ids fields.
@@ -116,7 +117,6 @@ class ModelWL(ExperimentWL):
         :return:
         """
         return self._exp.model_factory.create_model_with_phi_from_disk(self.get_full_path(name), args[0])
-
 
 
 def _stringify_trackable_dicts(results):
