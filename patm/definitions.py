@@ -145,7 +145,8 @@ poster_id2ideology_label = {poster_id: label2alphanumeric(id2ideology(poster_id)
 id_label2outlet_dict = OrderedDict([('_'.join(ide.split(' ')), OrderedDict(sorted(map(lambda x: (x[0], int(x[1])), outlets_by_ideology[ide].items()), key=lambda x: x[0]))) for ide in labels])
 
 # id_label2outlet_dict['extreme_left']['The Guardian'] == 10513336322
-IDEOLOGY_CLASS_NAME = 'ideology_class'
+IDEOLOGY_CLASS_NAME = '@ideology_class'
+DEFAULT_CLASS_NAME = '@default_class'
 
 
 
