@@ -39,7 +39,7 @@ if __name__ == '__main__':
         settings = cfg2model_settings(args.config)
         train_specs = TrainSpecs(15, [], [])
     else:
-        topic_model, train_specs = model_trainer.model_factory.create_model(args.label, args.config, regularizers_param_cfg)
+        topic_model, train_specs = model_trainer.model_factory.create_model(args.label, args.config, modality_weights=None, reg_config=regularizers_param_cfg)
         experiment.init_empty_trackables(topic_model)
         print 'Initialized new experiment and model'
 

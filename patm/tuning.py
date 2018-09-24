@@ -144,7 +144,7 @@ class Tuner(object):
             # self._tm = self.trainer.model_factory.
             pass
         else:
-            self._tm = self.trainer.model_factory.create_model1(self._cur_label, self._val('nb_topics'), self._val('document_passes'), self._train_cfg)
+            self._tm = self.trainer.model_factory.create_model1(self._cur_label, self._val('nb_topics'), self._val('document_passes'), self._train_cfg, modality_weights=None)
             # print dir(self._tm.artm_model)
             print self._tm.artm_model.scorer_tracker('')
             import sys
