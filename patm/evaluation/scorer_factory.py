@@ -1,10 +1,12 @@
 import os
 import json
 import artm
-from .base_evaluator import AbstractEvaluator
+from base_evaluator import *
+from patm.definitions import DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 
 
 class EvaluationFactory(object):
+    abbreviation2_class_name = {'@dc': DEFAULT_CLASS_NAME, '@ic': IDEOLOGY_CLASS_NAME}
     def __init__(self, dictionary, cooc_dict):
         """
         :param artm.Dictionary dictionary:
@@ -12,23 +14,39 @@ class EvaluationFactory(object):
         """
         self._dict = dictionary
         self.cooc_df_dict = cooc_dict['df']['obj']
-
-        self.score_type2constructor = {
-            'background-tokens-ratio': lambda x: artm.BackgroundTokensRatioScore(name=x, delta_threshold=0.3),
-            # Computes KL - divergence between p(t) and p(t | w) distributions \mathrm{KL}(p(t) | | p(t | w)) (or vice versa)
-            # for each token and counts the part of tokens that have this value greater than given delta.
-            # Such tokens are considered to be background ones. Also returns all these tokens, if it was requested.
-            'items-processed': lambda x: artm.ItemsProcessedScore(name=x),
-            'perplexity': lambda x: artm.PerplexityScore(name=x, dictionary=self._dict, class_ids=['@default_class']),
-            'sparsity-phi': lambda x: artm.SparsityPhiScore(name=x),
-            'sparsity-theta': lambda x: artm.SparsityThetaScore(name=x),
-            'theta-snippet': lambda x: artm.ThetaSnippetScore(name=x),
-            'topic-mass-phi': lambda x: artm.TopicMassPhiScore(name=x),
-            'topic-kernel': lambda x: artm.TopicKernelScore(name=x, probability_mass_threshold=0.6, dictionary=self.cooc_df_dict),
-            # p(t|w) > probability_mass_threshold
-            'top-tokens-10': lambda x: artm.TopTokensScore(name=x, num_tokens=10, dictionary=self.cooc_df_dict),
-            'top-tokens-100': lambda x: artm.TopTokensScore(name=x, num_tokens=100, dictionary=self.cooc_df_dict)
+        self.no_parameter_evaluator_hash = {
+            'perplexity': lambda x: PerplexityEvaluator(x, self._dict),
+            'sparsity-theta': lambda x: SparsityThetaEvaluator(x, self.domain_topics)
         }
+        self.single_parameter_evaluator_hash = {
+            'sparsity-phi': lambda x: SparsityPhiEvaluator(x[0], x[1]),
+            'topic-kernel': lambda x: KernelEvaluator(x[0], self.domain_topics, x[1], self.cooc_df_dict),
+            'top-tokens': lambda x: TopTokensEvaluator(x[0], self.domain_topics, x[1], self.cooc_df_dict),
+            'background-tokens-ratio': lambda x: BackgroundTokensRatioEvaluator(x[0], x[1])
+        }
+
+    def create_evaluator(self, score_definition, score_name):
+        """
+        :param str score_definition:
+        :param str score_name:
+        :return:
+        :rtype: AbstractEvaluator
+        """
+        class_id = None
+        numerical_param = None
+        splitted = score_definition.split('-')
+        try:
+            numerical_param = float(splitted[-1])
+            if numerical_param > 1:
+                numerical_param = int(numerical_param)
+        except ValueError:
+            if splitted[-1][0] == '@':
+                class_id = self.abbreviation2_class_name[splitted[-1]]
+        #
+        # if numerical_param:
+        #     return PerplexityEvaluator(score_name), artm.PerplexityScore(name=score_name, class_ids=[DEFAULT_CLASS_NAME], dictionary=self._dict)
+        # if numerical_param:
+        #     return self.numerical_parameter_constructor_hash[type(numerical_param)]['-'.join(splitted[:-1])](score_name, numerical_param),
 
     def create_artm_scorer(self, score_type, scorer_name):
         """
@@ -40,6 +58,7 @@ class EvaluationFactory(object):
         print score_type, scorer_name
         return self.score_type2constructor[score_type](scorer_name)
 
+    def
 
 score_type2_reportables = {
     'background-tokens-ratio': ('tokens', # the actual tokens with value greater than delta
@@ -57,31 +76,6 @@ score_type2_reportables = {
 }
 
 
-class ArtmScorer(AbstractEvaluator):
-    """A wrapper class around each individual artm.BaseScore that provides a common 'evaluate' interface"""
-    def __init__(self, name, attributes):
-        """
-        :param str name: a custom name for this "evaluator"
-        :param tuple attributes: the attributes that can be referenced from the artm.BaseScore object; supported reportable metrics/quantities
-        """
-        super(ArtmScorer, self).__init__(name)
-        self._attrs = attributes
-
-    def evaluate(self, model):
-        """
-        Given an artm model object, this method provides an evaluation on all the supported reportable attributes and gives information for every training cycle performed so far.\n
-        :param artm.ARTM model: the model to compute evaluation metrics on
-        :return: the attribute => metrics-4all-cycles information
-        :rtype: dict
-        """
-        return {attr: model.score_tracker[self.name].__getattribute__(attr) for attr in sorted(self._attrs)}
-        # return {attr: model.score_tracker[self.name].__getattribute__('last_{}'.format(attr)) for attr in sorted(self._attrs)}
-
-    @property
-    def attributes(self):
-        return self._attrs
-
-
 class ArtmScorerFactory(object):
     def __init__(self, scorers):
         """
@@ -95,7 +89,7 @@ class ArtmScorerFactory(object):
         Given a name which should be present as a value in the self.scorers dictionary, constructs an ArtScorer wrapper object.\n
         :param str name: the supported name of the artm score object
         :return: the scorer object reference
-        :rtype: ArtmScorer
+        :rtype: ArtmEvaluator
         """
         assert name in self.scorers.values()
         return ArtmScorer(name, tuple(score_type2_reportables[self._reversed_scorers[name]]))

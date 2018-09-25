@@ -33,7 +33,7 @@ class Tuner(object):
         """
 
         :param str collection: the name of the 'dataset'/collection to target the tuning process on
-        :param str train_config: full path to 'the' train.cfg file used here only for initializing tracking evaluation scoring capabilities. Namely the necessary BaseScore objects of ARTM lib and the custom ArtmScorer objects are initialized
+        :param str train_config: full path to 'the' train.cfg file used here only for initializing tracking evaluation scoring capabilities. Namely the necessary BaseScore objects of ARTM lib and the custom ArtmEvaluator objects are initialized
         :param list_of_tuples static_parameters: definition of parameters that will remain constant while exploring the parameter space. The order of this affects the order in which vectors of the parameter space are generated
             ie: [('collection_passes', 100), ('nb_topics', 20), ('document_passes', 5))].
         :param list of tuples explorable_parameters: definition of parameter "ranges" that will be explored; the order of list affects the order in which vectors of the parameter space are generated; ie
