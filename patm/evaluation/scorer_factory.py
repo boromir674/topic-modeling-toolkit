@@ -14,14 +14,12 @@ class EvaluationFactory(object):
         """
         self._dict = dictionary
         self.cooc_df_dict = cooc_dict['df']['obj']
-        self.no_parameter_evaluator_hash = {
+        self.eval_constructor_hash = {
             'perplexity': lambda x: PerplexityEvaluator(x, self._dict),
-            'sparsity-theta': lambda x: SparsityThetaEvaluator(x, self.domain_topics)
-        }
-        self.single_parameter_evaluator_hash = {
+            'sparsity-theta': lambda x: SparsityThetaEvaluator(x, self.domain_topics),
             'sparsity-phi': lambda x: SparsityPhiEvaluator(x[0], x[1]),
-            'topic-kernel': lambda x: KernelEvaluator(x[0], self.domain_topics, x[1], self.cooc_df_dict),
-            'top-tokens': lambda x: TopTokensEvaluator(x[0], self.domain_topics, x[1], self.cooc_df_dict),
+            'topic-kernel': lambda x: KernelEvaluator(x[0], self.domain_topics, self.cooc_df_dict, x[1]),
+            'top-tokens': lambda x: TopTokensEvaluator(x[0], self.domain_topics, self.cooc_df_dict, x[1]),
             'background-tokens-ratio': lambda x: BackgroundTokensRatioEvaluator(x[0], x[1])
         }
 
@@ -32,21 +30,19 @@ class EvaluationFactory(object):
         :return:
         :rtype: AbstractEvaluator
         """
-        class_id = None
-        numerical_param = None
-        splitted = score_definition.split('-')
-        try:
-            numerical_param = float(splitted[-1])
-            if numerical_param > 1:
-                numerical_param = int(numerical_param)
-        except ValueError:
-            if splitted[-1][0] == '@':
-                class_id = self.abbreviation2_class_name[splitted[-1]]
-        #
-        # if numerical_param:
-        #     return PerplexityEvaluator(score_name), artm.PerplexityScore(name=score_name, class_ids=[DEFAULT_CLASS_NAME], dictionary=self._dict)
-        # if numerical_param:
-        #     return self.numerical_parameter_constructor_hash[type(numerical_param)]['-'.join(splitted[:-1])](score_name, numerical_param),
+        self._build_evaluator_definition(score_definition)
+        return self.eval_constructor_hash['-'.join(self._tokens)](score_name, *self._params)
+
+    def _build_evaluator_definition(self, score_definition):
+        self._tokens, self._params = [], []
+        for el in score_definition.split('-'):
+            try:
+                self._params.append(float(el))
+            except ValueError:
+                if el[0] == '@':
+                    self._params.append(self.abbreviation2_class_name[el])
+                else:
+                    self._tokens.append(el)
 
     def create_artm_scorer(self, score_type, scorer_name):
         """
@@ -58,7 +54,6 @@ class EvaluationFactory(object):
         print score_type, scorer_name
         return self.score_type2constructor[score_type](scorer_name)
 
-    def
 
 score_type2_reportables = {
     'background-tokens-ratio': ('tokens', # the actual tokens with value greater than delta
