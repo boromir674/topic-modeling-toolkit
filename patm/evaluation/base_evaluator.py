@@ -1,6 +1,7 @@
 from artm.scores import *
 from abc import ABCMeta, abstractmethod
 from patm.definitions import DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
+import warnings
 
 
 class MetaEvaluator:
@@ -95,6 +96,9 @@ class KernelEvaluator(ArtmEvaluator):
     """
     attributes = ('average_coherence', 'average_contrast', 'average_purity', 'average_size', 'coherence', 'contrast', 'purity', 'size', 'tokens') # bigger value of contr, pur, coher, the better.
     def __init__(self, name, domain_topics, threshold, dictionary):
+        assert 0 < threshold < 1
+        if threshold < 0.5:
+            warnings.warn("The value of 'probability_mass_threshold' parameter should be set to 0.5 or higher")
         super(KernelEvaluator, self).__init__(name, TopicKernelScore(name=name, class_id=DEFAULT_CLASS_NAME, topic_names=domain_topics, probability_mass_threshold=threshold, dictionary=dictionary), self.attributes)
         self._probability_mass_threshold = threshold
 
@@ -105,6 +109,7 @@ class KernelEvaluator(ArtmEvaluator):
 class TopTokensEvaluator(ArtmEvaluator):
     attributes = ('average_coherence', 'coherence', 'num_tokens', 'tokens', 'weights')
     def __init__(self, name, domain_topics, nb_top_tokens, dictionary):
+        assert 0 < nb_top_tokens
         super(TopTokensEvaluator, self).__init__(name, TopTokensScore(name=name, class_id=DEFAULT_CLASS_NAME, topic_names=domain_topics, num_tokens=nb_top_tokens, dictionary=dictionary), self.attributes)
         self._top_tokens = nb_top_tokens
 
@@ -125,6 +130,7 @@ class BackgroundTokensRatioEvaluator(ArtmEvaluator):
         :param str name: the name of this evaluator object
         :param float delta_threshold: the threshold for KL-div between p(t|w) and p(t) to get token into background. Should be non-negative
         """
+        assert 0 <= delta_threshold
         super(BackgroundTokensRatioEvaluator, self).__init__(name, BackgroundTokensRatioScore(name=name, class_id=DEFAULT_CLASS_NAME, delta_threshold=delta_threshold), self.attributes)
         self._delta_threshold = delta_threshold
 
