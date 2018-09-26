@@ -20,7 +20,7 @@ class Experiment:
     - model label: the unique identifier of the model used for the experiments
     - trackable "evaluation" metrics
     - regularization parameters
-    - _eval_name2eval_type
+    - _evaluator_name2definition
     """
     def __init__(self, root_dir, cooc_dict):
         """
@@ -39,7 +39,7 @@ class Experiment:
 
     def init_empty_trackables(self, model):
         self._topic_model = model
-        self.trackables = {self._topic_model.evaluator_types[self._topic_model.evaluator_names.index(scorer_name)]: {inner_k: [] for inner_k in self._topic_model.get_scorer_wrapper(scorer_name).attributes} for scorer_name in self._topic_model.evaluator_names}
+        self.trackables = {self._topic_model.evaluator_definitions[self._topic_model.evaluator_names.index(evaluator_name)]: {inner_k: [] for inner_k in self._topic_model.get_evaluator(evaluator_name).attributes} for evaluator_name in self._topic_model.evaluator_names}
         self.collection_passes = []
         self.reg_params = []
         self.model_params = {'nb_topics': [], 'document_passes': []}
@@ -65,22 +65,13 @@ class Experiment:
         self.model_params['nb_topics'].append(tuple((span, topic_model.nb_topics)))
         self.model_params['document_passes'].append(tuple((span, topic_model.document_passes)))
         self.reg_params.append(tuple((span, topic_model.get_regs_param_dict())))
-        for eval_name, evaluator_type in zip(topic_model.evaluator_names, topic_model.evaluator_types):
-            current_eval = topic_model.get_scorer_wrapper(eval_name).evaluate(topic_model.artm_model)
-            if evaluator_type == 'perplexity':
-                print 'EVAL', evaluator_type
+        for evaluator_name, evaluator_definition in zip(topic_model.evaluator_names, topic_model.evaluator_definitions):
+            current_eval = topic_model.get_evaluator(evaluator_name).evaluate(topic_model.artm_model)
             for eval_reportable, value in current_eval.items():
                 try:
-                    if evaluator_type == 'perplexity':
-                        print 'V', value[-span:], eval_reportable
-                        if type(value) == list:
-                            print 'TV', len(value)
-                        else:
-                            print 'TV', type(value)
                     if type(value) == list:
-                        self.trackables[evaluator_type][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values
+                        self.trackables[evaluator_definition][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values
                     else:
-                        print type(value)
                         raise RuntimeError
                 except RuntimeError as e:
                     print e, '\n', type(value)
@@ -104,8 +95,10 @@ class Experiment:
             'model_label': self._topic_model.label,
             'model_parameters': self.model_params,
             'reg_parameters': self.reg_params,
-            '_eval_name2eval_type': zip(self._topic_model.evaluator_names, self._topic_model.evaluator_types)
-            # 'topic_names': self.topic_model.topic_names
+            '_evaluator_name2definition': dict(zip(self._topic_model.evaluator_names, self._topic_model.evaluator_definitions)),
+            'domain_topics': self.topic_model.domain_topics,
+            'background_topics': self.topic_model.background_topics,
+            'modalities': self.topic_model.modalities_dictionary
         }
 
     def save_experiment(self, save_phi=True):
@@ -127,20 +120,19 @@ class Experiment:
         """
         Given a unigue model label, restores the state of the experiment from disk. Loads all tracked values of the experimental results
         and the state of the TopicModel inferred so far: namely the phi p_wt matrix.
-        In details loads settings:
-        - doc collection fit iteration steady_chunks
-        - eval metrics/measures trackes per iteration
-        - regularization parameters
-        - document passes
-        \n
+        In details loads settings:\n
+        - doc collection fit iteration steady_chunks\n
+        - eval metrics/measures trackes per iteration\n
+        - regularization parameters\n
+        - document passes\n
         :param str model_label: a unigue identifier of a topic model
         :return: the latest train specification used in the experiment
         :rtype: patm.modeling.topic_model.TrainSpecs
         """
         results = self.train_results_handler.load(model_label)
         assert model_label == results['model_label']
-        print len(results['trackables']['per']['value'])
-        print sum(results['collection_passes'])
+        # print len(results['trackables']['per']['value'])
+        # print sum(results['collection_passes'])
         assert len(results['trackables']['perplexity']['value']) == sum(results['collection_passes'])
         self.collection_passes = results['collection_passes']
         self.trackables = results['trackables']

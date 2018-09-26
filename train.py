@@ -66,7 +66,7 @@ if __name__ == '__main__':
     # print topic_model.regularizer_names
     # print topic_model.regularizer_types
     # print topic_model.evaluator_names
-    # print topic_model.evaluator_types
+    # print topic_model.evaluator_definitions
     #
     # # train_specs = {'collection_passes': 30}
     # model_trainer.train(topic_model, train_specs)

@@ -1,3 +1,5 @@
+import warnings
+from collections import Counter
 from patm.utils import cfg2model_settings
 from .regularizers import regularizer2parameters, parameter_name2encoder
 
@@ -10,17 +12,18 @@ class TopicModel(object):
     """
     def __init__(self, label, artm_model, evaluators):
         """
-        Creates a topic model object\n. The model is ready to add regularizers to it.
+        Creates a topic model object. The model is ready to add regularizers to it.\n
         :param str label: a unique identifier for the model; model name
         :param artm.ARTM artm_model: a reference to an artm model object
-        :param dict evaluators: mapping from scorer_types to evaluator_wrapper_objects to e; i.e. {'sparsity-phi': obj1, 'top-tokens-10': obj2}
+        :param dict evaluators: mapping from evaluator-definitions strings to patm.evaluation.base_evaluator.ArtmEvaluator objects
+         ; i.e. {'perplexity': obj0, 'sparsity-phi-\@dc': obj1, 'sparsity-phi-\@ic': obj2, 'topic-kernel-0.6': obj3,
+         'topic-kernel-0.8': obj4, 'top-tokens-10': obj5}
         """
         self.label = label
         self.artm_model = artm_model
-        self._eval_type2eval_wrapper_obj = evaluators
-        print 'GAV', self._eval_type2eval_wrapper_obj['sparsity-phi']
-        self._eval_type2name = {k: v.name for k, v in evaluators.items()} # {'sparsity-phi': 'spd_p', 'top-tokens-10': 'tt10'}
-        self._eval_name2eval_type = {v.name: k for k, v in evaluators.items()} # {'sp_p': 'sparsity-phi', 'tt10': 'top-tokens-10'}
+        self._definition2evaluator = evaluators
+        self._definition2evaluator_name = {k: v.name for k, v in evaluators.items()} # {'sparsity-phi': 'spd_p', 'top-tokens-10': 'tt10'}
+        self._evaluator_name2definition = {v.name: k for k, v in evaluators.items()} # {'sp_p': 'sparsity-phi', 'tt10': 'top-tokens-10'}
         self._reg_type2name = {}  # ie {'smooth-theta': 'smb_t', 'sparse-phi': 'spd_p'}
         self._reg_name2type = {}
 
@@ -43,11 +46,11 @@ class TopicModel(object):
 
     @property
     def evaluator_names(self):
-        return sorted(self._eval_name2eval_type.keys())
+        return sorted(self._evaluator_name2definition.keys())
 
     @property
-    def evaluator_types(self):
-        return [self._eval_name2eval_type[eval_name] for eval_name in self.evaluator_names]
+    def evaluator_definitions(self):
+        return [self._evaluator_name2definition[eval_name] for eval_name in self.evaluator_names]
 
     @property
     def topic_names(self):
@@ -56,6 +59,25 @@ class TopicModel(object):
     @property
     def nb_topics(self):
         return self.artm_model.num_topics
+
+    @property
+    def domain_topics(self):
+        """Returns the mostly agreed list of topic names found in all evaluators"""
+        c = Counter()
+        for evaluator in self._definition2evaluator.values():
+            c['++'.join(getattr(evaluator.artm_score, 'topic_names', ['no-topics']))] += 1
+        del c['no-topics']
+        if len(c) > 1:
+            warnings.warn("There exist evaluator objects that target different (domain) topics to score")
+        return c[max(c)].split('++')
+
+    @property
+    def background_topics(self):
+        return list(filter(None, map(lambda x: x if x not in self.domain_topics else None, self.artm_model.topic_names)))
+
+    @property
+    def modalities_dictionary(self):
+        return self.artm_model.class_ids
 
     @property
     def document_passes(self):
@@ -67,16 +89,17 @@ class TopicModel(object):
     def get_reg_name(self, reg_type):
         return self._reg_type2name.get(reg_type, None)
 
-    def get_scorer_wrapper(self, eval_name):
-        return self._eval_type2eval_wrapper_obj[self._eval_name2eval_type[eval_name]]
+    def get_evaluator(self, eval_name):
+        return self._definition2evaluator[self._evaluator_name2definition[eval_name]]
 
-    def get_scorer(self, eval_name):
+    def get_scorer_by_name(self, eval_name):
         return self.artm_model.scores[eval_name]
 
     def get_scorer_by_type(self, eval_type):
-        return self.artm_model.scores[self._eval_type2name[eval_type]]
+        return self.artm_model.scores[self._definition2evaluator_name[eval_type]]
 
-    def set_document_passes(self, iterations):
+    @document_passes.setter
+    def document_passes(self, iterations):
         self.artm_model.num_document_passes = iterations
 
     def set_parameter(self, reg_name, reg_param, value):
@@ -110,19 +133,19 @@ class TopicModel(object):
                 d[reg_type][key] = cur_reg_obj.__getattribute__(key)
         return d
 
-    def get_top_tokens(self, topic_names='all', nb_tokens=10):
-        if topic_names == 'all':
-            topic_names = self.artm_model.topic_names
-        toks = self.artm_model.score_tracker[self._eval_name2eval_type['top-tokens'].name].last_value
-        return [toks[topic_name] for topic_name in topic_names]
-
-    def print_topics(self, topic_names='all'):
-        if topic_names == 'all':
-            topic_names = self.artm_model.topic_names
-        toks = self.artm_model.score_tracker[self._eval_name2eval_type['top-tokens'].name].last_value
-        body, max_lens = self._get_rows(toks)
-        header = self._get_header(max_lens, topic_names)
-        print(header + body)
+    # def get_top_tokens(self, topic_names='all', nb_tokens=10):
+    #     if topic_names == 'all':
+    #         topic_names = self.artm_model.topic_names
+    #     toks = self.artm_model.score_tracker[self._evaluator_name2definition['top-tokens'].name].last_value
+    #     return [toks[topic_name] for topic_name in topic_names]
+    #
+    # def print_topics(self, topic_names='all'):
+    #     if topic_names == 'all':
+    #         topic_names = self.artm_model.topic_names
+    #     toks = self.artm_model.score_tracker[self._evaluator_name2definition['top-tokens'].name].last_value
+    #     body, max_lens = self._get_rows(toks)
+    #     header = self._get_header(max_lens, topic_names)
+    #     print(header + body)
 
     def _get_header(self, max_lens, topic_names):
         assert len(max_lens) == len(topic_names)

@@ -149,6 +149,7 @@ class Tuner(object):
             print self._tm.artm_model.scorer_tracker('')
             import sys
             sys.exit()
+
     def _set_parameters(self, reg_specs):
         """
         :param list reg_specs:

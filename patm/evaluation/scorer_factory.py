@@ -14,21 +14,30 @@ class EvaluationFactory(object):
         """
         self._dict = dictionary
         self.cooc_df_dict = cooc_dict['df']['obj']
+        self._domain_topics = []
         self.eval_constructor_hash = {
             'perplexity': lambda x: PerplexityEvaluator(x, self._dict),
-            'sparsity-theta': lambda x: SparsityThetaEvaluator(x, self.domain_topics),
+            'sparsity-theta': lambda x: SparsityThetaEvaluator(x, self._domain_topics),
             'sparsity-phi': lambda x: SparsityPhiEvaluator(x[0], x[1]),
-            'topic-kernel': lambda x: KernelEvaluator(x[0], self.domain_topics, self.cooc_df_dict, x[1]),
-            'top-tokens': lambda x: TopTokensEvaluator(x[0], self.domain_topics, self.cooc_df_dict, x[1]),
+            'topic-kernel': lambda x: KernelEvaluator(x[0], self._domain_topics, self.cooc_df_dict, x[1]),
+            'top-tokens': lambda x: TopTokensEvaluator(x[0], self._domain_topics, self.cooc_df_dict, x[1]),
             'background-tokens-ratio': lambda x: BackgroundTokensRatioEvaluator(x[0], x[1])
         }
+
+    @property
+    def domain_topics(self):
+        return self._domain_topics
+
+    @domain_topics.setter
+    def domain_topics(self, domain_topics):
+        self._domain_topics = domain_topics
 
     def create_evaluator(self, score_definition, score_name):
         """
         :param str score_definition:
         :param str score_name:
         :return:
-        :rtype: AbstractEvaluator
+        :rtype: ArtmEvaluator
         """
         self._build_evaluator_definition(score_definition)
         return self.eval_constructor_hash['-'.join(self._tokens)](score_name, *self._params)

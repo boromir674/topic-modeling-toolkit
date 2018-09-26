@@ -38,8 +38,8 @@ COOCURENCE_DICT_FILE_NAMES = ['cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
 ###### CONSTANTS #####
 BINARY_DICTIONARY_NAME = 'mydic.dict'
 
-def get_generic_topic_names(nb_topics):
-    return ['top_' + index for index in map(lambda x: str(x) if len(str(x)) > 1 else '0'+str(x), range(nb_topics))]
+def get_generic_topic_names(nb_topics, skip_first_pct=0.0):
+    return ['top_' + index for index in map(lambda x: str(x) if len(str(x)) > 1 else '0'+str(x), range(nb_topics))][int(skip_first_pct * nb_topics):]
 ###### ###### ###### ###### ###### ######
 
 
