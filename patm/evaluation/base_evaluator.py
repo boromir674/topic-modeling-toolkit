@@ -95,7 +95,7 @@ class KernelEvaluator(ArtmEvaluator):
     Only if p(t|w) > probability_mass_threshold then a token is considered to be part of the kernel.
     """
     attributes = ('average_coherence', 'average_contrast', 'average_purity', 'average_size', 'coherence', 'contrast', 'purity', 'size', 'tokens') # bigger value of contr, pur, coher, the better.
-    def __init__(self, name, domain_topics, threshold, dictionary):
+    def __init__(self, name, domain_topics, dictionary, threshold):
         assert 0 < threshold < 1
         if threshold < 0.5:
             warnings.warn("The value of 'probability_mass_threshold' parameter should be set to 0.5 or higher")
@@ -108,7 +108,7 @@ class KernelEvaluator(ArtmEvaluator):
 
 class TopTokensEvaluator(ArtmEvaluator):
     attributes = ('average_coherence', 'coherence', 'num_tokens', 'tokens', 'weights')
-    def __init__(self, name, domain_topics, nb_top_tokens, dictionary):
+    def __init__(self, name, domain_topics, dictionary, nb_top_tokens):
         assert 0 < nb_top_tokens
         super(TopTokensEvaluator, self).__init__(name, TopTokensScore(name=name, class_id=DEFAULT_CLASS_NAME, topic_names=domain_topics, num_tokens=nb_top_tokens, dictionary=dictionary), self.attributes)
         self._top_tokens = nb_top_tokens
