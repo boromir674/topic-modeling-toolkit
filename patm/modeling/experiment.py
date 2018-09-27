@@ -93,9 +93,9 @@ class Experiment:
             'trackables': self.trackables,  # TODO try list of tuples [('perplexity'), dict), ..]
             'root_dir': self.current_root_dir,  # eg /data/blah/
             'model_label': self._topic_model.label,
-            'model_parameters': self.model_params,
+            'model_parameters': self.model_params,  # nb_topics and document_passes
             'reg_parameters': self.reg_params,
-            '_evaluator_name2definition': dict(zip(self._topic_model.evaluator_names, self._topic_model.evaluator_definitions)),
+            'eval_definition2eval_name': dict(zip(self._topic_model.evaluator_definitions, self._topic_model.evaluator_names)),
             'domain_topics': self.topic_model.domain_topics,
             'background_topics': self.topic_model.background_topics,
             'modalities': self.topic_model.modalities_dictionary
