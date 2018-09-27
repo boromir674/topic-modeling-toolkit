@@ -5,7 +5,7 @@ from .regularizers import regularizers_factory
 from patm.definitions import collections_dir, get_generic_topic_names, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 
 from .topic_model import TopicModel, TrainSpecs
-from ..evaluation.scorer_factory import get_scorers_factory, EvaluationFactory
+from ..evaluation.scorer_factory import EvaluationFactory
 
 
 dicts2model_factory = {}
@@ -57,14 +57,16 @@ class ModelFactory(object):
         self._create_topic_model(label, nb_topics, document_passes, settings['scores'])
         return self._tm
 
-    def create_model(self, label, cfg_file, modality_weights=None, reg_config=None, background_topics_pct=0.0):
+    def create_model(self, label, cfg_file, reg_config=None, modality_weights=None, background_topics_pct=0.0):
         """
         Creates an Topic Model ready for training with settings and regularizers defined in the input .cfg file. Phi matrix
         is initialized with random numbers by default. Supports setting modality weights and utilizing the 'background topics' feature.\n
         :param str label: the unique identifier for the model
         :param str cfg_file: a config file containing initial model parameters, regularizers and score metrics to use
+        :param str reg_config: a config file containing values to initialize the regularizer parameters; it has as sections the type of
+            regularizers supported. Each section's attributes in the file can be optionally set to values (if unset inits with defaults).
+            If no file is given, then regularizers are initialized from the default .cfg file
         :param dict modality_weights: whether to define "custom" and/or extra modalities with their weights. If not set then only the "@default_class" modality will be utilized when training
-        :param str reg_config: a config file containing values to initialize the regularizer parameters; it has as sections the type of regularizers supported. Each section's attributes in the file can be optionally set to values (if unset inits with defaults)
         :param float background_topics_pct: whether to reserve a percentage of the topics to gather 'background tokens'
         :return: tuple of initialized model and training specifications
         :rtype: patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs
@@ -77,8 +79,6 @@ class ModelFactory(object):
         self._build_topic_model(label, regularizers)
         return self._tm, TrainSpecs(settings['learning']['collection_passes'], [], [])
 
-    # TODO load modalities from the results dictionary. Allow the results to contain modalities in the first place
-    @deprecated
     def create_model_with_phi_from_disk(self, phi_file_path, results):
         """
         Given a phi file path, a unique label and a dictionary of experimental tracked_metrics_dict, initializes a TopicModel object with the restored state of a model stored in disk. Configures to track the same
@@ -94,24 +94,27 @@ class ModelFactory(object):
         """
         self._nb_topics = int(results['model_parameters']['nb_topics'][-1][1])
         regularizers = regularizers_factory.get_reg_pool_from_latest_results(results)
-        self._build_artm(results['model_parameters']['document_passes'][-1][1], phi_path=phi_file_path)
-        self._add_scorers(results['_evaluator_name2definition'])
+        self._build_artm(results['model_parameters']['document_passes'][-1][1], modalities_dict=results['modalities'], phi_path=phi_file_path)
+        self._add_scorers(results['eval_definition2eval_name'])
         self._build_topic_model(results['model_label'], regularizers)
         return self._tm
 
     def _build_artm(self, nb_document_passes, modalities_dict=None, phi_path=''):
         if modalities_dict:
             assert all(map(lambda x: x in (DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME), modalities_dict.keys()))
-        self._artm = artm.ARTM(num_topics=self._nb_topics, topic_names=get_generic_topic_names(nb_topics), class_ids=modalities_dict, num_document_passes=nb_document_passes, dictionary=self.dict)
+        self._artm = artm.ARTM(num_topics=self._nb_topics, dictionary=self.dict)
         if phi_path:
             self._artm.load(phi_path)
+        self._artm.topic_names = get_generic_topic_names(nb_topics)
+        self._artm.class_ids = modalities_dict
+        self._artm.num_document_passes = nb_document_passes
 
-    def _add_scorers(self, score_type2score_name, background_topics_pct=0.0):
+    def _add_scorers(self, evaluator_definition2name, background_topics_pct=0.0):
         self._eval_factory.domain_topics = get_generic_topic_names(self._nb_topics, skip_first_pct=background_topics_pct)
-        for score_setting_name, eval_instance_name in score_type2score_name.items():
-            self.topic_model_evaluators[score_setting_name] = self._eval_factory.create_evaluator(score_setting_name, eval_instance_name)
-            self._artm.scores.add(self.topic_model_evaluators[score_setting_name].artm_score)
-            # self.topic_model_evaluators[score_setting_name] = get_scorers_factory(score_type2score_name).create_scorer(eval_instance_name)
+        for evaluator_definition, eval_instance_name in evaluator_definition2name.items():
+            self.topic_model_evaluators[evaluator_definition] = self._eval_factory.create_evaluator(evaluator_definition, eval_instance_name)
+            self._artm.scores.add(self.topic_model_evaluators[evaluator_definition].artm_score)
+            # self.topic_model_evaluators[score_setting_name] = get_scorers_factory(evaluator_definition2name).create_scorer(eval_instance_name)
             # self._artm.scores.add(self._eval_factory.create_artm_scorer(score_setting_name, eval_instance_name))
 
     def _build_topic_model(self, label, regularizers):
