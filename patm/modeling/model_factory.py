@@ -1,8 +1,8 @@
 from collections import defaultdict
 import artm
-from patm.utils import cfg2model_settings
 from .regularizers import regularizers_factory
-from patm.definitions import collections_dir, get_generic_topic_names, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
+from patm.utils import cfg2model_settings, generic_topic_names_builder
+from patm.definitions import collections_dir, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 
 from .topic_model import TopicModel, TrainSpecs
 from ..evaluation.scorer_factory import EvaluationFactory
@@ -27,13 +27,14 @@ class ModelFactory(object):
     This class can create a fresh TopicModel or restore a TopicModel's state from disk. In both cases the model is ready to be trained.
     """
     def __init__(self, dictionary, cooc_dict):
-        self._nb_topics = 0
-        self._tm = None
         self.dict = dictionary
+        self._eval_factory = EvaluationFactory(dictionary, cooc_dict)
+        self._tm = None
         self._artm = None
-        self.topic_model_evaluators = {}
-        self._eval_factory = EvaluationFactory(self.dict, cooc_dict)
+        self._nb_topics = 0
         # self.cooc_dict = cooc_dict
+        self.topic_model_evaluators = {}
+        self._background_topics, self._domain_topics = [], []
 
     def create_model1(self, label, nb_topics, document_passes, cfg_file, modality_weights=None, background_topics_pct=0.0):
         """
@@ -51,8 +52,9 @@ class ModelFactory(object):
         settings = cfg2model_settings(cfg_file)
         regularizers = regularizers_factory.construct_reg_pool_from_files(cfg_file)
         self._nb_topics = nb_topics
+        self._background_topics, self._domain_topics = generic_topic_names_builder.define_nb_topics(nb_topics).define_background_pct(background_topics_pct).get_background_n_domain_topics()
         self._build_artm(document_passes, modalities_dict=modality_weights)
-        self._add_scorers(settings['scores'], background_topics_pct=background_topics_pct)
+        self._add_scorers(settings['scores'])
         self._build_topic_model(label, regularizers)
         self._create_topic_model(label, nb_topics, document_passes, settings['scores'])
         return self._tm
@@ -72,10 +74,11 @@ class ModelFactory(object):
         :rtype: patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs
         """
         settings = cfg2model_settings(cfg_file)
-        regularizers = regularizers_factory.construct_pool_from_file(settings['regularizers'].items(), reg_config=reg_config)
+        regularizers = regularizers_factory.construct_pool_from_file(settings['regularizers'].items(), reg_config=reg_config, )
         self._nb_topics = settings['learning']['nb_topics']
+        self._background_topics, self._domain_topics = generic_topic_names_builder.define_nb_topics(self._nb_topics).define_background_pct(background_topics_pct).get_background_n_domain_topics()
         self._build_artm(settings['learning']['document_passes'], modalities_dict=modality_weights)
-        self._add_scorers(settings['scores'], background_topics_pct=background_topics_pct)
+        self._add_scorers(settings['scores'])
         self._build_topic_model(label, regularizers)
         return self._tm, TrainSpecs(settings['learning']['collection_passes'], [], [])
 
@@ -92,8 +95,9 @@ class ModelFactory(object):
         :return: tuple of initialized model and training specifications
         :rtype: (patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs)
         """
-        self._nb_topics = int(results['model_parameters']['nb_topics'][-1][1])
         regularizers = regularizers_factory.get_reg_pool_from_latest_results(results)
+        self._nb_topics = int(results['model_parameters']['nb_topics'][-1][1])
+        self._background_topics, self._domain_topics = results['background_topics'], results['domain_topics']
         self._build_artm(results['model_parameters']['document_passes'][-1][1], modalities_dict=results['modalities'], phi_path=phi_file_path)
         self._add_scorers(results['eval_definition2eval_name'])
         self._build_topic_model(results['model_label'], regularizers)
@@ -109,8 +113,8 @@ class ModelFactory(object):
         self._artm.class_ids = modalities_dict
         self._artm.num_document_passes = nb_document_passes
 
-    def _add_scorers(self, evaluator_definition2name, background_topics_pct=0.0):
-        self._eval_factory.domain_topics = get_generic_topic_names(self._nb_topics, skip_first_pct=background_topics_pct)
+    def _add_scorers(self, evaluator_definition2name):
+        self._eval_factory.domain_topics = self._domain_topics
         for evaluator_definition, eval_instance_name in evaluator_definition2name.items():
             self.topic_model_evaluators[evaluator_definition] = self._eval_factory.create_evaluator(evaluator_definition, eval_instance_name)
             self._artm.scores.add(self.topic_model_evaluators[evaluator_definition].artm_score)

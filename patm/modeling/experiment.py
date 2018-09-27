@@ -96,8 +96,8 @@ class Experiment:
             'model_parameters': self.model_params,  # nb_topics and document_passes
             'reg_parameters': self.reg_params,
             'eval_definition2eval_name': dict(zip(self._topic_model.evaluator_definitions, self._topic_model.evaluator_names)),
-            'domain_topics': self.topic_model.domain_topics,
             'background_topics': self.topic_model.background_topics,
+            'domain_topics': self.topic_model.domain_topics,
             'modalities': self.topic_model.modalities_dictionary
         }
 
