@@ -167,9 +167,9 @@ def construct_regularizer(reg_type, name, reg_settings):
     elif 'name' in reg_settings:
         reg_parameters = {k: v for k, v in reg_settings.items() if k != 'name'}
     artm_reg = reg_type2constructor[reg_type](**reg_parameters)
-    # found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), reg_parameters.items()))
-    # not_found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), {k: v for k, v in reg_settings.items() if not v}.items()))
-    # print 'Constructed reg: {}: set params: ({}); using defaults: ({})'.format(reg_type+'.'+name, found, not_found)
+    found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), reg_parameters.items()))
+    not_found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), {k: v for k, v in reg_settings.items() if not v}.items()))
+    print 'Constructed reg: {}: set params: ({}); using defaults: ({})'.format(reg_type+'.'+name, found, not_found)
     return artm_reg
 
 

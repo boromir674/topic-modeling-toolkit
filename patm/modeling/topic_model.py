@@ -31,6 +31,7 @@ class TopicModel(object):
         """
         Adds a regularizer component to the optimization likelihood function. Adds the given object to the underlying artm model.\n
         :param artm.BaseRegularizer reg_object: the object to add
+        :param str reg_type:
         """
         self._reg_type2name[reg_type] = reg_object.name
         self._reg_name2type[reg_object.name] = reg_type
