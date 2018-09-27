@@ -2,10 +2,11 @@ import os
 import re
 from tqdm import tqdm
 from collections import OrderedDict, Counter
+from patm.definitions import collections_dir
 from patm.modeling.parameters import ParameterGrid
+from patm.utils import generic_topic_names_builder
 from patm import trainer_factory, Experiment, TrainSpecs
 from patm.modeling import trajectory_builder, regularizers_factory
-from patm.definitions import collections_dir, get_generic_topic_names
 
 
 class Tuner(object):
@@ -159,9 +160,10 @@ class Tuner(object):
         pool = []
         if reg_specs:
             ### SET REGULARIZERS
-            _ = int(reg_specs[0] * self._val('nb_topics'))
-            background_topics = get_generic_topic_names(self._val('nb_topics'))[:_]
-            domain_topics = get_generic_topic_names(self._val('nb_topics'))[_:]
+            background_topics, domain_topics = generic_topic_names_builder.define_nb_topics(self._val('nb_topics')).define_background_pct(reg_specs[0]).get_background_n_domain_topics()
+            # _ = int(reg_specs[0] * self._val('nb_topics'))
+            # background_topics = get_generic_topic_names(self._val('nb_topics'))[:_]
+            # domain_topics = get_generic_topic_names(self._val('nb_topics'))[_:]
 
             for l in ('sparse-phi', 'sparse-theta', 'decorrelator-phi'):
                 if l in reg_specs[1]:
