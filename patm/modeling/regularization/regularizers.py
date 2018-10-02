@@ -4,21 +4,32 @@ import artm
 from collections import OrderedDict
 from configparser import ConfigParser
 
-from ..utils import cfg2model_settings
-from ..definitions import REGULARIZERS_CFG
+from patm.utils import cfg2model_settings
+from patm.definitions import REGULARIZERS_CFG
+from patm.modeling.parameters.trajectory import trajectory_builder
+from patm.modeling.parameters.trajectory import ParameterTrajectory
+
+
+def cfg2regularizer_settings(cfg_file):
+    config = ConfigParser()
+    config.read(cfg_file)
+    return OrderedDict([(str(section), OrderedDict([(str(setting_name), parameter_name2encoder[str(setting_name)](value)) for setting_name, value in config.items(section) if value])) for section in config.sections()])
 
 
 smooth_sparse_phi = ('tau', 'gamma', 'class_ids', 'topic_names')
 smooth_sparse_theta = ('tau', 'topic_names', 'alpha_iter', 'doc_titles', 'doc_topic_coef')
+decorrelation = ('tau', 'gamma', 'class_ids', 'topic_names', 'topic_pairs')
 
 regularizer2parameters = {
-    'kl-function-info': ('function_type', 'power_value'),
     'smooth-phi': smooth_sparse_phi,
     'sparse-phi': smooth_sparse_phi,
     'smooth-theta': smooth_sparse_theta,
     'sparse-theta': smooth_sparse_theta,
-    'decorrelator-phi': ('tau', 'gamma', 'class_ids', 'topic_names', 'topic_pairs'),
+    'decorrelate-phi-domain': decorrelation,
+    'decorrelate-phi-background': decorrelation,
     'label-regularization-phi': ('tau', 'gamma', 'class_ids', 'topic_names'),
+
+    'kl-function-info': ('function_type', 'power_value'),
     'specified-sparse-phi': ('tau', 'gamma', 'topic_names', 'class_id', 'num_max_elements', 'probability_threshold', 'sparse_by_column'),
     'improve-coherence-phi': ('tau', 'gamma', 'class_ids', 'topic_names'),
     'smooth-ptdw': ('tau', 'topic_names', 'alpha_iter'),
@@ -27,7 +38,8 @@ regularizer2parameters = {
 }
 
 parameter_name2encoder = {
-    'tau': float, # the coefficient of regularization for this regularizer
+    'tau': str, # the coefficient of regularization for this regularizer
+    'start': str, # the number of iterations to initially keep the regularizer turned off
     'gamma': float, # the coefficient of relative regularization for this regularizer
     'class_ids': list, # list of class_ids or single class_id to regularize, will regularize all classes if empty or None [ONLY for ImproveCoherencePhiRegularizer: dictionary should contain pairwise tokens co-occurrence info]
     'topic_names': list, # specific topics to target for applying regularization, Targets all if None
@@ -42,112 +54,95 @@ parameter_name2encoder = {
     'sparse_by_columns': bool, # find max elements in column or row
 }
 
-reg_type2constructor = {
-    'kl-function-info': artm.KlFunctionInfo,
-    'sparse-phi': artm.SmoothSparsePhiRegularizer,
+_regularizers_section_name2constructor = {
     'smooth-phi': artm.SmoothSparsePhiRegularizer,
-    'sparse-theta': artm.SmoothSparseThetaRegularizer,
+    'sparse-phi': artm.SmoothSparsePhiRegularizer,
     'smooth-theta': artm.SmoothSparseThetaRegularizer,
-    'decorrelator-phi': artm.DecorrelatorPhiRegularizer,
+    'sparse-theta': artm.SmoothSparseThetaRegularizer,
+    'decorrelate-phi-domain': artm.DecorrelatorPhiRegularizer,
+    'decorrelate-phi-background': artm.DecorrelatorPhiRegularizer,
     'label-regularization-phi': artm.LabelRegularizationPhiRegularizer,
-    'specified-sparse-phi': artm.SpecifiedSparsePhiRegularizer,
-    'improve-coherence-phi': artm.ImproveCoherencePhiRegularizer,
-    'smooth-ptdw': artm.SmoothPtdwRegularizer,
-    'topic-selection': artm.TopicSelectionThetaRegularizer
+    # 'kl-function-info': artm.KlFunctionInfo,
+    # 'specified-sparse-phi': artm.SpecifiedSparsePhiRegularizer,
+    # 'improve-coherence-phi': artm.ImproveCoherencePhiRegularizer,
+    # 'smooth-ptdw': artm.SmoothPtdwRegularizer,
+    # 'topic-selection': artm.TopicSelectionThetaRegularizer
 }
-# regularizer_class_string2reg_type = {re.match("^<class 'artm\.regularizers\.(\w+)'>$", str(constructor)).group(1): reg_type for reg_type, constructor in reg_type2constructor.items()}
 
-
-class RegularizerPoolBuilder:
-
-    def __init__(self):
-        self._topics = []
-        self._nb_topics = 0
-        self._pool = []
-        self.background_topics_ratio = 0
-        self._background_topics = []
-        self._domain_topics = []
-
-    def init_pool(self, topics_labels):
-        self._topics = topics_labels
-        self._nb_topics = len(self._topics)
-        self._pool = []
-        self._background_topics = []
-        self._domain_topics = []
-        return self
-
-    def separate_background(self, background_topics_ratio):
-        self._pool = []
-        self.background_topics_ratio = background_topics_ratio
-        _ = int(self.background_topics_ratio * self._nb_topics)
-        self._background_topics = self._topics[:_]
-        self._domain_topics = self._topics[_:]
-        return self
-
-    def add_regularizers(self, reg_type2reg_attributes):
-        for reg_type, reg_settings in sorted(reg_type2reg_attributes.items(), key=lambda x: x[1]['name']): #sort by regularizer custom name following same ordering as TopicModel
-            self._pool.append(construct_regularizer(reg_type, reg_settings['name'], reg_settings['attributes']))
-
-    # def smooth_background(self, matrix, tau): # ('phi', 'theta'}
-    #     self._pool.append(construct_regularizer('smooth-' + matrix, 'sb' + matrix[0], {'topic_names': self._background_topics, 'tau': tau}))
-    #     return self
-    # def sparse_domain(self, matrix):
-    #     # expects to receive a tau trajectory as a paramter later
-    #     self._pool.append(construct_regularizer('sparse' + matrix, 'sd' + matrix[0], {'topic_names': self._domain_topics, 'tau': -0.1}))
-    #     return self
-    # def decorrelate(self):
-    #     self._pool.append(construct_regularizer('decorrelate-phi', 'ddt', {'topic_names': self._domain_topics, 'tau': 2e+5}))
-    #     return self
-
-    def build_pool(self):
-        return self._pool
-
-regularizer_pool_builder = RegularizerPoolBuilder()
+# regularizer_class_string2reg_type = {re.match("^<class 'artm\.regularizers\.(\w+)'>$", str(constructor)).group(1): reg_type for reg_type, constructor in _regularizers_section_name2constructor.items()}
 
 
 class RegularizersFactory:
-    def __init__(self, regularizers_cfg=REGULARIZERS_CFG):
+    active_regularizers_type2tuples_enlister = {dict: lambda x: x.items(),
+                                                  str: lambda x: cfg2model_settings(x)['regularizers'],
+                                                list: lambda x: x}
+    reg_initialization_type2_enlister = {dict: lambda x: x,
+                                                str: lambda x: cfg2regularizer_settings(x)
+                                         }
+
+    def __init__(self):
         self._registry = {}
-        self._regularizers_cfg = regularizers_cfg
+        self._regularizers_cfg = REGULARIZERS_CFG
         self._reg_settings = cfg2regularizer_settings(self._regularizers_cfg)
+        self._reg_defs = {}
+        self._wrappers = []
+        self._col_passes = 0
 
-    def get_type(self, regularizer_obj):
-        return self._registry.get(regularizer_obj, None)
+    @property
+    def collection_passes(self):
+        return self._col_passes
 
-    def construct_reg_obj(self, reg_type, name, settings):
-        """
-        :param str reg_type: the regularizer's type
-        :param str name: the regularizers name
-        :param dict settings: key, values pairs to initialize the regularizer parameters
-        :return: the regularizer's object reference
-        :rtype: artm.regularizers.BaseRegularizer
-        """
-        _ = construct_regularizer(reg_type, name, settings)
-        self._registry[_] = reg_type
-        return _
+    @collection_passes.setter
+    def collection_passes(self, collection_passes):
+        self._col_passes = collection_passes
 
-    def construct_pool_from_file(self, type_names_list, reg_config=None):
+    def set_regularizers_definitions(self, train_cfg, reg_cfg=None):
         """
-        Initializes a set of regularizers given the type of regularizers desired to create, a custom name to use and a static configuration file containing initialization settings\n
-        :param list of tuples type_names_list: the desired regularizers to initialize. Elements should correspond to pairs of 'sections' in the input cfg file and names; eg: [('smooth-theta', 'sst'), ('decorrelator-phi', 'dp')]
-        :param str reg_config: a config file containing values to initialize the regularizer parameters; it has as sections the type of regularizers supported. Each section's attributes in the file can be optionally set to values (if unset inits with defaults)
-        :return: a list of instantiated regularizer objects,
+        Creates a dict: each key is a regularizer type (identical to one of the '_regularizers_section_name2constructor' hash'\n
+        :param str or list or dict train_cfg: indicates which regularizers should be active.
+        - If type(train_cfg) == str: train_cfg is a file path to a cfg formated file that has a 'regularizers' section indicating the active regularization components.\n
+        - If type(train_cfg) == list: train_cfg is a list of tuples with each 1st element being the regularizer type (eg 'smooth-phi', 'decorrelate-phi-domain') and each 2nd element being the regularizer unique name.\n
+        - If type(train_cfg) == dict: train_cfg is a maps regularizer types to names. regularizer types and regularizer names
+        :param str reg_cfg: contains the values for initializing the regularizers with
+        :rtype: RegularizersFactory
+        """
+        reg_types_n_names = self.active_regularizers_type2tuples_enlister[type(train_cfg)](train_cfg)
+        if reg_cfg is not None:
+            reg_settings_dict =self.reg_initialization_type2_enlister[type(reg_cfg)](reg_cfg)
+        else:
+            reg_settings_dict = self._reg_settings
+        self._reg_defs = {}
+        for reg_type, reg_name in sorted(reg_types_n_names):
+            self._reg_defs[reg_type] = dict(reg_settings_dict[reg_type], **{'name': reg_name})
+        return self
+
+    def create_reg_wrappers(self):
+        """
+        Call this method to create all possible regularization components for the model.\n
+         keys; each value is a dictionry of the corresponding's regularizer's initialization parameter; ie:
+          {\n
+          'sparse-phi': {'name': 'spp', 'start': 5, 'tau': 'linear_-0.5_-5'},\n
+          'smooth-phi': {'name': 'smp', 'tau': 1},\n
+          'sparse-theta': {'name': 'spt', 'start': 3, 'tau': linear_-0.2_-6, 'alpha_iter': 1},\n
+          'smooth-theta': {'name': 'smt', 'tau': 1, 'alpha_iter': linear_0.5_1}\n
+          }
+        :return: the constructed regularizers; objects of type ArtmRegularizerWrapper
         :rtype: list
         """
-        self._set_reg_settings(reg_config)
-        return [self.construct_reg_obj(reg_type, name, self.reg_settings[reg_type]) for reg_type, name in type_names_list]
+        return list(map(lambda x: ArtmRegularizerWrapper(x[0], x[1]), sorted(self._reg_defs.items())))
 
-    def construct_reg_pool_from_files(self, train_cfg, reg_cfg=self._regularizers_cfg):
-        train_settings = cfg2model_settings(train_cfg)
-        self._set_reg_settings(reg_cfg)
-        return [self.construct_reg_obj(reg_type, name, self.reg_settings[reg_type]) for reg_type, name in train_settings['regularizers'].items()]
+    # def construct_reg_pool_from_latest_results(self, results):
+    #     return [ArtmRegularizerWrapper(reg_type, dict([(attr_name, reg_settings_dict[attr_name]) for attr_name in regularizer2parameters[reg_type]])) for reg_type, reg_settings_dict in results['reg_parameters'][-1][1].items()]
 
-    def get_reg_pool_from_latest_results(self, results):
-        return [self.construct_reg_obj(reg_type, reg_settings_dict['name'], dict([(attr_name, reg_settings_dict[attr_name]) for attr_name in regularizer2parameters[reg_type]])) for reg_type, reg_settings_dict in results['reg_parameters'][-1][1].items()]
+    def construct_reg_wrapper(self, reg_type, settings):
+        """
+        :param str reg_type: the regularizer's type
+        :param dict settings: key, values pairs to initialize the regularizer parameters. Must contain 'name' key
+        :return: the regularizer's wrapper object reference
+        :rtype: ArtmRegularizerWrapper
+        """
+        return ArtmRegularizerWrapper(reg_type, settings)
 
-    def _set_reg_settings(self, a_train_cfg):
-        if a_train_cfg:
-            self._reg_settings = cfg2regularizer_settings(a_train_cfg)
 
 regularizers_factory = RegularizersFactory()
 
@@ -166,18 +161,140 @@ def construct_regularizer(reg_type, name, reg_settings):
         reg_parameters = dict(reg_parameters, **{'name': name})
     elif 'name' in reg_settings:
         reg_parameters = {k: v for k, v in reg_settings.items() if k != 'name'}
-    artm_reg = reg_type2constructor[reg_type](**reg_parameters)
+    artm_reg = _regularizers_section_name2constructor[reg_type](**reg_parameters)
     found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), reg_parameters.items()))
     not_found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), {k: v for k, v in reg_settings.items() if not v}.items()))
     print 'Constructed reg: {}: set params: ({}); using defaults: ({})'.format(reg_type+'.'+name, found, not_found)
     return artm_reg
 
 
-def cfg2regularizer_settings(cfg_file):
-    config = ConfigParser()
-    config.read(cfg_file)
-    return OrderedDict([(str(section), OrderedDict([(str(setting_name), parameter_name2encoder[str(setting_name)](value)) for setting_name, value in config.items(section) if value])) for section in config.sections()])
+def create_reg(reg_type, reg_params, verbose=True):
+    if reg_type == 'kl-function-info':
+        _ = reg_params.pop('name', None)
+    artm_reg = _regularizers_section_name2constructor[reg_type](**reg_params)
+    if verbose:
+        print "Constructed reg '{}' with settings: ".format(reg_type + '.' + name, ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), reg_params.items())))
+    return artm_reg
 
 
-if __name__ == '__main__':
-    pass
+class ArtmRegularizerWrapper(object):
+    labeling_ordering = ('start', 'tau', 'alpha_iter')
+    traj_type2traj_creator = {'alpha_iters': lambda x: '0_' + x[1],
+                              'tau': lambda x: '{}_{}'.format(x[0], x[1])}
+
+    def __init__(self, reg_type, parameters_dict):
+        self._name = parameters_dict.pop('name', 'no-name')
+        self._type = reg_type
+        self._label = ''
+        self._regularizer = None
+        self._computed_params = None
+        self._trajectory_lambdas = {}
+
+        start = int(parameters_dict.pop('start', 0))
+        for k, v in parameters_dict.items():
+            try:
+                self._computed_params[k] = float(v)
+            except ValueError:
+                traj_def = self.traj_type2traj_creator[k](start, v)
+                splitted = traj_def.split('_')
+                self._trajectory_lambdas[k] = lambda x: trajectory_builder.begin_trajectory(k).\
+                    deactivate(splitted[0]).interpolate_to(x - splitted[0], splitted[3], interpolation=splitted[1], start=splitted[2]).create()
+
+        self._regularizer = create_reg(self._type, dict(parameters_dict, **{'name': self._name}), verbose=True)
+
+    def get_tau_trajectory(self, collection_passes):
+        if 'tau' in self._trajectory_lambdas:
+            return self._trajectory_lambdas['tau'](collection_passes)
+        return None
+
+    def set_alpha_iters_trajectory(self, nb_codument_passes, verbose=False):
+        if 'alpha_iters' in self._trajectory_lambdas:
+            alpha_values = list(self._trajectory_lambdas['alpha_iters'](nb_codument_passes))
+            self._regularizer.alpha_iters = alpha_values
+            if verbose:
+                print "Trajectory 'alpha_iters' for '{}':".format(self._name), alpha_values
+
+    @property
+    def artm_regularizer(self):
+        return self._regularizer
+
+    def __str__(self):
+        return self.name
+    @property
+    def name(self):
+        return self._name
+    @property
+    def type(self):
+        return self._type
+
+    def to_label(self):
+        return '{}_{}'.format(self._name, '-'.join(filter(None, map(lambda x: self._stringify_tau_or_alpha_iter(x), self.labeling_ordering))))
+
+    def _stringify_tau_or_alpha_iter(self, extracted_value):
+        """
+        Assumes that a regularizer setting is either a directly parsable as float value (scalar tau or 'start' param
+        (iterations to keep the regularizer turned off)) or a trajectory definition.\n
+        :param str extracted_value:
+        :rtype: str
+        """
+        try:
+            return str(float(extracted_value))
+        except ValueError:
+            _ = extracted_value.split('_')
+            return '_'.join([_[0][0]] + _[1:])
+
+    def _encode(self, params):
+        start = int(params.get('start', 0))
+        for k, v in params.items():
+            try:
+                self._computed_params[k] = float(v)
+            except ValueError:
+                splitted = v.split('_')
+                self._trajectories[k] = lambda x: trajectory_builder.begin_trajectory(key).deactivate(start).interpolate_to(x-start, splitted[-1], interpolation=splitted[0], start=splitted[1]).create()
+
+
+class RegularizerPoolBuilder:
+    def __init__(self):
+        self._topics = []
+        self._nb_topics = 0
+        self._pool = []
+        self.background_topics_ratio = 0
+        self._background_topics = []
+        self._domain_topics = []
+
+    def init_pool(self, topics_labels):
+        self._topics = topics_labels
+        # self._nb_topics = len(selpatm / modeling / regularization / regularizers.pyf._topics)
+        self._pool = []
+        self._background_topics = []
+        self._domain_topics = []
+        return self
+
+    def separate_background(self, background_topics_ratio):
+        self._pool = []
+        self.background_topics_ratio = background_topics_ratio
+        _ = int(self.background_topics_ratio * self._nb_topics)
+        self._background_topics = self._topics[:_]
+        self._domain_topics = self._topics[_:]
+        return self
+
+    def add_regularizers(self, reg_type2reg_attributes):
+        for reg_type, reg_settings in sorted(reg_type2reg_attributes.items(), key=lambda x: x[1][
+            'name']):  # sort by regularizer custom name following same ordering as TopicModel
+            self._pool.append(construct_regularizer(reg_type, reg_settings['name'], reg_settings['attributes']))
+
+    # def smooth_background(self, matrix, tau): # ('phi', 'theta'}
+    #     self._pool.append(construct_regularizer('smooth-' + matrix, 'sb' + matrix[0], {'topic_names': self._background_topics, 'tau': tau}))
+    #     return self
+    # def sparse_domain(self, matrix):
+    #     # expects to receive a tau trajectory as a paramter later
+    #     self._pool.append(construct_regularizer('sparse' + matrix, 'sd' + matrix[0], {'topic_names': self._domain_topics, 'tau': -0.1}))
+    #     return self
+    # def decorrelate(self):
+    #     self._pool.append(construct_regularizer('decorrelate-phi', 'ddt', {'topic_names': self._domain_topics, 'tau': 2e+5}))
+    #     return self
+
+    def build_pool(self):
+        return self._pool
+
+regularizer_pool_builder = RegularizerPoolBuilder()
