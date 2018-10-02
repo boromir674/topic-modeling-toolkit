@@ -33,9 +33,11 @@ class EvaluationFactory(object):
 
     def create_evaluator(self, score_definition, score_name):
         """
-        :param str score_definition:
-        :param str score_name:
-        :return:
+        Call this method to construct a new artm scorer custom wrapper object parametrized by pasing the given definition.\n
+        :param str score_definition: evaluators definitions that can be parsed on '-' ie 'perplexity', 'sparsity-phi-\@dc',
+         'sparsity-phi-\@ic', 'topic-kernel-0.6', 'topic-kernel-0.8', 'top-tokens-10'
+        :param str score_name: an arbitrary name
+        :return: a reference to the constructed object
         :rtype: ArtmEvaluator
         """
         self._build_evaluator_definition(score_definition)

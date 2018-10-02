@@ -1,11 +1,11 @@
-from collections import defaultdict
 import artm
-from .regularizers import regularizers_factory
-from patm.utils import cfg2model_settings, generic_topic_names_builder
-from patm.definitions import collections_dir, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 
 from .topic_model import TopicModel, TrainSpecs
 from ..evaluation.scorer_factory import EvaluationFactory
+from patm.definitions import DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
+from patm.utils import cfg2model_settings
+from patm.utils import generic_topic_names_builder as tn_builder
+from patm.modeling.regularization.regularizers import RegularizersFactory
 
 
 dicts2model_factory = {}

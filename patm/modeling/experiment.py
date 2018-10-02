@@ -1,12 +1,5 @@
-import os
-import cPickle as pickle
-import json
-
-from collections import Counter
-
-from .regularizers import parameter_name2encoder
-from .persistence import ResultsWL, ModelWL
 from .model_factory import get_model_factory
+from .persistence import ResultsWL, ModelWL
 
 
 class Experiment:
