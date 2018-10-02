@@ -56,7 +56,7 @@ class ModelFactory(object):
         _ = cfg2model_settings(train_cfg)
         self._col_passes, self._nb_topics, self._nb_document_passes = _['learning']['collection_passes'], _['learning']['nb_topics'], _['learning']['document_passes']
         self._eval_def2name, self._reg_types2names = _['scores'], _['regularizers']
-        return self._create_model(label, modality_weights, *tn_builder.define_background_pct(background_topics_pct).define_nb_topics(self._nb_topics).get_background_n_domain_topics(), reg_cfg=reg_cfg)
+        return self._create_model(label, modality_weights, *tn_builder.define_nb_topics(self._nb_topics).define_background_pct(background_topics_pct).get_background_n_domain_topics(), reg_cfg=reg_cfg)
 
     @deprecated
     def create_model_with_phi_from_disk(self, phi_file_path, results):

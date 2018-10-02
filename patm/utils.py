@@ -50,6 +50,9 @@ class GenericTopicNamesBuilder:
         return self._domain_topics
     def get_background_n_domain_topics(self):
         return self.get_background_topics(), self.get_domain_topics()
+    def get_all_topics(self):
+        return self.get_background_topics() + self.get_domain_topics()
+
 
 generic_topic_names_builder = GenericTopicNamesBuilder()
 
