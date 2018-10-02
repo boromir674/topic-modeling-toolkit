@@ -1,7 +1,7 @@
 import warnings
 from collections import Counter
-from patm.utils import cfg2model_settings
-from .regularizers import regularizer2parameters, parameter_name2encoder
+
+from patm.modeling.regularization.regularizers import regularizer2parameters, parameter_name2encoder
 
 
 class TopicModel(object):
@@ -25,7 +25,7 @@ class TopicModel(object):
         self._definition2evaluator_name = {k: v.name for k, v in evaluators.items()} # {'sparsity-phi': 'spd_p', 'top-tokens-10': 'tt10'}
         self._evaluator_name2definition = {v.name: k for k, v in evaluators.items()} # {'sp_p': 'sparsity-phi', 'tt10': 'top-tokens-10'}
         self._reg_type2name = {}  # ie {'smooth-theta': 'smb_t', 'sparse-phi': 'spd_p'}
-        self._reg_name2type = {}
+        self._reg_name2wrapper = {}
 
     def add_regularizer(self, reg_object, reg_type):
         """
@@ -34,8 +34,26 @@ class TopicModel(object):
         :param str reg_type:
         """
         self._reg_type2name[reg_type] = reg_object.name
-        self._reg_name2type[reg_object.name] = reg_type
         self.artm_model.regularizers.add(reg_object)
+
+    def add_regularizer_wrapper(self, reg_wrapper):
+        self._reg_name2wrapper[reg_wrapper.name] = reg_wrapper
+        self._reg_type2name[reg_wrapper.type] = reg_wrapper.name
+        self.artm_model.regularizers.add(reg_wrapper.artm_regularizer)
+
+    def add_regularizer_wrappers(self, reg_wrappers):
+        for _ in reg_wrappers:
+            self.add_regularizer_wrapper(_)
+
+    def initialize_regularizers(self, collection_passes, document_passes):
+        self._trajs = {}
+        for reg_name, wrapper in self._reg_name2wrapper.items():
+            self._trajs[reg_name] = wrapper.get_tau_trajectory(collection_passes)
+            wrapper.set_alpha_iters_trajectory(document_passes, verbose=True)
+
+    @property
+    def tau_trajectories(self):
+        return filter(lambda x: x[1] is not None, self._trajs.items())
 
     @property
     def regularizer_names(self):
@@ -43,7 +61,7 @@ class TopicModel(object):
 
     @property
     def regularizer_types(self):
-        return map(lambda x: self._reg_name2type[x], self.regularizer_names)
+        return map(lambda x: self._reg_name2wrapper[x].type, self.regularizer_names)
 
     @property
     def evaluator_names(self):
