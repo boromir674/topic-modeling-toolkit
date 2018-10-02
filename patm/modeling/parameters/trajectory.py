@@ -240,13 +240,26 @@ class IterSingle(IterChunk):
     def span(self):
         return self._data
 
+
 class TrajectoryBuilder(object):
     """
     This class acts as a ParameterTrajectory factory.
     """
+    interpolation_kind2interpolant = {'linear': {'preprocess': lambda x: (x[2], x[0], x[1]),
+                                                 'process': lambda x: list(np.interp(*x))},
+                                      'quadratic': {'preprocess': lambda x: (np.polyfit(x[0], x[1], 2), x[2]),
+                                                    'process': lambda x: np.polyval(*x)},
+                                      'cubic': {'preprocess': lambda x: (np.polyfit(x[0], x[1], 3), x[2]),
+                                                 'process': lambda x: np.polyval(*x)}}
+
     def __init__(self):
         self._values = []
         self._name = ''
+        self._interpolant = None
+
+    @property
+    def name(self):
+        return self._name
 
     def steady_prev(self, iters):
         """Use regularizer using the latest tau used and keeping it constant for 'iters' train cycles through the collection"""
@@ -268,14 +281,20 @@ class TrajectoryBuilder(object):
         used, (or from 'start' value if specified) to the specified 'value' using 'iters' steps. Each step is a train
         cycle through the collection\n
         Supports linear interpolation"""
+        prev_iter = len(self._values)
+        iter_inds = range(prev_iter, prev_iter + iters)
         if start is None:
             start = self._values[-1]
-        prev_iter = len(self._values)
-        iter_inds = range(prev_iter+1, prev_iter+1+iters)
-        xs = [prev_iter, iter_inds[-1]]
-        ys = [start, value]
-        self._values.extend(list(np.interp(iter_inds, xs, ys)))
+            iter_inds = range(prev_iter + 1, prev_iter + iters + 1)
+        self._interpolate(prev_iter, iter_inds, start, value, interpolation=interpolation)
         return self
+
+    def _interpolate(self, prev_iter, iter_inds, start_y, end_y, interpolation='linear'):
+        xs = [prev_iter, iter_inds[-1]]
+        ys = [start_y, end_y]
+        prods = self.interpolation_kind2interpolant[interpolation]['preprocess']((xs, ys, iter_inds))
+        vals = self.interpolation_kind2interpolant[interpolation]['process'](prods)
+        self._values.extend(vals)
 
     def begin_trajectory(self, name):
         self._name = name
@@ -360,6 +379,7 @@ def _test(builder):
     res = get_fit_iteration_chunks([tr1, tr2, tr3])
     assert res == IterationChunks([[1, 2]])
     assert res.to_training_chunks(6) == IterationChunks([[1,2], 1, 1, 1, 1])
+    print "All tests passed"
 
 if __name__ == '__main__':
 
