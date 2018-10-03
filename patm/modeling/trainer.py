@@ -51,10 +51,10 @@ class ModelTrainer(object):
         :param patm.modeling.topic_model.TrainSpecs specs:
         :param bool effects:
         """
-        trajectories_list = map(lambda x: x[1], specs.tau_trajectory_list)
-        if not trajectories_list:
+        trajectories_data = specs.tau_trajectory_list
+        if not trajectories_data:
             if effects:
-                print 'Training without dynamic tau trajectories'
+                print 'Training with constant taus'
                 from patm.utils import Spinner
                 self.spinner.start()
             topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=specs.collection_passes)
@@ -62,15 +62,15 @@ class ModelTrainer(object):
                 self.spinner.stop()
             self.update_observers(topic_model, specs.collection_passes)
         else:
-            steady_iter_chunks = get_fit_iteration_chunks(map(lambda x: x[1], specs.tau_trajectory_list))
+            steady_iter_chunks = get_fit_iteration_chunks(map(lambda x: x[1], trajectories_data))
             all_iter_chunks = steady_iter_chunks.to_training_chunks(specs.collection_passes)
 
             iter_sum = 0
             gener = all_iter_chunks
             if effects:
-                print 'Training with dynamic trajectories'
+                print 'Will fit on {} chunks and train with tau trajectories for regs [{}]'.format(len(all_iter_chunks), ', '.join((_[0] for _ in trajectories_data)))
                 from tqdm import tqdm
-                gener = tqdm(all_iter_chunks, unit='model-fits')
+                gener = tqdm(all_iter_chunks, unit='fit-operation')
             for chunk in gener:
                 topic_model.set_parameters(specs.to_taus_slice(iter_sum))
                 topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=chunk.span)
@@ -97,7 +97,9 @@ class TrainerFactory(object):
         self._batches_target_dir = os.path.join(self._root_dir, self._batches_dir_name)
 
         self._data_path_hash = {True: os.path.join(self._root_dir, 'vowpal.'+self._col+'.txt'), False: self._root_dir}
-        self._create_dirs([self._root_dir, self._batches_target_dir])
+        for _ in [self._root_dir, self._batches_target_dir]:
+            if not os.path.exists(_):
+                os.makedirs(_)
         bin_dict = os.path.join(self._root_dir, 'mydic.dict')
         text_dict = os.path.join(self._root_dir, 'mydic.txt')
         vocab = os.path.join(self._root_dir, 'vocab.' + self._col + '.txt')
@@ -141,11 +143,6 @@ class TrainerFactory(object):
                                                        data_path=self._batches_target_dir,
                                                        data_format='batches')
         print "Vectorizer initialized from 'batches' found in '{}'".format(self._batches_target_dir)
-
-    def _create_dirs(self, dir_paths):
-        for _ in dir_paths:
-            if not os.path.exists(_):
-                os.makedirs(_)
 
 
 if __name__ == '__main__':
