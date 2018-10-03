@@ -47,7 +47,7 @@ class ModelFactory(object):
         self._tm.initialize_regularizers(collection_passes, self._nb_document_passes)
         return TrainSpecs(collection_passes, list(map(lambda x: x[0], self._tm.tau_trajectories)), list(map(lambda x: x[1], self._tm.tau_trajectories)))
 
-    def create_model00(self, label, train_cfg, reg_cfg=None):
+    def create_model(self, label, train_cfg, reg_cfg=None):
         _ = cfg2model_settings(train_cfg)
         self._col_passes, self._nb_topics, self._nb_document_passes = _['learning']['collection_passes'], _['learning']['nb_topics'], _['learning']['document_passes']
         self._eval_def2name, self._reg_types2names = _['scores'], _['regularizers']
@@ -62,7 +62,7 @@ class ModelFactory(object):
         self._eval_def2name, self._reg_types2names = _['scores'], _['regularizers']
         return self._create_model(label, modality_weights, *tn_builder.define_nb_topics(self._nb_topics).define_background_pct(background_topics_pct).get_background_n_domain_topics())
 
-    def create_model0(self, label, train_cfg, reg_cfg=None, modality_weights=None, background_topics_pct=0.0):
+    def create_model00(self, label, train_cfg, reg_cfg=None, modality_weights=None, background_topics_pct=0.0):
         _ = cfg2model_settings(train_cfg)
         self._col_passes, self._nb_topics, self._nb_document_passes = _['learning']['collection_passes'], _['learning']['nb_topics'], _['learning']['document_passes']
         self._eval_def2name, self._reg_types2names = _['scores'], _['regularizers']
@@ -91,7 +91,7 @@ class ModelFactory(object):
         self._build_artm(background_topics, domain_topics, modalities_dict=modality_weights, phi_path=phi_path)
         self._add_scorers()
         self._tm = TopicModel(label, self._artm, self.topic_model_evaluators)
-        self._tm.add_regularizer_wrappers(self._regularizers_factory.set_regularizers_definitions(self._reg_types2names, reg_cfg=reg_cfg).create_reg_wrappers())
+        self._tm.add_regularizer_wrappers(self._regularizers_factory.set_regularizers_definitions(self._reg_types2names, background_topics, domain_topics, reg_cfg=reg_cfg).create_reg_wrappers())
         return self._tm
 
     def _build_artm(self, background_topics, domain_topics, modalities_dict=None, phi_path=''):
