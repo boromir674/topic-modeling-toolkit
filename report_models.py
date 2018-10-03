@@ -39,6 +39,9 @@ def load_reportables(results_path):
             'top-10-coherence': float(d['trackables']['top-tokens-10']['average_coherence'][-1]),
             'top-100-coherence': float(d['trackables']['top-tokens-100']['average_coherence'][-1])
             }
+    for i, v in _.items():
+        if not v:
+            print 'V', i, v
     assert all(map(lambda x: _[x] not in (None, ''), _.keys()))
     return _
 

@@ -60,16 +60,20 @@ class TopicModel(object):
         return self._reg_name2wrapper.get(reg_name, None)
 
     @property
-    def tau_trajectories(self):
-        return filter(lambda x: x[1] is not None, self._trajs.items())
-
-    @property
     def regularizer_names(self):
         return sorted(_ for _ in self.artm_model.regularizers.data)
 
     @property
+    def regularizer_wrappers(self):
+        return list(map(lambda x: self._reg_name2wrapper[x], self.regularizer_names))
+
+    @property
     def regularizer_types(self):
         return map(lambda x: self._reg_name2wrapper[x].type, self.regularizer_names)
+
+    @property
+    def tau_trajectories(self):
+        return filter(lambda x: x[1] is not None, self._trajs.items())
 
     @property
     def evaluator_names(self):
@@ -96,14 +100,14 @@ class TopicModel(object):
                 tn = evaluator.artm_score.topic_names
                 if tn:
                     c['+'.join(tn)] += 1
-        if len(c) > 1:
-            warnings.warn("There exist evaluator objects that target different (domain) topics to score")
+        if len(c) > 2:
+            warnings.warn("There exist {} different subsets of all the topic names targeted by evaluators".format(len(c)))
         # print c.most_common()
         return c.most_common(1)[0][0].split('+')
 
     @property
     def background_topics(self):
-        return list(filter(None, map(lambda x: x if x not in self.domain_topics else None, self.artm_model.topic_names)))
+        return [topic_name for topic_name in self.artm_model.topic_names if topic_name not in self.domain_topics]
 
     @property
     def modalities_dictionary(self):

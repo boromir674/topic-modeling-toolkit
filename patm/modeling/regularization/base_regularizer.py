@@ -4,7 +4,7 @@ import artm
 
 
 class ArtmRegularizerWrapper(object):
-    labeling_ordering = ('start', 'tau', 'alpha_iter')
+    labeling_ordering = ('tau', 'alpha_iter')
     _traj_type2traj_def_creator = {'alpha_iter': lambda x: '0_' + x[1],
                               'tau': lambda x: '{}_{}'.format(x[0], x[1])}
 
@@ -20,27 +20,29 @@ class ArtmRegularizerWrapper(object):
         self._regularizer = None
         self._computed_params = {}
         self._trajectory_lambdas = {}
-        self._alpha_iter = None
+        self._alpha_iter_scalar = None
         self._traj_def = {}
-
+        self._reg_constr_params = {}
         self._artm_constructor_callback = artm_constructor
+        self._params_for_labeling = {}
 
-        start = int(parameters_dict.pop('start', 0))
-        self._gav = {}
+        self._start = int(parameters_dict.pop('start', 0))
         for k, v in parameters_dict.items():
-            if type(v) == list:
-                self._computed_params[k] = v
-            else:
-                try:
-                    vf = float(v)
-                    if k == 'alpha_iter':
-                        self._alpha_iter = vf
-                    else:
-                        self._computed_params[k] = vf
-                except ValueError:
-                    self._traj_def[k] = self._traj_type2traj_def_creator[k]([start, v])
+            self._parse(k, v)
+        self._create_artm_regularizer(dict(self._reg_constr_params, **{'name': self._name}), verbose=True)
 
-        self._create_artm_regularizer(dict(self._computed_params, **{'name': self._name}), verbose=True)
+    def _parse(self, parameter_name, parameter_value):
+        if type(parameter_value) == list: # one of topic_names or class_ids
+            self._reg_constr_params[parameter_name] = parameter_value
+        else:
+            try:
+                vf = float(parameter_value)
+                if parameter_name == 'alpha_iter':
+                    self._alpha_iter_scalar = vf  # case: alpha_iter = a constant scalar which will be used for each of the 'nb_doument_passes' iterations
+                else:
+                    self._reg_constr_params[parameter_name], self._params_for_labeling[parameter_name] = vf, vf  # case: parameter_name == 'tau'
+            except ValueError:
+                self._traj_def[parameter_name] = self._traj_type2traj_def_creator[parameter_name]([self._start, parameter_value])  # case: parameter_value is a trajectory definition without the 'start' setting (nb of initial iterations that regularizer stays inactive)
 
     def get_tau_trajectory(self, collection_passes):
         if 'tau' in self._traj_def:
@@ -50,8 +52,8 @@ class ArtmRegularizerWrapper(object):
     def set_alpha_iters_trajectory(self, nb_document_passes):
         if 'alpha_iter' in self._traj_def:
             self._regularizer.alpha_iter = list(self._create_trajectory('alpha_iter', nb_document_passes))
-        elif self._alpha_iter:
-            self._regularizer.alpha_iter = [self._alpha_iter] * nb_document_passes
+        elif self._alpha_iter_scalar:
+            self._regularizer.alpha_iter = [self._alpha_iter_scalar] * nb_document_passes
 
     def _create_trajectory(self, name, length):
         _ = self._traj_def[name].split('_')
@@ -59,7 +61,7 @@ class ArtmRegularizerWrapper(object):
 
     @property
     def static_parameters(self):
-        return self._computed_params
+        return self._reg_constr_params
 
     @property
     def artm_regularizer(self):
@@ -74,21 +76,10 @@ class ArtmRegularizerWrapper(object):
     def type(self):
         return self._type
 
-    def to_label(self):
-        return '{}_{}'.format(self._name, '-'.join(filter(None, map(lambda x: self._stringify_tau_or_alpha_iter(x), self.labeling_ordering))))
-
-    def _stringify_tau_or_alpha_iter(self, extracted_value):
-        """
-        Assumes that a regularizer setting is either a directly parsable as float value (scalar tau or 'start' param
-        (iterations to keep the regularizer turned off)) or a trajectory definition.\n
-        :param str extracted_value:
-        :rtype: str
-        """
-        try:
-            return str(float(extracted_value))
-        except ValueError:
-            _ = extracted_value.split('_')
-            return '_'.join([_[0][0]] + _[1:])
+    @property
+    def label(self):
+        # return '{}_{}'.format(self._name, '-'.join(filter(None, map(lambda x: self._stringify_tau_or_alpha_iter(x), self.labeling_ordering))))
+        return '{}_{}'.format(self._name, '-'.join(map(lambda x: '{}'.format(x[1]), sorted(self._params_for_labeling.items()) + sorted(self._traj_def.items()))))
 
 
 class SmoothSparsePhiRegularizerWrapper(ArtmRegularizerWrapper):

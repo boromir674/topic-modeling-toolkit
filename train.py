@@ -39,7 +39,7 @@ if __name__ == '__main__':
         settings = cfg2model_settings(args.config)
         train_specs = TrainSpecs(15, [], [])
     else:
-        topic_model = model_trainer.model_factory.create_model00(args.label, args.config, reg_cfg=args.reg_config)
+        topic_model = model_trainer.model_factory.create_model(args.label, args.config, reg_cfg=args.reg_config)
         train_specs = model_trainer.model_factory.create_train_specs()
         experiment.init_empty_trackables(topic_model)
         print 'Initialized new experiment and model'
@@ -52,16 +52,31 @@ if __name__ == '__main__':
     #     print 'AA', reg, params.items()
     # for x in train_specs.tau_trajectory_list:
     #     print x[0], x[1]
+    t = topic_model.get_regs_param_dict()
+    for k, v in t.items():
+        print 'K', k, v
+    print
+
+    for w in topic_model.regularizer_wrappers:
+        print w.name, w.label
 
     model_trainer.train(topic_model, train_specs, effects=True)
-
+    for w in topic_model.regularizer_wrappers:
+        print w.name, w.label
+    t = topic_model.get_regs_param_dict()
+    for k, v in t.items():
+        print 'K', k, v
+    print
     print topic_model.modalities_dictionary
     print topic_model.domain_topics
+    print topic_model.background_topics
     print topic_model.regularizer_names
     print topic_model.regularizer_types
     print topic_model.evaluator_names
     print topic_model.evaluator_definitions
-
     print 'Iterated {} times through the collection and {} times over each document: total phi updates = {}'.format(train_specs.collection_passes, topic_model.document_passes, train_specs.collection_passes * topic_model.document_passes)
+    print
+    print
+
     if args.save:
         experiment.save_experiment(save_phi=True)
