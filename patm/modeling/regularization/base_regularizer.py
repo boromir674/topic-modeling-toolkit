@@ -11,14 +11,13 @@ class ArtmRegularizerWrapper(object):
     def _create_artm_regularizer(self, parameters, verbose=False):
         self._regularizer = self._artm_constructor_callback(**parameters)
         if verbose:
-            print "Constructed '{}' reg, named '{}', with settings: {}".format(self._type, self._name, '{'+', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), self._computed_params.items()))+'}')
+            print "Constructed '{}' reg, named '{}', with settings: {}".format(self._type, self._name, '{'+', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), parameters.items()))+'}')
 
     def __init__(self, reg_type, parameters_dict, artm_constructor):
         self._name = parameters_dict.pop('name', 'no-name')
         self._type = reg_type
         self._label = ''
         self._regularizer = None
-        self._computed_params = {}
         self._trajectory_lambdas = {}
         self._alpha_iter_scalar = None
         self._traj_def = {}
@@ -28,21 +27,27 @@ class ArtmRegularizerWrapper(object):
 
         self._start = int(parameters_dict.pop('start', 0))
         for k, v in parameters_dict.items():
-            self._parse(k, v)
+            if type(v) == list:  # one of topic_names or class_ids
+                self._reg_constr_params[k] = v
+            else:
+                try:
+                    vf = float(v)
+                    if k == 'alpha_iter':
+                        self._alpha_iter_scalar = vf  # case: alpha_iter = a constant scalar which will be used for each of the 'nb_doument_passes' iterations
+                    else:
+                        self._reg_constr_params[k] = vf # case: parameter_name == 'tau'
+                    self._params_for_labeling[k] = vf
+                except ValueError:
+                    self._traj_def[k] = self._traj_type2traj_def_creator[k]([self._start, v])  # case: parameter_value is a trajectory definition without the 'start' setting (nb of initial iterations that regularizer stays inactive)
+                    self._params_for_labeling[k] = self._traj_def[k]
         self._create_artm_regularizer(dict(self._reg_constr_params, **{'name': self._name}), verbose=True)
 
-    def _parse(self, parameter_name, parameter_value):
-        if type(parameter_value) == list: # one of topic_names or class_ids
-            self._reg_constr_params[parameter_name] = parameter_value
-        else:
-            try:
-                vf = float(parameter_value)
-                if parameter_name == 'alpha_iter':
-                    self._alpha_iter_scalar = vf  # case: alpha_iter = a constant scalar which will be used for each of the 'nb_doument_passes' iterations
-                else:
-                    self._reg_constr_params[parameter_name], self._params_for_labeling[parameter_name] = vf, vf  # case: parameter_name == 'tau'
-            except ValueError:
-                self._traj_def[parameter_name] = self._traj_type2traj_def_creator[parameter_name]([self._start, parameter_value])  # case: parameter_value is a trajectory definition without the 'start' setting (nb of initial iterations that regularizer stays inactive)
+    @property
+    def label(self):
+        return '{}|{}'.format(self._name, '|'.join(map(lambda x: '{}:{}'.format(x[0][0], x[1]), self._get_labeling_data())))
+
+    def _get_labeling_data(self):
+        return sorted(self._params_for_labeling.items(), key=lambda x: x[0])
 
     def get_tau_trajectory(self, collection_passes):
         if 'tau' in self._traj_def:
@@ -66,20 +71,15 @@ class ArtmRegularizerWrapper(object):
     @property
     def artm_regularizer(self):
         return self._regularizer
-
     def __str__(self):
         return self.name
     @property
     def name(self):
         return self._name
+
     @property
     def type(self):
         return self._type
-
-    @property
-    def label(self):
-        # return '{}_{}'.format(self._name, '-'.join(filter(None, map(lambda x: self._stringify_tau_or_alpha_iter(x), self.labeling_ordering))))
-        return '{}_{}'.format(self._name, '-'.join(map(lambda x: '{}'.format(x[1]), sorted(self._params_for_labeling.items()) + sorted(self._traj_def.items()))))
 
 
 class SmoothSparsePhiRegularizerWrapper(ArtmRegularizerWrapper):

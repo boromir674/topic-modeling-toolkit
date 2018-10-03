@@ -44,25 +44,25 @@ if __name__ == '__main__':
         experiment.init_empty_trackables(topic_model)
         print 'Initialized new experiment and model'
 
-    # for name, tr in train_specs.tau_trajectory_list:
-    #     print 'REG NAME:', name, '\n', [type(i) for i in tr]
+    # for w in topic_model.regularizer_wrappers:
+    #     print w.name, w.label
+    #
+    # for e in topic_model.evaluators:
+    #     print e.name, e.label
 
-    # for reg in topic_model.regularizer_names:
-    #     params = topic_model.get_reg_wrapper(reg).static_parameters
-    #     print 'AA', reg, params.items()
-    # for x in train_specs.tau_trajectory_list:
-    #     print x[0], x[1]
     t = topic_model.get_regs_param_dict()
     for k, v in t.items():
         print 'K', k, v
-    print
-
-    for w in topic_model.regularizer_wrappers:
-        print w.name, w.label
 
     model_trainer.train(topic_model, train_specs, effects=True)
+
     for w in topic_model.regularizer_wrappers:
         print w.name, w.label
+
+    for e in topic_model.evaluators:
+        print e.name, e.label
+
+
     t = topic_model.get_regs_param_dict()
     for k, v in t.items():
         print 'K', k, v

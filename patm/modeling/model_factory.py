@@ -110,7 +110,6 @@ class ModelFactory(object):
         for evaluator_definition, eval_instance_name in self._eval_def2name.items():
             self.topic_model_evaluators[evaluator_definition] = self._eval_factory.create_evaluator(evaluator_definition, eval_instance_name)
             ob = self.topic_model_evaluators[evaluator_definition]
-            print type(ob), ob.name, ob.to_label()
             self._artm.scores.add(self.topic_model_evaluators[evaluator_definition].artm_score)
 
 

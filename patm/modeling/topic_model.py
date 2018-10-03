@@ -72,16 +72,20 @@ class TopicModel(object):
         return map(lambda x: self._reg_name2wrapper[x].type, self.regularizer_names)
 
     @property
-    def tau_trajectories(self):
-        return filter(lambda x: x[1] is not None, self._trajs.items())
-
-    @property
     def evaluator_names(self):
-        return sorted(self._evaluator_name2definition.keys())
+        return sorted(_ for _ in self.artm_model.scores.data)
 
     @property
     def evaluator_definitions(self):
         return [self._evaluator_name2definition[eval_name] for eval_name in self.evaluator_names]
+
+    @property
+    def evaluators(self):
+        return [self._definition2evaluator[ev_def] for ev_def in self.evaluator_definitions]
+
+    @property
+    def tau_trajectories(self):
+        return filter(lambda x: x[1] is not None, self._trajs.items())
 
     @property
     def topic_names(self):

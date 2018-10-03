@@ -82,7 +82,8 @@ class SparsityPhiEvaluator(ArtmEvaluator):
         super(SparsityPhiEvaluator, self).__init__(name, SparsityPhiScore(name=name, class_id=modality), self.attributes)
         self._modality = modality
 
-    def to_label(self):
+    @property
+    def label(self):
         return 'spp' + self._modality[0] + ''.join(map(lambda x: x[0], self._modality[1:].split('_')))
 
 
@@ -105,7 +106,8 @@ class KernelEvaluator(ArtmEvaluator):
         super(KernelEvaluator, self).__init__(name, TopicKernelScore(name=name, class_id=DEFAULT_CLASS_NAME, topic_names=domain_topics, probability_mass_threshold=threshold, dictionary=dictionary), self.attributes)
         self._probability_mass_threshold = threshold
 
-    def to_label(self):
+    @property
+    def label(self):
         return 'tk-{:.2f}'.format(self._probability_mass_threshold)
 
 
@@ -115,9 +117,6 @@ class TopTokensEvaluator(ArtmEvaluator):
         assert 0 < nb_top_tokens
         super(TopTokensEvaluator, self).__init__(name, TopTokensScore(name=name, class_id=DEFAULT_CLASS_NAME, topic_names=domain_topics, num_tokens=nb_top_tokens, dictionary=dictionary), self.attributes)
         self._top_tokens = nb_top_tokens
-
-    def to_label(self):
-        return str(self)
 
 
 class BackgroundTokensRatioEvaluator(ArtmEvaluator):
@@ -137,7 +136,8 @@ class BackgroundTokensRatioEvaluator(ArtmEvaluator):
         super(BackgroundTokensRatioEvaluator, self).__init__(name, BackgroundTokensRatioScore(name=name, class_id=DEFAULT_CLASS_NAME, delta_threshold=delta_threshold), self.attributes)
         self._delta_threshold = delta_threshold
 
-    def to_label(self):
+    @property
+    def label(self):
         return '{}-{:.2f}'.format(self, self._delta_threshold)
 
 
