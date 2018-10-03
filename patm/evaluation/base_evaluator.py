@@ -36,12 +36,14 @@ class AbstractEvaluator(object):
     def to_label(self):
         return str(self)
 
+
 class ArtmEvaluator(AbstractEvaluator):
     """A wrapper class around each individual artm.BaseScore that provides a common 'evaluate' interface"""
     def __init__(self, name, artm_score, reportable_attributes):
         """
         :param str name: a custom name for this "evaluator"
-        :param tuple attributes: the attributes that can be referenced from the artm.BaseScore object; supported reportable metrics/quantities
+        :param artm.scores.BaseScore artm_score: a reference to an artm score object
+        :param tuple reportable_attributes: the attributes that can be referenced from the artm.BaseScore object; supported reportable metrics/quantities
         """
         super(ArtmEvaluator, self).__init__(name)
         self._artm_score = artm_score
@@ -115,7 +117,7 @@ class TopTokensEvaluator(ArtmEvaluator):
         self._top_tokens = nb_top_tokens
 
     def to_label(self):
-        return '{}{}'.format(self, self._top_tokens)
+        return str(self)
 
 
 class BackgroundTokensRatioEvaluator(ArtmEvaluator):
