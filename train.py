@@ -44,44 +44,24 @@ if __name__ == '__main__':
         experiment.init_empty_trackables(topic_model)
         print 'Initialized new experiment and model'
 
-    for name, tr in train_specs.tau_trajectory_list:
-        print 'REG NAME:', name, '\n', [type(i) for i in tr]
+    # for name, tr in train_specs.tau_trajectory_list:
+    #     print 'REG NAME:', name, '\n', [type(i) for i in tr]
 
-    for reg in topic_model.regularizer_names:
-        params = topic_model.get_reg_wrapper(reg).static_parameters
-        print 'AA', reg, params.items()
+    # for reg in topic_model.regularizer_names:
+    #     params = topic_model.get_reg_wrapper(reg).static_parameters
+    #     print 'AA', reg, params.items()
     # for x in train_specs.tau_trajectory_list:
     #     print x[0], x[1]
 
     model_trainer.train(topic_model, train_specs, effects=True)
 
+    print topic_model.modalities_dictionary
     print topic_model.domain_topics
+    print topic_model.regularizer_names
+    print topic_model.regularizer_types
+    print topic_model.evaluator_names
+    print topic_model.evaluator_definitions
 
-    # ## TRAIN WITH DYNAMICALLY CHANGING TAU COEEFICIENT VALUE
-    # nexta = [10, 10, 10, 10, 10, 10]
-    # train_iters = 100
-    # deact = 2
-    #
-    # from patm.modeling import trajectory_builder
-    # tr1 = trajectory_builder.begin_trajectory('tau').deactivate(deact).\
-    #     interpolate_to(nexta[0], -10).interpolate_to(nexta[1], -10). \
-    #     interpolate_to(nexta[2], -10).interpolate_to(nexta[3], -10). \
-    #     interpolate_to(nexta[4], -10).interpolate_to(nexta[5], -10).steady_prev(train_iters - deact - sum(map(lambda x: eval('nexta' + str(x)), range(1, 7)))).create()
-    # print tr1
-    # # tr2 = trajectory_builder.begin_trajectory('tau').deactivate(deact).interpolate_to(iters - deact, -0.1, start=-0.8).create()
-
-    # train_specs = get_trajs_specs(train_iters)
-    #
-    # print train_specs.tau_trajectory_list[0][1]
-    # print train_specs.tau_trajectory_list[1][1]
-
-    # print topic_model.regularizer_names
-    # print topic_model.regularizer_types
-    # print topic_model.evaluator_names
-    # print topic_model.evaluator_definitions
-    #
-    # # train_specs = {'collection_passes': 30}
-    # model_trainer.train(topic_model, train_specs)
-    # print 'Iterated {} times through the collection and {} times over each document: total phi updates = {}'.format(train_specs.collection_passes, topic_model.document_passes, train_specs.collection_passes * topic_model.document_passes)
-    # if args.save:
-    #     experiment.save_experiment(save_phi=True)
+    print 'Iterated {} times through the collection and {} times over each document: total phi updates = {}'.format(train_specs.collection_passes, topic_model.document_passes, train_specs.collection_passes * topic_model.document_passes)
+    if args.save:
+        experiment.save_experiment(save_phi=True)
