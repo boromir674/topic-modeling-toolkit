@@ -15,7 +15,7 @@ class EvaluationFactory(object):
         self.cooc_df_dict = cooc_dict['df']['obj']
         self._domain_topics = []
         self.eval_constructor_hash = {
-            'perplexity': lambda x: PerplexityEvaluator(x[0], self._dict),
+            'perplexity': lambda x: PerplexityEvaluator(x[0], self._dict, [DEFAULT_CLASS_NAME]),
             'sparsity-theta': lambda x: SparsityThetaEvaluator(x[0], self._domain_topics),
             'sparsity-phi': lambda x: SparsityPhiEvaluator(x[0], x[1]),
             'topic-kernel': lambda x: KernelEvaluator(x[0], self._domain_topics, self.cooc_df_dict, x[1]),

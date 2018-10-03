@@ -32,8 +32,8 @@ class AbstractEvaluator(object):
 
     def __str__(self):
         return self.name
-
-    def to_label(self):
+    @property
+    def label(self):
         return str(self)
 
 
@@ -48,7 +48,7 @@ class ArtmEvaluator(AbstractEvaluator):
         super(ArtmEvaluator, self).__init__(name)
         self._artm_score = artm_score
         self._attrs = reportable_attributes
-        print name, self._attrs
+        print 'ArtmEvaluator created:', name, self._attrs
 
     def evaluate(self, model):
         """
@@ -71,8 +71,8 @@ class ArtmEvaluator(AbstractEvaluator):
 
 class PerplexityEvaluator(ArtmEvaluator):
     attributes = ('class_id_info', 'normalizer', 'raw', 'value')  # smaller the "value", better. bigger the "raw", better
-    def __init__(self, name, dictionary):
-        super(PerplexityEvaluator, self).__init__(name, PerplexityScore(name=name, class_ids=[DEFAULT_CLASS_NAME], dictionary=dictionary), self.attributes)
+    def __init__(self, name, dictionary, modality_class):
+        super(PerplexityEvaluator, self).__init__(name, PerplexityScore(name=name, class_ids=modality_class, dictionary=dictionary), self.attributes)
 
 
 class SparsityPhiEvaluator(ArtmEvaluator):
@@ -83,7 +83,7 @@ class SparsityPhiEvaluator(ArtmEvaluator):
         self._modality = modality
 
     def to_label(self):
-        return str(self) + self._modality[0] + ''.join(map(lambda x: x[0], self._modality[1:].split('_')))
+        return 'spp' + self._modality[0] + ''.join(map(lambda x: x[0], self._modality[1:].split('_')))
 
 
 class SparsityThetaEvaluator(ArtmEvaluator):
@@ -106,7 +106,7 @@ class KernelEvaluator(ArtmEvaluator):
         self._probability_mass_threshold = threshold
 
     def to_label(self):
-        return '{}-{:.2f}'.format(self, self._probability_mass_threshold)
+        return 'tk-{:.2f}'.format(self._probability_mass_threshold)
 
 
 class TopTokensEvaluator(ArtmEvaluator):
