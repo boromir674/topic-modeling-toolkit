@@ -1,10 +1,8 @@
-import os
-import sys
 import argparse
-from patm.tuning import Tuner, get_tuner_builder
-from patm.utils import load_results
-from patm.modeling.regularizers import regularizer_pool_builder
+import os
 
+from patm.tuning import get_tuner_builder
+from patm.utils import load_results
 
 collection_dir = '/data/thesis/data/collections' # root directory of all the 'collections' created by following prerpocessing pipeline ('transform.py' script)
 

@@ -15,11 +15,11 @@ class EvaluationFactory(object):
         self.cooc_df_dict = cooc_dict['df']['obj']
         self._domain_topics = []
         self.eval_constructor_hash = {
-            'perplexity': lambda x: PerplexityEvaluator(x, self._dict),
-            'sparsity-theta': lambda x: SparsityThetaEvaluator(x, self._domain_topics),
+            'perplexity': lambda x: PerplexityEvaluator(x[0], self._dict),
+            'sparsity-theta': lambda x: SparsityThetaEvaluator(x[0], self._domain_topics),
             'sparsity-phi': lambda x: SparsityPhiEvaluator(x[0], x[1]),
             'topic-kernel': lambda x: KernelEvaluator(x[0], self._domain_topics, self.cooc_df_dict, x[1]),
-            'top-tokens': lambda x: TopTokensEvaluator(x[0], self._domain_topics, self.cooc_df_dict, x[1]),
+            'top-tokens': lambda x: TopTokensEvaluator(x[0], self._domain_topics, self.cooc_df_dict, int(x[1])),
             'background-tokens-ratio': lambda x: BackgroundTokensRatioEvaluator(x[0], x[1])
         }
 
@@ -41,7 +41,7 @@ class EvaluationFactory(object):
         :rtype: ArtmEvaluator
         """
         self._build_evaluator_definition(score_definition)
-        return self.eval_constructor_hash['-'.join(self._tokens)](score_name, *self._params)
+        return self.eval_constructor_hash['-'.join(self._tokens)]([score_name] + self._params)
 
     def _build_evaluator_definition(self, score_definition):
         self._tokens, self._params = [], []
@@ -98,17 +98,3 @@ class EvaluationFactory(object):
 #         """
 #         assert name in self.scorers.values()
 #         return ArtmScorer(name, tuple(score_type2_reportables[self._reversed_scorers[name]]))
-#
-#
-# # TODO change this suspicious code
-# scorer_factories = {}
-# def get_scorers_factory(scorers):
-#     """
-#     :param dict scorers:
-#     :return:
-#     :rtype: ArtmScorerFactory
-#     """
-#     key = '.'.join(sorted(scorers.values()))
-#     if key not in scorer_factories:
-#         scorer_factories[key] = ArtmScorerFactory(scorers)
-#     return scorer_factories[key]

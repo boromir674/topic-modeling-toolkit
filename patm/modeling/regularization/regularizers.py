@@ -46,7 +46,7 @@ parameter_name2encoder = {
     'topic_pairs': dict, # key=topic_name, value=dict: pairwise topic decorrelation coefficients, if None all values equal to 1.0
     'function_type': str, # the type of function, 'log' (logarithm) or 'pol' (polynomial)
     'power_value': float, # the float power of polynomial, ignored if 'function_type' = 'log'
-    'alpha_iter': list, # list of additional coefficients of regularization on each iteration over document. Should have length equal to model.num_document_passes (of an artm.ARTM model object)
+    'alpha_iter': str, # list of additional coefficients of regularization on each iteration over document. Should have length equal to model.num_document_passes (of an artm.ARTM model object)
     'doc_titles': list, # of strings: list of titles of documents to be processed by this regularizer. Default empty value means processing of all documents. User should guarantee the existence and correctness of document titles in batches (e.g. in src files with data, like WV).
     'doc_topic_coef': list, # (list of floats or list of list of floats): of floats len=nb_topics or of lists of floats len=len(doc_titles) and len(inner_list)=nb_topics: Two cases: 1) list of floats with length equal to num of topics. Means additional multiplier in M-step formula besides alpha and tau, unique for each topic, but general for all processing documents. 2) list of lists of floats with outer list length equal to length of doc_titles, and each inner list length equal to num of topics. Means case 1 with unique list of additional multipliers for each document from doc_titles. Other documents will not be regularized according to description of doc_titles parameter. Note, that doc_topic_coef and topic_names are both using.
     'num_max_elements': int, # number of elements to save in row/column for the artm.SpecifiedSparsePhiRegularizer
@@ -73,11 +73,13 @@ _regularizers_section_name2constructor = {
 
 
 class RegularizersFactory:
-    active_regularizers_type2tuples_enlister = {dict: lambda x: x.items(),
-                                                  str: lambda x: cfg2model_settings(x)['regularizers'],
-                                                list: lambda x: x}
-    reg_initialization_type2_enlister = {dict: lambda x: x,
-                                                str: lambda x: cfg2regularizer_settings(x)
+    active_regularizers_type2tuples_enlister = {'OrderedDict': lambda x: x.items(),
+                                                'dict': lambda x: x.items(),
+                                                  'str': lambda x: cfg2model_settings(x)['regularizers'],
+                                                'list': lambda x: x}
+    reg_initialization_type2_enlister = {'dict': lambda x: x,
+                                         'OrderedDict': lambda x: x,
+                                         'str': lambda x: cfg2regularizer_settings(x)
                                          }
 
     def __init__(self):
@@ -102,13 +104,18 @@ class RegularizersFactory:
         :param str or list or dict train_cfg: indicates which regularizers should be active.
         - If type(train_cfg) == str: train_cfg is a file path to a cfg formated file that has a 'regularizers' section indicating the active regularization components.\n
         - If type(train_cfg) == list: train_cfg is a list of tuples with each 1st element being the regularizer type (eg 'smooth-phi', 'decorrelate-phi-domain') and each 2nd element being the regularizer unique name.\n
-        - If type(train_cfg) == dict: train_cfg is a maps regularizer types to names. regularizer types and regularizer names
-        :param str reg_cfg: contains the values for initializing the regularizers with
+        - If type(train_cfg) == dict: train_cfg maps regularizer types to names. regularizer types and regularizer names
+        :param str or dict reg_cfg: contains the values for initializing the regularizers with. If None then the default file is used
+        - If type(reg_cfg) == str: reg)cfg is a file path to a cfg formated file that has as sections regularizer_types with their keys being initialization parameters\n
+        - If type(reg_cfg) == dict: reg_cfg maps regularizer types to parameters dict.
         :rtype: RegularizersFactory
         """
-        reg_types_n_names = self.active_regularizers_type2tuples_enlister[type(train_cfg)](train_cfg)
+        # if type(reg_cfg).__name__ == OrderedDict:
+        #     print 't'
+        #     reg_cfg = dict(reg_cfg)
+        reg_types_n_names = self.active_regularizers_type2tuples_enlister[type(train_cfg).__name__](train_cfg)
         if reg_cfg is not None:
-            reg_settings_dict =self.reg_initialization_type2_enlister[type(reg_cfg)](reg_cfg)
+            reg_settings_dict =self.reg_initialization_type2_enlister[type(reg_cfg).__name__](reg_cfg)
         else:
             reg_settings_dict = self._reg_settings
         self._reg_defs = {}
@@ -147,25 +154,25 @@ class RegularizersFactory:
 regularizers_factory = RegularizersFactory()
 
 
-def construct_regularizer(reg_type, name, reg_settings):
-    """
-    Constructs a new artm regularizer object given its type, a name and optional initialization values for its attributes.\n
-    :param str reg_type: the regularizer's type
-    :param str name: the regularizers name
-    :param dict reg_settings: key, values pairs to initialize the regularizer parameters
-    :return: the regularizer's object reference
-    :rtype: artm.regularizers.BaseRegularizer
-    """
-    reg_parameters = {k: v for k, v in reg_settings.items() if v}
-    if reg_type != 'kl-function-info':
-        reg_parameters = dict(reg_parameters, **{'name': name})
-    elif 'name' in reg_settings:
-        reg_parameters = {k: v for k, v in reg_settings.items() if k != 'name'}
-    artm_reg = _regularizers_section_name2constructor[reg_type](**reg_parameters)
-    found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), reg_parameters.items()))
-    not_found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), {k: v for k, v in reg_settings.items() if not v}.items()))
-    print 'Constructed reg: {}: set params: ({}); using defaults: ({})'.format(reg_type+'.'+name, found, not_found)
-    return artm_reg
+# def construct_regularizer(reg_type, name, reg_settings):
+#     """
+#     Constructs a new artm regularizer object given its type, a name and optional initialization values for its attributes.\n
+#     :param str reg_type: the regularizer's type
+#     :param str name: the regularizers name
+#     :param dict reg_settings: key, values pairs to initialize the regularizer parameters
+#     :return: the regularizer's object reference
+#     :rtype: artm.regularizers.BaseRegularizer
+#     """
+#     reg_parameters = {k: v for k, v in reg_settings.items() if v}
+#     if reg_type != 'kl-function-info':
+#         reg_parameters = dict(reg_parameters, **{'name': name})
+#     elif 'name' in reg_settings:
+#         reg_parameters = {k: v for k, v in reg_settings.items() if k != 'name'}
+#     artm_reg = _regularizers_section_name2constructor[reg_type](**reg_parameters)
+#     found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), reg_parameters.items()))
+#     not_found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), {k: v for k, v in reg_settings.items() if not v}.items()))
+#     print 'Constructed reg: {}: set params: ({}); using defaults: ({})'.format(reg_type+'.'+name, found, not_found)
+#     return artm_reg
 
 
 def create_reg(reg_type, reg_params, verbose=True):
@@ -173,13 +180,13 @@ def create_reg(reg_type, reg_params, verbose=True):
         _ = reg_params.pop('name', None)
     artm_reg = _regularizers_section_name2constructor[reg_type](**reg_params)
     if verbose:
-        print "Constructed reg '{}' with settings: ".format(reg_type + '.' + name, ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), reg_params.items())))
+        print "Constructed '{}' reg, named '{}', with settings: {}".format(reg_type, reg_params.get('name', ''), '{'+', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), reg_params.items()))+'}')
     return artm_reg
 
 
 class ArtmRegularizerWrapper(object):
     labeling_ordering = ('start', 'tau', 'alpha_iter')
-    traj_type2traj_creator = {'alpha_iters': lambda x: '0_' + x[1],
+    traj_type2traj_creator = {'alpha_iter': lambda x: '0_' + x[1],
                               'tau': lambda x: '{}_{}'.format(x[0], x[1])}
 
     def __init__(self, reg_type, parameters_dict):
@@ -187,32 +194,43 @@ class ArtmRegularizerWrapper(object):
         self._type = reg_type
         self._label = ''
         self._regularizer = None
-        self._computed_params = None
+        self._computed_params = {}
         self._trajectory_lambdas = {}
+        self._alpha_iter = None
 
         start = int(parameters_dict.pop('start', 0))
+        print '\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), parameters_dict.items()))
+
         for k, v in parameters_dict.items():
             try:
-                self._computed_params[k] = float(v)
+                vf = float(v)
+                if k == 'alpha_iter':
+                    self._alpha_iter = vf
+                else:
+                    self._computed_params[k] = vf
             except ValueError:
-                traj_def = self.traj_type2traj_creator[k](start, v)
+                traj_def = self.traj_type2traj_creator[k]([start, v])
                 splitted = traj_def.split('_')
                 self._trajectory_lambdas[k] = lambda x: trajectory_builder.begin_trajectory(k).\
-                    deactivate(splitted[0]).interpolate_to(x - splitted[0], splitted[3], interpolation=splitted[1], start=splitted[2]).create()
+                    deactivate(int(splitted[0])).interpolate_to(x - int(splitted[0]), float(splitted[3]), interpolation=splitted[1], start=float(splitted[2])).create()
 
-        self._regularizer = create_reg(self._type, dict(parameters_dict, **{'name': self._name}), verbose=True)
+        print self._computed_params
+        self._regularizer = create_reg(self._type, dict(self._computed_params, **{'name': self._name}), verbose=True)
 
     def get_tau_trajectory(self, collection_passes):
         if 'tau' in self._trajectory_lambdas:
             return self._trajectory_lambdas['tau'](collection_passes)
         return None
 
-    def set_alpha_iters_trajectory(self, nb_codument_passes, verbose=False):
+    def set_alpha_iters_trajectory(self, nb_document_passes):
         if 'alpha_iters' in self._trajectory_lambdas:
-            alpha_values = list(self._trajectory_lambdas['alpha_iters'](nb_codument_passes))
-            self._regularizer.alpha_iters = alpha_values
-            if verbose:
-                print "Trajectory 'alpha_iters' for '{}':".format(self._name), alpha_values
+            self._regularizer.alpha_iters = list(self._trajectory_lambdas['alpha_iter'](nb_document_passes))
+        elif self._alpha_iter:
+            self._regularizer.alpha_iters = [self._alpha_iter] * nb_document_passes
+
+    @property
+    def static_parameters(self):
+        return self._computed_params
 
     @property
     def artm_regularizer(self):

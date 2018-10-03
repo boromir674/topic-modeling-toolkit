@@ -27,14 +27,14 @@ class TopicModel(object):
         self._reg_type2name = {}  # ie {'smooth-theta': 'smb_t', 'sparse-phi': 'spd_p'}
         self._reg_name2wrapper = {}
 
-    def add_regularizer(self, reg_object, reg_type):
-        """
-        Adds a regularizer component to the optimization likelihood function. Adds the given object to the underlying artm model.\n
-        :param artm.BaseRegularizer reg_object: the object to add
-        :param str reg_type:
-        """
-        self._reg_type2name[reg_type] = reg_object.name
-        self.artm_model.regularizers.add(reg_object)
+    # def add_regularizer(self, reg_object, reg_type):
+    #     """
+    #     Adds a regularizer component to the optimization likelihood function. Adds the given object to the underlying artm model.\n
+    #     :param artm.BaseRegularizer reg_object: the object to add
+    #     :param str reg_type:
+    #     """
+    #     self._reg_type2name[reg_type] = reg_object.name
+    #     self.artm_model.regularizers.add(reg_object)
 
     def add_regularizer_wrapper(self, reg_wrapper):
         self._reg_name2wrapper[reg_wrapper.name] = reg_wrapper
@@ -46,10 +46,18 @@ class TopicModel(object):
             self.add_regularizer_wrapper(_)
 
     def initialize_regularizers(self, collection_passes, document_passes):
+        """
+        Call this method before starting of training to build some regularizers settings from run-time parameters.\n
+        :param int collection_passes:
+        :param int document_passes:
+        """
         self._trajs = {}
         for reg_name, wrapper in self._reg_name2wrapper.items():
             self._trajs[reg_name] = wrapper.get_tau_trajectory(collection_passes)
-            wrapper.set_alpha_iters_trajectory(document_passes, verbose=True)
+            wrapper.set_alpha_iters_trajectory(document_passes)
+
+    def get_reg_wrapper(self, reg_name):
+        return self._reg_name2wrapper.get(reg_name, None)
 
     @property
     def tau_trajectories(self):
@@ -84,11 +92,14 @@ class TopicModel(object):
         """Returns the mostly agreed list of topic names found in all evaluators"""
         c = Counter()
         for evaluator in self._definition2evaluator.values():
-            c['++'.join(getattr(evaluator.artm_score, 'topic_names', ['no-topics']))] += 1
-        del c['no-topics']
+            if hasattr(evaluator.artm_score, 'topic_names'):
+                tn = evaluator.artm_score.topic_names
+                if tn:
+                    c['+'.join(tn)] += 1
         if len(c) > 1:
             warnings.warn("There exist evaluator objects that target different (domain) topics to score")
-        return c[max(c)].split('++')
+        # print c.most_common()
+        return c.most_common(1)[0][0].split('+')
 
     @property
     def background_topics(self):
@@ -125,7 +136,8 @@ class TopicModel(object):
         if reg_name in self.artm_model.regularizers.data:
             if hasattr(self.artm_model.regularizers[reg_name], reg_param):
                 try:
-                    self.artm_model.regularizers[reg_name].__setattr__(reg_param, parameter_name2encoder[reg_param](value))
+                    # self.artm_model.regularizers[reg_name].__setattr__(reg_param, parameter_name2encoder[reg_param](value))
+                    self.artm_model.regularizers[reg_name].__setattr__(reg_param, value)
                 except (AttributeError, TypeError) as e:
                     print e
             else:
@@ -202,8 +214,6 @@ class TrainSpecs(object):
         return {reg_name: {'tau': trajectory[iter_count]} for reg_name, trajectory in self._reg_name2tau_trajectory.items()}
         # return dict(zip(self._reg_name2tau_trajectory.keys(), map(lambda x: x[iter_count], self._reg_name2tau_trajectory.values())))
 
-# def get_simple_train_specs(iterations):
-#     return TrainSpecs(iterations, [], [])
 
 class RegularizerNameNotFoundException(Exception):
     def __init__(self, msg):

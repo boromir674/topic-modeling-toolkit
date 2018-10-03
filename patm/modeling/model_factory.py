@@ -5,7 +5,7 @@ from ..evaluation.scorer_factory import EvaluationFactory
 from patm.definitions import DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 from patm.utils import cfg2model_settings
 from patm.utils import generic_topic_names_builder as tn_builder
-from patm.modeling.regularization.regularizers import RegularizersFactory
+from patm.modeling.regularization.regularizers import RegularizersFactory, cfg2regularizer_settings
 
 
 dicts2model_factory = {}
@@ -40,11 +40,21 @@ class ModelFactory(object):
         self._background_topics, self._domain_topics = [], []
         self._eval_def2name = {}
 
-    def create_train_specs(self, collection_passes=self._col_passes):
+    def create_train_specs(self, collection_passes=None):
         """Creates Train Specs according to the latest TopicModel instance created."""
+        if not collection_passes:
+            collection_passes = self._col_passes
         self._tm.initialize_regularizers(collection_passes, self._nb_document_passes)
-        traj_defs = self._tm.tau_trajectories
-        return TrainSpecs(collection_passes, list(map(lambda x: x[0], traj_defs)), list(map(lambda x: x[1], traj_defs)))
+        return TrainSpecs(collection_passes, list(map(lambda x: x[0], self._tm.tau_trajectories)), list(map(lambda x: x[1], self._tm.tau_trajectories)))
+
+    def create_model00(self, label, train_cfg, reg_cfg=None):
+        _ = cfg2model_settings(train_cfg)
+        self._col_passes, self._nb_topics, self._nb_document_passes = _['learning']['collection_passes'], _['learning']['nb_topics'], _['learning']['document_passes']
+        self._eval_def2name, self._reg_types2names = _['scores'], _['regularizers']
+        return self._create_model(label, {DEFAULT_CLASS_NAME: float(_['information'].get('default-class-weight', 1)),
+                                          IDEOLOGY_CLASS_NAME: float(_['information'].get('ideology-class-weight', 0))},
+                                  *tn_builder.define_nb_topics(self._nb_topics).define_background_pct(float(_['information'].get('background-topics-percentage', 0))).get_background_n_domain_topics(),
+                                  reg_cfg=reg_cfg)
 
     def create_model11(self, label, nb_topics, document_passes, train_cfg, modality_weights=None, background_topics_pct=0.0):
         _ = cfg2model_settings(train_cfg)
@@ -58,7 +68,6 @@ class ModelFactory(object):
         self._eval_def2name, self._reg_types2names = _['scores'], _['regularizers']
         return self._create_model(label, modality_weights, *tn_builder.define_nb_topics(self._nb_topics).define_background_pct(background_topics_pct).get_background_n_domain_topics(), reg_cfg=reg_cfg)
 
-    @deprecated
     def create_model_with_phi_from_disk(self, phi_file_path, results):
         """
         Given a phi file path, a unique label and a dictionary of experimental tracked_metrics_dict, initializes a TopicModel object with the restored state of a model stored in disk. Configures to track the same
@@ -83,6 +92,7 @@ class ModelFactory(object):
         self._add_scorers()
         self._tm = TopicModel(label, self._artm, self.topic_model_evaluators)
         self._tm.add_regularizer_wrappers(self._regularizers_factory.set_regularizers_definitions(self._reg_types2names, reg_cfg=reg_cfg).create_reg_wrappers())
+        return self._tm
 
     def _build_artm(self, background_topics, domain_topics, modalities_dict=None, phi_path=''):
         self._background_topics, self._domain_topics = background_topics, domain_topics
@@ -99,6 +109,8 @@ class ModelFactory(object):
         self._eval_factory.domain_topics = self._domain_topics
         for evaluator_definition, eval_instance_name in self._eval_def2name.items():
             self.topic_model_evaluators[evaluator_definition] = self._eval_factory.create_evaluator(evaluator_definition, eval_instance_name)
+            ob = self.topic_model_evaluators[evaluator_definition]
+            print type(ob), ob.name, ob.to_label()
             self._artm.scores.add(self.topic_model_evaluators[evaluator_definition].artm_score)
 
 

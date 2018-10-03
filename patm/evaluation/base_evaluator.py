@@ -46,6 +46,7 @@ class ArtmEvaluator(AbstractEvaluator):
         super(ArtmEvaluator, self).__init__(name)
         self._artm_score = artm_score
         self._attrs = reportable_attributes
+        print name, self._attrs
 
     def evaluate(self, model):
         """
@@ -67,13 +68,13 @@ class ArtmEvaluator(AbstractEvaluator):
 
 
 class PerplexityEvaluator(ArtmEvaluator):
-    attributes = ('class_id_info', 'normalizer', 'raw', 'value'),  # smaller the "value", better. bigger the "raw", better
+    attributes = ('class_id_info', 'normalizer', 'raw', 'value')  # smaller the "value", better. bigger the "raw", better
     def __init__(self, name, dictionary):
         super(PerplexityEvaluator, self).__init__(name, PerplexityScore(name=name, class_ids=[DEFAULT_CLASS_NAME], dictionary=dictionary), self.attributes)
 
 
 class SparsityPhiEvaluator(ArtmEvaluator):
-    attribute = ('total_tokens', 'value', 'zero_tokens') # bigger value, better.
+    attributes = ('total_tokens', 'value', 'zero_tokens') # bigger value, better.
     def __init__(self, name, modality):
         assert modality in (DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME)
         super(SparsityPhiEvaluator, self).__init__(name, SparsityPhiScore(name=name, class_id=modality), self.attributes)
@@ -84,7 +85,7 @@ class SparsityPhiEvaluator(ArtmEvaluator):
 
 
 class SparsityThetaEvaluator(ArtmEvaluator):
-    attribute = ('total_topics', 'value', 'zero_topics')  # bigger value, better.
+    attributes = ('total_topics', 'value', 'zero_topics')  # bigger value, better.
     def __init__(self, name, domain_topics):
         super(SparsityThetaEvaluator, self).__init__(name, SparsityThetaScore(name=name, topic_names=domain_topics), self.attributes)
 
