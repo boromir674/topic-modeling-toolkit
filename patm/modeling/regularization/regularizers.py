@@ -1,5 +1,7 @@
 import re
 import sys
+import warnings
+
 import artm
 from collections import OrderedDict
 from configparser import ConfigParser
@@ -92,12 +94,16 @@ class RegularizersFactory:
         - If type(train_cfg) == str: train_cfg is a file path to a cfg formated file that has a 'regularizers' section indicating the active regularization components.\n
         - If type(train_cfg) == list: train_cfg is a list of tuples with each 1st element being the regularizer type (eg 'smooth-phi', 'decorrelate-phi-domain') and each 2nd element being the regularizer unique name.\n
         - If type(train_cfg) == dict: train_cfg maps regularizer types to names. regularizer types and regularizer names
+        :param list background_topics: a list of the 'background' topic names. Can be empty.
+        :param list domain_topics: a list of the 'domain' topic names. Can be empty.
         :param str or dict reg_cfg: contains the values for initializing the regularizers with. If None then the default file is used
         - If type(reg_cfg) == str: reg)cfg is a file path to a cfg formated file that has as sections regularizer_types with their keys being initialization parameters\n
         - If type(reg_cfg) == dict: reg_cfg maps regularizer types to parameters dict.
         :rtype: RegularizersFactory
         """
         self._back_t, self._domain_t = background_topics, domain_topics
+        if len(background_topics) == 0:
+            warnings.warn("Empty list passed as designated 'background' topics. Will not construct 'smooth' 'phi' and 'theta' regularizers")
         reg_types_n_names = self.active_regularizers_type2tuples_enlister[type(train_cfg).__name__](train_cfg)
         if reg_cfg is not None:
             reg_settings_dict =self.reg_initialization_type2_enlister[type(reg_cfg).__name__](reg_cfg)
@@ -121,7 +127,7 @@ class RegularizersFactory:
         :return: the constructed regularizers; objects of type ArtmRegularizerWrapper
         :rtype: list
         """
-        return list(map(lambda x: self._regularizer_type2constructor[x[0]](x[1]), sorted(self._reg_defs.items())))
+        return list(filter(None, map(lambda x: self.construct_reg_wrapper(x[0], x[1]), sorted(self._reg_defs.items(), key=lambda y: y[0]))))
 
     # def construct_reg_pool_from_latest_results(self, results):
     #     return [ArtmRegularizerWrapper(reg_type, dict([(attr_name, reg_settings_dict[attr_name]) for attr_name in regularizer2parameters[reg_type]])) for reg_type, reg_settings_dict in results['reg_parameters'][-1][1].items()]
@@ -133,7 +139,9 @@ class RegularizersFactory:
         :return: the regularizer's wrapper object reference
         :rtype: ArtmRegularizerWrapper
         """
-        return ArtmRegularizerWrapper(reg_type, settings)
+        if len(self._back_t) == 0 and reg_type.startswith('smooth'):
+            return None
+        return self._regularizer_type2constructor[reg_type](settings)
 
 
 regularizers_factory = RegularizersFactory()
