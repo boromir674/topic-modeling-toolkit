@@ -44,23 +44,35 @@ if __name__ == '__main__':
         experiment.init_empty_trackables(topic_model)
         print 'Initialized new experiment and model'
 
-    # for w in topic_model.regularizer_wrappers:
-    #     print w.name, w.label
-    #
-    # for e in topic_model.evaluators:
-    #     print e.name, e.label
+    for w in topic_model.regularizer_wrappers:
+        print w.name, w.label
+
+    for e in topic_model.evaluators:
+        print e.name, e.label, e.settings
 
     t = topic_model.get_regs_param_dict()
     for k, v in t.items():
         print 'K', k, v
 
+    print
+    print topic_model.modalities_dictionary
+    print topic_model.domain_topics
+    print topic_model.background_topics
+    print topic_model.regularizer_names
+    print topic_model.regularizer_types
+    print topic_model.evaluator_names
+    print topic_model.evaluator_definitions
+
+    import sys
+    sys.exit()
     model_trainer.train(topic_model, train_specs, effects=True)
 
     for w in topic_model.regularizer_wrappers:
         print w.name, w.label
 
     for e in topic_model.evaluators:
-        print e.name, e.label
+        r = e.artm_score.class_ids
+        print e.name, e.label, r
 
 
     t = topic_model.get_regs_param_dict()

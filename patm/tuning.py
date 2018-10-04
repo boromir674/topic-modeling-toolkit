@@ -141,6 +141,8 @@ class Tuner(object):
             self._cur_label = '_'.join(filter(None, [self._prefix] + ['v{}'.format(self._iter_prepend(self._label_groups[self._cur_label]))] + self._cached))
 
     def _create_model(self):
+
+        self_tm = self.trainer
         if self._ideology_information_flag:
             # self._tm = self.trainer.model_factory.
             pass
