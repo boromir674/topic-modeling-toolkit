@@ -48,7 +48,7 @@ class ArtmEvaluator(AbstractEvaluator):
         super(ArtmEvaluator, self).__init__(name)
         self._artm_score = artm_score
         self._attrs = reportable_attributes
-        print 'ArtmEvaluator created:', name, self._settings, self.settings
+        print 'ArtmEvaluator created:', name
 
     def evaluate(self, model):
         """
