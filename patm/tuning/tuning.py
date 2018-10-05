@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 from tqdm import tqdm
 from collections import OrderedDict, Counter
 from patm.definitions import collections_dir
@@ -154,6 +155,7 @@ class Tuner(object):
             sys.exit()
 
     def _set_parameters(self, reg_specs):
+        # TODO refactor this using model_factory constructors accordingly
         """
         :param list reg_specs:
         """
@@ -244,9 +246,11 @@ class Tuner(object):
 class MissingRequiredParametersException(Exception):
     def __init__(self, msg):
         super(Exception, self).__init__(msg)
+
 class ParameterFoundInStaticAndExplorablesException(Exception):
     def __init__(self, msg):
         super(Exception, self).__init__(msg)
+
 
 class TunerBuilder:
     def __init__(self, collection, train_config):
@@ -313,3 +317,4 @@ def get_tuner_builder(collection, train_config):
     if _ not in builders:
         builders[_] = TunerBuilder(collection, train_config)
     return builders[_]
+
