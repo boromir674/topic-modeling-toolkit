@@ -4,12 +4,18 @@ import threading
 import json
 from configparser import ConfigParser
 from collections import OrderedDict
+from definitions import TRAIN_CFG
+
 
 _section2encoder = {
         'learning': int,
         'information': float,
         'regularizers': str,
         'scores': str}
+
+def get_standard_evaluation_definitions():
+    return cfg2model_settings(TRAIN_CFG)['scores']
+
 
 def cfg2model_settings(cfg_file):
     """

@@ -3,11 +3,12 @@ import re
 import sys
 from tqdm import tqdm
 from collections import OrderedDict, Counter
-from patm.definitions import collections_dir
+
 from patm.modeling.parameters import ParameterGrid
-from patm.utils import generic_topic_names_builder
+from patm.definitions import COLLECTIONS_DIR, TRAIN_CFG
 from patm import trainer_factory, Experiment, TrainSpecs
 from patm.modeling import trajectory_builder, regularizers_factory
+from patm.utils import get_standard_evaluation_definitions as get_standard_scores
 
 
 class Tuner(object):
@@ -31,34 +32,52 @@ class Tuner(object):
     - sparse_theta_reg_coef_trajectory   eg: {'deactivation_period_pct': [0.2], 'start': [-0.2, -0.3, -0.4], 'end' = [-1, -3, -5]}\n
     - decorrelate_topics_reg_coef        eg: 1e+5\n
     """
-    def __init__(self, collection, train_config, static_parameters, explorable_parameters, enable_ideology_labels=False, prefix_label=None, append_explorables='all', append_static=True):
+    def __init__(self, collection, evaluation_definitions=None, prefix_label=None, append_explorables='all', append_static=True):
         """
 
         :param str collection: the name of the 'dataset'/collection to target the tuning process on
         :param str train_config: full path to 'the' train.cfg file used here only for initializing tracking evaluation scoring capabilities. Namely the necessary BaseScore objects of ARTM lib and the custom ArtmEvaluator objects are initialized
         :param list_of_tuples static_parameters: definition of parameters that will remain constant while exploring the parameter space. The order of this affects the order in which vectors of the parameter space are generated
             ie: [('collection_passes', 100), ('nb_topics', 20), ('document_passes', 5))].
-        :param list of tuples explorable_parameters: definition of parameter "ranges" that will be explored; the order of list affects the order in which vectors of the parameter space are generated; ie
+        :param list of tuples explorable_parameters_names: definition of parameter "ranges" that will be explored; the order of list affects the order in which vectors of the parameter space are generated; ie
         :param bool enable_ideology_labels: Enable using the 'vowpal_wabbit' format to exploit extra modalities modalities. A modalitity is a disctreet space of values (tokens, class_labels, ..)
         :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix used for the naming files (models, results) saved on disk
         :param list or str append_explorables: if list is given will use these exact parameters' names as part of unique names used for files saved on disk. If 'all' is given then all possible parameter names will be used
         :param bool append_static: indicates whether to use the values of the parameters remaining constant during space exploration, as part of the unique names used for files saved on disk
         """
-        self._dir = os.path.join(collections_dir, collection)
-        self._train_cfg = train_config
+        self._dir = os.path.join(COLLECTIONS_DIR, collection)
+        if evaluation_definitions:
+            self._score_defs = evaluation_definitions
+        else:
+            self._score_defs = get_standard_scores()
+
         self._regex = re.compile('^(\w+)_coef_trajectory$')
         self._max_digits_version = 3
         self.trainer = trainer_factory.create_trainer(collection)
         self.experiment = Experiment(self._dir, self.trainer.cooc_dicts)
         self.trainer.register(self.experiment)  # when the model_trainer trains, the experiment object listens to changes
+
         self._traj_attr2index = OrderedDict([('deactivation_period_pct', 0), ('start', 1), ('end', 2)])
         self._tm = None
         self._specs = None
-        self.initialize(static_parameters, explorable_parameters, prefix_label=prefix_label, enable_ideology_labels=enable_ideology_labels, append_explorables=append_explorables, append_static=append_static)
-        self._check_parameters()
+        # self.initialize(prefix_label=prefix_label, append_explorables=append_explorables, append_static=append_static)
+        self._reg_specs = {}
 
-    def initialize(self, static_parameters, explorable_parameters, prefix_label='', enable_ideology_labels=False, append_explorables='all', append_static=True):
+
+        ### NEW BODY
+        self._allowed_labeling_params = ('collection_passes', 'nb_topics', 'document_passes', 'background_topics_pct', 'ideology_class_weight')
+
+    @property
+    def regularization_specs(self):
+        return self._reg_specs
+
+    @regularization_specs.setter
+    def regularization_specs(self, regularizers_specs):
+        self._reg_specs = regularizers_specs
+
+    def _initialize(self, tuner_definition, static_parameters=None, explorable_parameters=None, prefix_label='', enable_ideology_labels=False, append_explorables='all', append_static=True):
         """
+        :param patm.tuning.parameter_building.TunerDefinition tuner_definition:
         :param list_of_tuples static_parameters: definition of parameters that will remain constant while exploring the parameter space. The order of this affects the order in which vectors of the parameter space are generated
             ie: [('collection_passes', 100), ('nb_topics', 20), ('document_passes', 5))].
         :param list of tuples explorable_parameters: definition of parameter "ranges" that will be explored; the order of list affects the order in which vectors of the parameter space are generated; ie
@@ -67,51 +86,85 @@ class Tuner(object):
         :param list or str append_explorables: if list is given will use these exact parameters' names as part of unique names used for files saved on disk. If 'all' is given then all possible parameter names will be used
         :param bool append_static: indicates whether to use the values of the parameters remaining constant during space exploration, as part of the unique names used for files saved on disk
         """
-        self._static_params_hash = OrderedDict(static_parameters)
-        self._expl_params = explorable_parameters
+        self._static_params_hash = tuner_definition.static_parameters
+        self._expl_params_hash = tuner_definition.explorable_parameters
         self._prefix = prefix_label
-        self._ideology_information_flag = enable_ideology_labels
-        self._expl_params_start_indices = {}  # OrderedDict([(k, 0) for k in self.explorable_parameters])
         self._experiments_saved = []
         self._label_groups = Counter()
         self._labeling_params = []
 
+        # TO DELETE
+        # self._ideology_information_flag = enable_ideology_labels
+        # if append_static:
+        #     self._labeling_params = [i for i,j in static_parameters if not self._regex.match(i)]
+        # TO DELETE
+
+        ## DECIDE
+        self._expl_params_start_indices = {}  # OrderedDict([(k, 0) for k in self.explorable_parameters_names])
+
         t = 0
-        for k in self.explorable_parameters:
+        for k in self.explorable_parameters_names:
             self._expl_params_start_indices[k] = t
             if self._regex.match(k):  # if trajectory parameter it takes 3 slots
                 t += 3
             else:
                 t += 1  # else it takes one slot
+        ## DECIDE
+
         if append_static:
-            self._labeling_params = [i for i,j in static_parameters if not self._regex.match(i)]
+            self._labeling_params = [param_name for param_name in self._static_params_hash.keys() if param_name in self._allowed_labeling_params]
+
         self._versioning_needed = False
         if append_explorables == 'all':
-            expl_labeling_params = [i for i,j in self._expl_params if not self._regex.match(i)]
+            expl_labeling_params = [i for i in self._expl_params_hash.keys() if i in self._allowed_labeling_params]
         else:
-            expl_labeling_params = [i for i in append_explorables if not self._regex.match(i)]
-        if len(expl_labeling_params) != len(self._expl_params):
+            expl_labeling_params = [i for i in append_explorables if i in self._allowed_labeling_params]
+
+        if len(expl_labeling_params) != len(self._expl_params_hash):
             self._versioning_needed = True
+
         self._labeling_params.extend(expl_labeling_params)
         print 'Initializing tuner, automatically labeling output using', self._labeling_params, 'parameters'
 
         self._check_parameters()
-        self._tau_traj_to_build = map(lambda x: x.group(1), filter(None, map(lambda x: self._regex.match(x[0]), static_parameters + explorable_parameters)))
-
+        self._tau_traj_to_build = tuner_definition.valid_trajectory_defs
+        # self._tau_traj_to_build = map(lambda x: x.group(1), filter(None, map(lambda x: self._regex.match(x[0]),
+        #                                                                      static_parameters + explorable_parameters)))
+        import sys
+        sys.exit()
+        ## REFACTOR
         ses = self._extract_simple_space() + self._extract_trajectory_space()
         if type(ses[0]) == list and type(ses[0][0]) == list:
             ses = [item for subl in ses for item in subl]
         print 'Search space', ses
         self._parameter_grid_searcher = ParameterGrid(ses)
 
+        ## REFACTOR
     def set_dataset(self, dataset_name):
-        self._dir = os.path.join(collections_dir, dataset_name)
+        self._dir = os.path.join(COLLECTIONS_DIR, dataset_name)
 
     @property
-    def explorable_parameters(self):
-        return map(lambda x: x[0], self._expl_params)
+    def explorable_parameters_names(self):
+        return map(lambda x: x[0], self._expl_params_hash)
 
-    def tune(self, reg_specs):
+    def tune(self, parameters_mixture):
+        """
+        :param patm.modeling.tuning.parameter_building.TunerDefinition parameters_mixture:
+        :return:
+        """
+        self._initialize(parameters_mixture)
+        expected_iters = len(self._parameter_grid_searcher)
+        print 'Doing grid-search, taking {} samples'.format(expected_iters)
+        for self.parameter_vector in tqdm(self._parameter_grid_searcher, total=expected_iters, unit='model'):
+            self._build_label()
+            self._set_parameters()
+            tm, specs = self._create_model_n_specs()
+            self.experiment.init_empty_trackables(tm)
+            self.trainer.train(tm, specs)
+            self.experiment.save_experiment(save_phi=True)
+            del tm
+
+    def tune_old(self, reg_specs):
         """
         Performs grid search over the parameter space while potentially utilizing regularizers.\n
         :param list reg_specs: el[0] in [0, 1] specifying the percentage of topics to be used for background topics; ie 0.2, 0.1. 0 indicates no usage of the "background-token feature"
@@ -209,10 +262,10 @@ class Tuner(object):
         """Parameter value extractor from currently generated parameter vector and from static parameters"""
         if parameter_name in self._static_params_hash:
             return self._static_params_hash[parameter_name]
-        if parameter_name in self.explorable_parameters and not self._regex.match(parameter_name): #in ('sparse_phi_reg_coef_trajectory', 'sparse_theta_reg_coef_trajectory'):
+        if parameter_name in self.explorable_parameters_names and not self._regex.match(parameter_name): #in ('sparse_phi_reg_coef_trajectory', 'sparse_theta_reg_coef_trajectory'):
             return self.parameter_vector[self._expl_params_start_indices[parameter_name]]
-        if parameter_name in self.explorable_parameters:
-            # print 'VAL', self.parameter_vector, parameter_name, self.explorable_parameters.index(parameter_name),
+        if parameter_name in self.explorable_parameters_names:
+            # print 'VAL', self.parameter_vector, parameter_name, self.explorable_parameters_names.index(parameter_name),
             return {'deactivation_period_pct': self.parameter_vector[self._expl_params_start_indices[parameter_name]+self._traj_attr2index['deactivation_period_pct']],
                     'start': self.parameter_vector[self._expl_params_start_indices[parameter_name]+self._traj_attr2index['start']],
                     'end': self.parameter_vector[self._expl_params_start_indices[parameter_name]+self._traj_attr2index['end']]}
@@ -226,18 +279,18 @@ class Tuner(object):
         return trajectory_builder.begin_trajectory('tau').deactivate(deactivation_span).interpolate_to(total_iters - deactivation_span, traj_def['end'], start=traj_def['start']).create()
 
     def _extract_simple_space(self):
-        return [_[1] for _ in self._expl_params if _[0] not in ('sparse_phi_reg_coef_trajectory', 'sparse_theta_reg_coef_trajectory')]
+        return [_[1] for _ in self._expl_params_hash if _[0] not in ('sparse_phi_reg_coef_trajectory', 'sparse_theta_reg_coef_trajectory')]
 
     def _extract_trajectory_space(self):
-        return map(lambda x: [x['deactivation_period_pct'], x['start'], x['end']], [v for k, v in self._expl_params if k in ('sparse_phi_reg_coef_trajectory', 'sparse_theta_reg_coef_trajectory')])
+        return map(lambda x: [x['deactivation_period_pct'], x['start'], x['end']], [v for k, v in self._expl_params_hash if k in ('sparse_phi_reg_coef_trajectory', 'sparse_theta_reg_coef_trajectory')])
 
     def _check_parameters(self):
         for i in self._static_params_hash.keys():
-            if i in self.explorable_parameters:
+            if i in self.explorable_parameters_names:
                 raise ParameterFoundInStaticAndExplorablesException("Parameter '{}' defined both as static and explorable".format(i))
         missing = []
         for i in ('nb_topics', 'document_passes', 'collection_passes'):
-            if i not in self._static_params_hash.keys() + self.explorable_parameters:
+            if i not in self._static_params_hash.keys() + self.explorable_parameters_names:
                 missing.append(i)
         if missing:
             raise MissingRequiredParametersException("Missing <{}> required model parameters".format(', '.join(missing)))
@@ -318,3 +371,22 @@ def get_tuner_builder(collection, train_config):
         builders[_] = TunerBuilder(collection, train_config)
     return builders[_]
 
+
+if __name__ == '__main__':
+    tuner = Tuner('articles', prefix_label='gg')
+    from parameter_building import tuner_definition_builder as tdb
+
+    d2 = tdb.initialize().collection_passes(100).nb_topics([20, 40]).document_passes(1).background_topics_pct(0.1).ideology_class_weight(5).\
+        sparse_phi().deactivate(10).kind(['quadratic', 'cubic']).start(-1).end([-10, -20, -30]).\
+        sparse_theta().deactivate(10).kind(['quadratic', 'cubic']).start([-1, -2, -3]).end(-10).build()
+
+    tuner.regularizer_defs = {'smooth-phi': {'tau': 1.0},
+                              'smooth-theta': {'tau': 1.0},
+                              'sparse-theta': {'alpha_iter': 1}}
+
+    # tuner.regularizer_defs = {'smooth-phi': {'tau': 1.0},
+    #                           'smooth-theta': {'tau': 1.0},
+    #                           'sparse-theta': {'alpha_iter': 'linear_1_4'}}
+
+
+    tuner.tune(d2)

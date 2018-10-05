@@ -1,8 +1,9 @@
 import argparse
 import os
 
-from patm.tuning import get_tuner_builder
+# from patm.tuning import get_tuner_builder
 from patm.utils import load_results
+from patm.tuning.tuning import Tuner
 
 collection_dir = '/data/thesis/data/collections' # root directory of all the 'collections' created by following prerpocessing pipeline ('transform.py' script)
 
@@ -64,26 +65,43 @@ def tune_smooth_n_sparse(static_params, explorable_params, prefix, background_to
 if __name__ == '__main__':
 
     ## CONSTANTS ##
-    train_cfg = '/data/thesis/code/train.cfg'  # used to initializing object responsible for tracking evaluation and metric scores
+    # train_cfg = '/data/thesis/code/train.cfg'  # used to initializing object responsible for tracking evaluation and metric scores
     args = get_cli_arguments()
-    tuner_builder = get_tuner_builder(args.dataset, train_cfg)
-
-    tr1 = {'deactivation_period_pct': [0.1], 'start': [-2], 'end': [-9]} # more "aggressive" regularization
-    tr2 = {'deactivation_period_pct': [0.1], 'start': [-1, -2, -3], 'end': [-4, -4.5, -5]} # more "quite" regularization
-    tr3 = {'deactivation_period_pct': [0.1], 'start': [-1, -2, -3], 'end': [-4, -4.5, -5]}  # more "quite" regularization
-    tr4 = {'deactivation_period_pct': [0.1], 'start': [-3], 'end': [-5, -10]}  # more "quite" regularization
-
-    static = [('collection_passes', 20), ('document_passes', 5)]
-    explorable = [('nb_topics', [20, 30, 40])]
-
-    #### MODELS
-    # t1 = tune_plsa(static, explorable)
+    # tuner_builder = get_tuner_builder(args.dataset, train_cfg)
     #
-    t2 = tune_lda(static, explorable)
+    # tr1 = {'deactivation_period_pct': [0.1], 'start': [-2], 'end': [-9]} # more "aggressive" regularization
+    # tr2 = {'deactivation_period_pct': [0.1], 'start': [-1, -2, -3], 'end': [-4, -4.5, -5]} # more "quite" regularization
+    # tr3 = {'deactivation_period_pct': [0.1], 'start': [-1, -2, -3], 'end': [-4, -4.5, -5]}  # more "quite" regularization
+    # tr4 = {'deactivation_period_pct': [0.1], 'start': [-3], 'end': [-5, -10]}  # more "quite" regularization
+    #
+    # static = [('collection_passes', 20), ('document_passes', 5)]
+    # explorable = [('nb_topics', [20, 30, 40])]
+    #
+    # #### MODELS
+    # # t1 = tune_plsa(static, explorable)
+    # #
+    # t2 = tune_lda(static, explorable)
     #
     # t3 = tune_smooth_n_sparse(static.append(('sparse_theta_reg_coef_trajectory', tr1)), explorable.append(('sparse_theta_reg_coef_trajectory', tr4)), background_topics_ratio=0.1)
 
+    tuner = Tuner(args.dataset, prefix_label='gg')
+    from patm.tuning.parameter_building import tuner_definition_builder as tdb
 
+    d2 = tdb.initialize().nb_topics([20, 40]).collection_passes(100).document_passes(1).background_topics_pct(
+        0.1).ideology_class_weight(5). \
+        sparse_phi().deactivate(10).kind(['quadratic', 'cubic']).start(-1).end([-10, -20, -30]). \
+        sparse_theta().deactivate(10).kind(['quadratic', 'cubic']).start([-1, -2, -3]).end(-10).build()
+
+    tuner.regularizer_defs = {'smooth-phi': {'tau': 1.0},
+                              'smooth-theta': {'tau': 1.0},
+                              'sparse-theta': {'alpha_iter': 1}}
+
+    # tuner.regularizer_defs = {'smooth-phi': {'tau': 1.0},
+    #                           'smooth-theta': {'tau': 1.0},
+    #                           'sparse-theta': {'alpha_iter': 'linear_1_4'}}
+
+
+    tuner.tune(d2)
 
 
 

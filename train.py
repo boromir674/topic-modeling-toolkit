@@ -1,7 +1,7 @@
 import os
 import sys
 import argparse
-from patm.definitions import collections_dir, REGULARIZERS_CFG
+from patm.definitions import COLLECTIONS_DIR, REGULARIZERS_CFG
 from patm import get_model_factory, trainer_factory, Experiment, TrainSpecs
 from patm.utils import cfg2model_settings
 
@@ -27,7 +27,7 @@ def get_trajs_specs(iters):
 
 if __name__ == '__main__':
     args = get_cl_arguments()
-    root_dir = os.path.join(collections_dir, args.collection)
+    root_dir = os.path.join(COLLECTIONS_DIR, args.collection)
 
     model_trainer = trainer_factory.create_trainer(args.collection, exploit_ideology_labels=False, force_new_batches=args.new_batches)
     experiment = Experiment(root_dir, model_trainer.cooc_dicts)

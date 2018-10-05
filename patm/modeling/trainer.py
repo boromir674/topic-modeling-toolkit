@@ -5,7 +5,7 @@ import sys
 import artm
 from patm.modeling.parameters.trajectory import get_fit_iteration_chunks
 from .model_factory import get_model_factory
-from ..definitions import collections_dir, COOCURENCE_DICT_FILE_NAMES
+from ..definitions import COLLECTIONS_DIR, COOCURENCE_DICT_FILE_NAMES
 
 
 class ModelTrainer(object):
@@ -91,8 +91,8 @@ class TrainerFactory(object):
         :rtype: ModelTrainer
         """
         self._col = collection
-        self._root_dir = os.path.join(collections_dir, self._col)
-        self._mod_tr = ModelTrainer(collections_dir)
+        self._root_dir = os.path.join(COLLECTIONS_DIR, self._col)
+        self._mod_tr = ModelTrainer(COLLECTIONS_DIR)
         self._batches_dir_name = self.ideology_flag2batches_dir_name[exploit_ideology_labels]
         self._batches_target_dir = os.path.join(self._root_dir, self._batches_dir_name)
 
