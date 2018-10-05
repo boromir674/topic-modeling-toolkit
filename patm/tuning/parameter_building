@@ -1,0 +1,185 @@
+import sys
+from collections import OrderedDict
+from abc import ABCMeta, abstractmethod, abstractproperty
+
+
+class MetaParameterMixture(object):
+    __metaclass__ = ABCMeta
+
+    @abstractproperty
+    def static_parameters(self):
+        raise NotImplemented
+
+    @abstractproperty
+    def explorable_parameters(self):
+        raise NotImplemented
+
+    def __str__(self):
+        return type(self).__name__
+
+
+class StaticAndExplorableMixture(MetaParameterMixture):
+
+    def __init__(self, parameters):
+        assert len(parameters) > 0
+        self._static, self._explorable = OrderedDict(), OrderedDict()
+        self._nb_combinations = 1
+        for k, v in parameters.items():
+            self._parse(k, v)
+
+    def _parse(self, k, v):
+        print 'K', k, 'TYPE:', type(v)
+        if isinstance(v, StaticAndExplorableMixture):
+            self._assimilate_mixture(v)
+            print 'ASS'
+            print self.static_parameters
+            print self.explorable_parameters
+        elif type(v) in (str, int, float):
+            self._static[k] = v
+            print 'STATIC', v
+        elif type(v) == list:
+            print 'LEN', len(v)
+            assert len(v) > 0
+            if len(v) == 1:
+                self._static[k] = v[0]
+            else:  # len(v) > 1
+                self._explorable[k] = v
+                self._nb_combinations *= len(v)
+
+    def __len__(self):
+        return self._nb_combinations
+
+    def _assimilate_mixture(self, mixture):
+        for i, v in mixture.static_parameters.items():
+            self._static[mixture.name + '.' + i] = v
+        for i, v in mixture.explorable_parameters.items():
+            self._explorable[mixture.name + '.' + i] = v
+        self._nb_combinations *= len(mixture)
+
+    @property
+    def static_parameters(self):
+        return self._static
+
+    @property
+    def explorable_parameters(self):
+        return self._explorable
+
+    def __getattr__(self, item):
+        if item in self._static:
+            return self._static[item]
+        if item in self._explorable:
+            return self._explorable[item]
+        if item == 'default_class_weight':
+            return 1.0
+        raise AttributeError("Attribute '{}' is not found in object".format(item))
+
+class TunerDefinition(StaticAndExplorableMixture):
+
+    def __init__(self, parameters):
+        super(TunerDefinition, self).__init__(parameters)
+
+
+class SparseTauTrajectoryDefinition(StaticAndExplorableMixture):
+    def __init__(self, params, name):
+        super(SparseTauTrajectoryDefinition, self).__init__(params)
+        self.name = name
+
+
+class ParameterMixtureBuilder(object):
+
+    def __init__(self):
+        self._params = OrderedDict()
+
+    def initialize(self, *args):
+        self._params = OrderedDict()
+
+    def _set_return(self, key, value):
+        self._params[key] = value
+        return self
+
+class TrajectoryParametersBuilder(ParameterMixtureBuilder):
+
+    def __init__(self, master_builder):
+        """
+        :param TunerDefinitionBuilder master_builder:
+        """
+        super(TrajectoryParametersBuilder, self).__init__()
+        self._master_builder = master_builder
+
+    def initialize(self, param_set_key):
+        self._reg_name = param_set_key
+        super(TrajectoryParametersBuilder, self).initialize()
+
+    def deactivate(self, value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+
+    def kind(self, value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+
+    def start(self, value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+
+    def end(self, value):
+        self._params[sys._getframe().f_code.co_name] = value
+        self.build()
+        return self._master_builder
+
+    def build(self):
+        self._master_builder._params[self._reg_name] = SparseTauTrajectoryDefinition(self._params, self._reg_name)
+
+
+class TunerDefinitionBuilder(ParameterMixtureBuilder):
+    def __init__(self):
+        super(TunerDefinitionBuilder, self).__init__()
+        self._trajectory_builder = TrajectoryParametersBuilder(self)
+
+    def initialize(self):
+        super(TunerDefinitionBuilder, self).initialize()
+        return self
+
+    def nb_topics(self, value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+
+    def collection_passes(self, value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+
+    def document_passes(self, value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+
+    def background_topics_pct(self, value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+
+    def default_class_weight(self, value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+
+    def ideology_class_weight(self, value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+
+    def sparse_phi(self):
+        k = sys._getframe().f_code.co_name
+        self._trajectory_builder.initialize(k)
+        return self._trajectory_builder
+
+    def sparse_theta(self):
+        k = sys._getframe().f_code.co_name
+        self._trajectory_builder.initialize(k)
+        return self._trajectory_builder
+
+    def build(self):
+        return TunerDefinition(OrderedDict(self._params))
+
+if __name__ == '__main__':
+    tdb = TunerDefinitionBuilder()
+
+    d1 = tdb.initialize().nb_topics(20).collection_passes(100).document_passes(1).background_topics_pct(0.1).\
+        ideology_class_weight(5).sparse_phi().deactivate(10).kind('quadratic').start(-1).end(-10).build()
+
+    d2 = tdb.initialize().nb_topics([20, 40]).collection_passes(100).document_passes(1).background_topics_pct(0.1). \
+        ideology_class_weight(5).sparse_phi().deactivate(10).kind(['quadratic', 'cubic']).start(-1).end([-10, -20, -30]).\
+        sparse_theta().deactivate(10).kind(['quadratic', 'cubic']).start([-1, -2, -3]).end(-10).build()
+
+    print 'LENS', len(d1), len(d2)
+    print 'D1 static', d1.static_parameters
+    print 'D2 static', d2.static_parameters
+    print 'D1 expl', d1.explorable_parameters
+    print 'D2 expl', d2.explorable_parameters
