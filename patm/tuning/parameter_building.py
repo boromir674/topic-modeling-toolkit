@@ -31,20 +31,17 @@ class StaticAndExplorableMixture(MetaParameterMixture):
         print 'K', k, 'TYPE:', type(v)
         if isinstance(v, StaticAndExplorableMixture):
             self._assimilate_mixture(v)
-            print 'ASS'
-            print self.static_parameters
-            print self.explorable_parameters
         elif type(v) in (str, int, float):
             self._static[k] = v
-            print 'STATIC', v
         elif type(v) == list:
-            print 'LEN', len(v)
             assert len(v) > 0
             if len(v) == 1:
                 self._static[k] = v[0]
             else:  # len(v) > 1
                 self._explorable[k] = v
                 self._nb_combinations *= len(v)
+        else:
+            raise ValueError("Parsing of type '{}' is not supported".format(type(v)))
 
     def __len__(self):
         return self._nb_combinations
@@ -61,15 +58,18 @@ class StaticAndExplorableMixture(MetaParameterMixture):
         Call this method to get a list of strings (ie ['sparse_phi', 'sparse_theta']) corresponding to the valid tau
         coefficient trajectory definitions found withing the static and explorable parameters
         """
-        res = {}
-        for k in self._static.keys() + self._explorable.keys():
+        res = OrderedDict()
+        for k, v in self._static.items() + self._explorable.items():
             if k.startswith('sparse_'):
                 nk = k.split('.')[0]
                 if nk not in res:
-                    res[nk] = []
-                else:
-                    res[nk].append(k.split('.')[0])
-        return [k for k, v in res.items() if all(map(lambda x: x in ('deactivate', 'kind', 'start', 'end'), v))]
+                    res[nk] = OrderedDict()
+                res[nk][k.split('.')[1]] = v
+        return OrderedDict([(k, v) for k, v in res.items() if all(map(lambda x: x in v, ('deactivate', 'kind', 'start', 'end')))])
+
+    @property
+    def parameter_spans(self):
+        return self._explorable.values()
 
     @property
     def static_parameters(self):
@@ -78,15 +78,6 @@ class StaticAndExplorableMixture(MetaParameterMixture):
     @property
     def explorable_parameters(self):
         return self._explorable
-
-    # @property
-    # def trajectories_definitions():
-    #     defs = {'phi': OrderedDict(), 'theta': OrderedDict()}
-    #     for k, v in self._static.items():
-    #         spl = k.split('.')
-    #         if spl[0].startswith('sparse_'):
-    #             defs[spl[0].split('_')[1]] = spl[1]
-
 
     def __getattr__(self, item):
         if item in self._static:

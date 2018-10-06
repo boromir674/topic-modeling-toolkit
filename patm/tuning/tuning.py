@@ -130,13 +130,15 @@ class Tuner(object):
         self._tau_traj_to_build = tuner_definition.valid_trajectory_defs
         # self._tau_traj_to_build = map(lambda x: x.group(1), filter(None, map(lambda x: self._regex.match(x[0]),
         #                                                                      static_parameters + explorable_parameters)))
-        import sys
-        sys.exit()
+
         ## REFACTOR
-        ses = self._extract_simple_space() + self._extract_trajectory_space()
-        if type(ses[0]) == list and type(ses[0][0]) == list:
-            ses = [item for subl in ses for item in subl]
+        # ses = self._extract_simple_space() + self._extract_trajectory_space()
+        # if type(ses[0]) == list and type(ses[0][0]) == list:
+        #     ses = [item for subl in ses for item in subl]
+        ses = tuner_definition.parameter_spans
+        print 'Search space', tuner_definition.explorable_parameters.keys()
         print 'Search space', ses
+
         self._parameter_grid_searcher = ParameterGrid(ses)
 
         ## REFACTOR
@@ -155,6 +157,8 @@ class Tuner(object):
         self._initialize(parameters_mixture)
         expected_iters = len(self._parameter_grid_searcher)
         print 'Doing grid-search, taking {} samples'.format(expected_iters)
+        import sys
+        sys.exit()
         for self.parameter_vector in tqdm(self._parameter_grid_searcher, total=expected_iters, unit='model'):
             self._build_label()
             self._set_parameters()
@@ -279,10 +283,10 @@ class Tuner(object):
         return trajectory_builder.begin_trajectory('tau').deactivate(deactivation_span).interpolate_to(total_iters - deactivation_span, traj_def['end'], start=traj_def['start']).create()
 
     def _extract_simple_space(self):
-        return [_[1] for _ in self._expl_params_hash if _[0] not in ('sparse_phi_reg_coef_trajectory', 'sparse_theta_reg_coef_trajectory')]
+        return [v for k, v in self._expl_params_hash.items() if not k.startswith('sparse_')]
 
     def _extract_trajectory_space(self):
-        return map(lambda x: [x['deactivation_period_pct'], x['start'], x['end']], [v for k, v in self._expl_params_hash if k in ('sparse_phi_reg_coef_trajectory', 'sparse_theta_reg_coef_trajectory')])
+        return map(lambda x: [x['deactivation_period_pct'], x['start'], x['end']], [v for k, v in self._expl_params_hash.items() if k.startswith('sparse_')])
 
     def _check_parameters(self):
         for i in self._static_params_hash.keys():
@@ -290,9 +294,12 @@ class Tuner(object):
                 raise ParameterFoundInStaticAndExplorablesException("Parameter '{}' defined both as static and explorable".format(i))
         missing = []
         for i in ('nb_topics', 'document_passes', 'collection_passes'):
-            if i not in self._static_params_hash.keys() + self.explorable_parameters_names:
+            l = self._static_params_hash.keys() + self._expl_params_hash.keys()
+            if i not in l:
                 missing.append(i)
         if missing:
+            print self._static_params_hash.keys()
+            print self._expl_params_hash.keys()
             raise MissingRequiredParametersException("Missing <{}> required model parameters".format(', '.join(missing)))
 
 
