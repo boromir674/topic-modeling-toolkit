@@ -1,5 +1,6 @@
 import sys
-from collections import OrderedDict
+import warnings
+from collections import OrderedDict, Counter
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 
@@ -186,18 +187,70 @@ class TunerDefinitionBuilder(ParameterMixtureBuilder):
 tuner_definition_builder = TunerDefinitionBuilder()
 
 
+class RegularizersActivationDefinitionBuilder(object):
+    def __init__(self, tuner=None):
+        self._tuner = tuner
+        self._reg_types = []
+        self._key = None
+
+    @property
+    def activate(self):
+        self._reg_types = []
+        self._key = None
+        return self
+
+    @property
+    def smoothing(self):
+        self._key = 'smooth'
+        return self
+
+    @property
+    def sparsing(self):
+        self._key = 'sparse'
+        return self
+
+    @property
+    def phi(self):
+        self._reg_types.append(self._key + '-phi')
+        return self
+
+    @property
+    def theta(self):
+        self._reg_types.append(self._key + '-theta')
+        return self
+
+    def build(self):
+        if len(set(self._reg_types)) != len(self._reg_types):
+            warnings.warn("Duplicate regularizers [{}] reguested for activation. Will activate once the uniques.".format(', '.join([item for item, count in Counter(self._reg_types).items() if count > 1])))
+        seen = set()
+        return [x for x in self._reg_types if x not in seen and not seen.add(x)]
+
+
+    def done(self):
+        if self._tuner:
+            self._tuner.active_regularizers = self.build()
+
+# regularizers_activation_definition_builder = RegularizersActivationDefinitionBuilder()
+
+
 if __name__ == '__main__':
     tdb = TunerDefinitionBuilder()
 
-    d1 = tdb.initialize().nb_topics(20).collection_passes(100).document_passes(1).background_topics_pct(0.1).\
-        ideology_class_weight(5).sparse_phi().deactivate(10).kind('quadratic').start(-1).end(-10).build()
+    radb = RegularizersActivationDefinitionBuilder()
+    activated_regularizer_types = radb.activate.smoothing.theta.phi.sparsing.phi.build()
 
-    d2 = tdb.initialize().nb_topics([20, 40]).collection_passes(100).document_passes(1).background_topics_pct(0.1). \
-        ideology_class_weight(5).sparse_phi().deactivate(10).kind(['quadratic', 'cubic']).start(-1).end([-10, -20, -30]).\
-        sparse_theta().deactivate(10).kind(['quadratic', 'cubic']).start([-1, -2, -3]).end(-10).build()
-
-    print 'LENS', len(d1), len(d2)
-    print 'D1 static', d1.static_parameters
-    print 'D2 static', d2.static_parameters
-    print 'D1 expl', d1.explorable_parameters
-    print 'D2 expl', d2.explorable_parameters
+    print 'REGS', activated_regularizer_types
+    #
+    #
+    # d1 = tdb.initialize().nb_topics(20).collection_passes(100).document_passes(1).background_topics_pct(0.1).\
+    #     ideology_class_weight(5).sparse_phi().deactivate(10).kind('quadratic').start(-1).end(-10).build()
+    #
+    # d2 = tdb.initialize().nb_topics([20, 40]).collection_passes(100).document_passes(1).background_topics_pct(0.1). \
+    #     ideology_class_weight(5).sparse_phi().deactivate(10).kind(['quadratic', 'cubic']).start(-1).end([-10, -20, -30]).\
+    #     sparse_theta().deactivate(10).kind(['quadratic', 'cubic']).start([-1, -2, -3]).end(-10).build()
+    #
+    # print 'LENS', len(d1), len(d2)
+    # print 'D1 static', d1.static_parameters
+    # print 'D2 static', d2.static_parameters
+    # print 'D1 expl', d1.explorable_parameters
+    # print 'D2 expl', d2.explorable_parameters

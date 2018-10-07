@@ -97,7 +97,7 @@ class RegularizersFactory:
         :param list background_topics: a list of the 'background' topic names. Can be empty.
         :param list domain_topics: a list of the 'domain' topic names. Can be empty.
         :param str or dict reg_cfg: contains the values for initializing the regularizers with. If None then the default file is used
-        - If type(reg_cfg) == str: reg)cfg is a file path to a cfg formated file that has as sections regularizer_types with their keys being initialization parameters\n
+        - If type(reg_cfg) == str: reg_cfg is a file path to a cfg formated file that has as sections regularizer_types with their keys being initialization parameters\n
         - If type(reg_cfg) == dict: reg_cfg maps regularizer types to parameters dict.
         :rtype: RegularizersFactory
         """
