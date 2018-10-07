@@ -71,7 +71,9 @@ class ExperimentWL(BaseWriterLoader):
         return self._post
 
     def get_full_path(self, name):
-        return os.path.join(self._loc, '{}-{}{}'.format(name, self._post, self._extension))
+        if self._post:
+            return os.path.join(self._loc, '{}-{}{}'.format(name, self._post, self._extension))
+        return os.path.join(self._loc, '{}{}'.format(name, self._extension))
 
     def save(self, name):
         raise NotImplementedError
