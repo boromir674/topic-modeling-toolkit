@@ -41,6 +41,27 @@ class ModelFactory(object):
         self.topic_model_evaluators = {}
         self._eval_def2name = {}
 
+    def construct_model(self, label, nb_topics, nb_collection_passes, nb_document_passes, background_topics_pct, modality_weights, scores, regularizers, reg_settings=None):
+        """
+
+        :param str label:
+        :param int nb_topics:
+        :param int nb_collection_passes:
+        :param int nb_document_passes:
+        :param float background_topics_pct:
+        :param dict modality_weights: IDEOLOGY_CLASS_NAME and/or DEFAULT_CLASS_NAME as keys
+        :param dict scores:
+        :param dict regularizers:
+        :param: dict reg_settings:
+        :return:
+        :rtype: patm.modeling.topic_model.TopicModel
+        """
+        self._col_passes, self._nb_topics, self._nb_document_passes = nb_collection_passes, nb_topics, nb_document_passes
+        self.modalities, self._eval_def2name, self._reg_types2names = modality_weights, scores, regularizers
+        return self._create_model(label,
+                                  *tn_builder.define_nb_topics(self._nb_topics).define_background_pct(background_topics_pct).get_background_n_domain_topics(),
+                                  reg_cfg=reg_settings)
+
     def create_train_specs(self, collection_passes=None):
         """Creates Train Specs according to the latest TopicModel instance created."""
         if not collection_passes:
@@ -50,24 +71,15 @@ class ModelFactory(object):
 
     def create_model(self, label, train_cfg, reg_cfg=None):
         _ = cfg2model_settings(train_cfg)
-        self._col_passes, self._nb_topics, self._nb_document_passes = _['learning']['collection_passes'], _['learning']['nb_topics'], _['learning']['document_passes']
-        self.modalities, self._eval_def2name, self._reg_types2names = self._parse_modalities(_['information']), _['scores'], _['regularizers']
-        return self._create_model(label, *tn_builder.define_nb_topics(self._nb_topics).
-                                  define_background_pct(float(_['information'].get('background-topics-percentage', 0))).get_background_n_domain_topics(), reg_cfg=reg_cfg)
+        return self.construct_model(label, _['learning']['nb_topics'], _['learning']['collection_passes'], _['learning']['document_passes'], float(_['information'].get('background-topics-percentage', 0)), self._parse_modalities(_['information']), _['scores'], _['regularizers'], reg_settings=reg_cfg)
 
     def create_model11(self, label, nb_topics, document_passes, train_cfg, modality_weights=None, background_topics_pct=0.0):
         _ = cfg2model_settings(train_cfg)
-        self._col_passes, self._nb_topics, self._nb_document_passes = _['learning']['collection_passes'], nb_topics, document_passes
-        self.modalities, self._eval_def2name, self._reg_types2names = modality_weights, _['scores'], _['regularizers']
-        return self._create_model(label, modality_weights, *tn_builder.define_nb_topics(self._nb_topics).
-                                  define_background_pct(background_topics_pct).get_background_n_domain_topics())
+        return self.construct_model(label, nb_topics, _['learning']['collection_passes'], document_passes, background_topics_pct, modality_weights, _['scores'], _['regularizers'])
 
     def create_model00(self, label, train_cfg, reg_cfg=None, modality_weights=None, background_topics_pct=0.0):
         _ = cfg2model_settings(train_cfg)
-        self._col_passes, self._nb_topics, self._nb_document_passes = _['learning']['collection_passes'], _['learning']['nb_topics'], _['learning']['document_passes']
-        self.modalities, self._eval_def2name, self._reg_types2names = modality_weights, _['scores'], _['regularizers']
-        return self._create_model(label, modality_weights, *tn_builder.define_nb_topics(self._nb_topics).
-                                  define_background_pct(background_topics_pct).get_background_n_domain_topics(), reg_cfg=reg_cfg)
+        return self.construct_model(label, _['learning']['nb_topics'], _['learning']['collection_passes'], _['learning']['document_passes'], background_topics_pct, modality_weights, _['scores'], _['regularizers'], reg_settings=reg_cfg)
 
     def create_model_with_phi_from_disk(self, phi_file_path, results):
         """
