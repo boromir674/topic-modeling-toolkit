@@ -1,4 +1,5 @@
+from .tuning import Tuner
 from .modeling import TrainSpecs
-from .pipeline import Pipeline, get_pipeline
 from .dataset import TextDataset
+from .pipeline import Pipeline, get_pipeline
 from .modeling import get_model_factory, trainer_factory, Experiment

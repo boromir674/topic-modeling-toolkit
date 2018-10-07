@@ -1,9 +1,8 @@
 import argparse
 import os
 
-# from patm.tuning import get_tuner_builder
+from patm import Tuner
 from patm.utils import load_results
-from patm.tuning.tuning import Tuner
 
 collection_dir = '/data/thesis/data/collections' # root directory of all the 'collections' created by following prerpocessing pipeline ('transform.py' script)
 
@@ -40,6 +39,7 @@ def get_model_settings(label, dataset):
 def get_cli_arguments():
     parser = argparse.ArgumentParser(description='Performs grid-search over the parameter space by creating and training topic models', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('dataset', metavar='collection_name', help='the collection to report models trained on')
+    parser.add_argument('--prefix', '-p', default='', help='a custom label to prepend to every model created. Can be useful to indicate a same grouping')
     # parser.add_argument('train_cfg', help='the fixed model parameters and regularizers to use. Regularizers can be turned on/off after consecutive train iterations through dynamic tau trajectory, but no new regularizer can be added after initialization')
     return parser.parse_args()
 
@@ -84,24 +84,27 @@ if __name__ == '__main__':
     #
     # t3 = tune_smooth_n_sparse(static.append(('sparse_theta_reg_coef_trajectory', tr1)), explorable.append(('sparse_theta_reg_coef_trajectory', tr4)), background_topics_ratio=0.1)
 
-    tuner = Tuner(args.dataset, prefix_label='gg')
+    tuner = Tuner(args.dataset)
     from patm.tuning.parameter_building import tuner_definition_builder as tdb
 
     d2 = tdb.initialize().nb_topics([20]).collection_passes(100).document_passes(1).background_topics_pct(
-        0.1).ideology_class_weight([5, 10]). \
-        sparse_phi().deactivate(10).kind(['quadratic']).start(-1).end([-10, -20, -30]). \
+        0.1).ideology_class_weight([5]). \
+        sparse_phi().deactivate(10).kind(['quadratic']).start(-1).end([-10, -20]). \
         sparse_theta().deactivate(10).kind('linear').start([-3]).end(-10).build()
 
-    tuner.regularizer_defs = {'smooth-phi': {'tau': 1.0},
-                              'smooth-theta': {'tau': 1.0},
-                              'sparse-theta': {'alpha_iter': 1}}
+    tuner.activate_regularizers.smoothing.phi.theta.sparsing.phi.theta.done()
+    tuner.tune(d2, prefix_label=args.prefix, append_explorables='all', append_static=True)
 
+    # tuner.active_regularizers = {'smooth-phi': 'smph', 'smooth-theta': 'smth', 'sparse-phi': 'spph', 'sparse-theta': 'spth'}
+
+    # tuner.regularization_specs = {'smooth-phi': {'tau': 1.0},
+    #                           'smooth-theta': {'tau': 1.0},
+    #                           'sparse-theta': {'alpha_iter': 1}}
     # tuner.regularizer_defs = {'smooth-phi': {'tau': 1.0},
     #                           'smooth-theta': {'tau': 1.0},
     #                           'sparse-theta': {'alpha_iter': 'linear_1_4'}}
 
 
-    tuner.tune(d2)
 
 
 

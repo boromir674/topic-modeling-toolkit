@@ -14,6 +14,10 @@ _section2encoder = {
         'scores': str}
 
 def get_standard_evaluation_definitions():
+    """
+    :return:
+    :rtype: OrderedDict
+    """
     return cfg2model_settings(TRAIN_CFG)['scores']
 
 
