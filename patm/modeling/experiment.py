@@ -27,8 +27,8 @@ class Experiment:
         self.trackables = None
         self.reg_params = []
         self.model_params = {'nb_topics': [], 'document_passes': []}
-        self.train_results_handler = ResultsWL(self, 'train')
-        self.phi_matrix_handler = ModelWL(self, 'train')
+        self.train_results_handler = ResultsWL(self, None)
+        self.phi_matrix_handler = ModelWL(self, None)
 
     def init_empty_trackables(self, model):
         self._topic_model = model
