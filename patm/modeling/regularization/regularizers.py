@@ -15,7 +15,7 @@ from base_regularizer import *
 
 def cfg2regularizer_settings(cfg_file):
     config = ConfigParser()
-    config.read(cfg_file)
+    config.read(u'{}'.format(cfg_file))
     return OrderedDict([(str(section), OrderedDict([(str(setting_name), parameter_name2encoder[str(setting_name)](value)) for setting_name, value in config.items(section) if value])) for section in config.sections()])
 
 

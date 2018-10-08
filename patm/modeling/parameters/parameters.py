@@ -55,6 +55,9 @@ class ParameterGrid(object):
                 print sp
                 raise InvalidSpanException("Invalid span object given of type " + type(sp).__name__)
 
+    def generate_with_filter(self, inds):
+        return (v for v, i in enumerate(self) if i not in inds)
+
     def __len__(self):
         if len(self._spans) == 1:
             return len(self._spans[0])

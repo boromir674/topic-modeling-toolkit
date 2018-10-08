@@ -48,7 +48,8 @@ class BaseWriterLoader(WriterLoader):
 
     @property
     def list(self):
-        return [os.path.basename(file_path) for file_path in glob.glob('{}/*{}{}'.format(self._loc, self._post, self._extension))]
+        # return [os.path.basename(file_path) for file_path in glob.glob('{}/*{}{}'.format(self._loc, self._post, self._extension))]
+        return [os.path.basename(file_path[:file_path.index(self._extension)]) for file_path in glob.glob('{}/*{}'.format(self._loc, ''.join(filter(None, [self._post, self._extension]))))]
 
     @property
     def saved(self):

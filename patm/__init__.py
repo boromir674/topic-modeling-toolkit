@@ -1,4 +1,3 @@
-from .tuning import Tuner
 from .modeling import TrainSpecs
 from .dataset import TextDataset
 from .pipeline import Pipeline, get_pipeline

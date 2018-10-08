@@ -113,37 +113,6 @@ class ParameterMixtureBuilder(object):
         self._params[key] = value
         return self
 
-class TrajectoryParametersBuilder(ParameterMixtureBuilder):
-
-    def __init__(self, master_builder):
-        """
-        :param TunerDefinitionBuilder master_builder:
-        """
-        super(TrajectoryParametersBuilder, self).__init__()
-        self._master_builder = master_builder
-
-    def initialize(self, param_set_key):
-        self._reg_name = param_set_key
-        super(TrajectoryParametersBuilder, self).initialize()
-
-    def deactivate(self, value):
-        return self._set_return(sys._getframe().f_code.co_name, value)
-
-    def kind(self, value):
-        return self._set_return(sys._getframe().f_code.co_name, value)
-
-    def start(self, value):
-        return self._set_return(sys._getframe().f_code.co_name, value)
-
-    def end(self, value):
-        self._params[sys._getframe().f_code.co_name] = value
-        self.build()
-        return self._master_builder
-
-    def build(self):
-        self._master_builder._params[self._reg_name] = SparseTauTrajectoryDefinition(self._params, self._reg_name)
-
-
 class TunerDefinitionBuilder(ParameterMixtureBuilder):
     def __init__(self):
         super(TunerDefinitionBuilder, self).__init__()
@@ -183,6 +152,37 @@ class TunerDefinitionBuilder(ParameterMixtureBuilder):
 
     def build(self):
         return TunerDefinition(OrderedDict(self._params))
+
+
+class TrajectoryParametersBuilder(ParameterMixtureBuilder):
+
+    def __init__(self, master_builder):
+        """
+        :param TunerDefinitionBuilder master_builder:
+        """
+        super(TrajectoryParametersBuilder, self).__init__()
+        self._master_builder = master_builder
+
+    def initialize(self, param_set_key):
+        self._reg_name = param_set_key
+        super(TrajectoryParametersBuilder, self).initialize()
+
+    def deactivate(self, value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+
+    def kind(self, value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+
+    def start(self, value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+
+    def end(self, value):
+        self._params[sys._getframe().f_code.co_name] = value
+        self.build()
+        return self._master_builder
+
+    def build(self):
+        self._master_builder._params[self._reg_name] = SparseTauTrajectoryDefinition(self._params, self._reg_name)
 
 tuner_definition_builder = TunerDefinitionBuilder()
 
