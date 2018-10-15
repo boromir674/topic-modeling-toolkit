@@ -65,16 +65,36 @@ def tune_smooth_n_sparse(static_params, explorable_params, prefix, background_to
 
 if __name__ == '__main__':
 
-    ## CONSTANTS ##
-    # train_cfg = '/data/thesis/code/train.cfg'  # used to initializing object responsible for tracking evaluation and metric scores
     args = get_cli_arguments()
-    print type(args.overwrite), args.overwrite
 
-    # tuner_builder = get_tuner_builder(args.dataset, train_cfg)
-    #
+    tuner = Tuner(args.dataset)
+    from patm.tuning.parameter_building import tuner_definition_builder as tdb
+
+    tuner_definition = tdb.initialize().nb_topics([20]).collection_passes([30]).document_passes([1, 5, 20]).background_topics_pct(0.1).\
+        ideology_class_weight([5]). \
+        sparse_phi().deactivate(4).kind(['quadratic']).start([-1]).end([-20]). \
+        sparse_theta().deactivate(4).kind('linear').start([-5]).end([-10]).build()
+
+    tuner.activate_regularizers.smoothing.phi.theta.sparsing.phi.theta.done()
+
+    tuner.tune(tuner_definition,
+               prefix_label=args.prefix,
+               append_explorables='all',
+               append_static=True,
+               force_overwrite=True,
+               verbose=True)
+
+
+    # tuner.active_regularizers = {'smooth-phi': 'smph', 'smooth-theta': 'smth', 'sparse-phi': 'spph', 'sparse-theta': 'spth'}
+
+    # tuner.static_regularization_specs = {'smooth-phi': {'tau': 1.0},
+    #                           'smooth-theta': {'tau': 1.0},
+    #                           'sparse-theta': {'alpha_iter': 1}}
+
+    #                           'sparse-theta': {'alpha_iter': 'linear_1_4'}}
+
     # tr1 = {'deactivation_period_pct': [0.1], 'start': [-2], 'end': [-9]} # more "aggressive" regularization
     # tr2 = {'deactivation_period_pct': [0.1], 'start': [-1, -2, -3], 'end': [-4, -4.5, -5]} # more "quite" regularization
-    # tr3 = {'deactivation_period_pct': [0.1], 'start': [-1, -2, -3], 'end': [-4, -4.5, -5]}  # more "quite" regularization
     # tr4 = {'deactivation_period_pct': [0.1], 'start': [-3], 'end': [-5, -10]}  # more "quite" regularization
     #
     # static = [('collection_passes', 20), ('document_passes', 5)]
@@ -82,37 +102,9 @@ if __name__ == '__main__':
     #
     # #### MODELS
     # # t1 = tune_plsa(static, explorable)
-    # #
     # t2 = tune_lda(static, explorable)
     #
     # t3 = tune_smooth_n_sparse(static.append(('sparse_theta_reg_coef_trajectory', tr1)), explorable.append(('sparse_theta_reg_coef_trajectory', tr4)), background_topics_ratio=0.1)
-
-    tuner = Tuner(args.dataset)
-    from patm.tuning.parameter_building import tuner_definition_builder as tdb
-
-    d2 = tdb.initialize().nb_topics([20]).collection_passes(100).document_passes(1).background_topics_pct(
-        0.1).ideology_class_weight([5]). \
-        sparse_phi().deactivate(10).kind(['quadratic']).start(-1).end([-10, -20]). \
-        sparse_theta().deactivate(10).kind('linear').start([-3]).end(-10).build()
-
-    tuner.activate_regularizers.smoothing.phi.theta.sparsing.phi.theta.done()
-
-    tuner.
-
-
-    tuner.tune(d2, prefix_label=args.prefix, append_explorables='all', append_static=True)
-
-    # tuner.active_regularizers = {'smooth-phi': 'smph', 'smooth-theta': 'smth', 'sparse-phi': 'spph', 'sparse-theta': 'spth'}
-
-    # tuner.static_regularization_specs = {'smooth-phi': {'tau': 1.0},
-    #                           'smooth-theta': {'tau': 1.0},
-    #                           'sparse-theta': {'alpha_iter': 1}}
-    # tuner.regularizer_defs = {'smooth-phi': {'tau': 1.0},
-    #                           'smooth-theta': {'tau': 1.0},
-    #                           'sparse-theta': {'alpha_iter': 'linear_1_4'}}
-
-
-
 
 
     #### SNIPPETS

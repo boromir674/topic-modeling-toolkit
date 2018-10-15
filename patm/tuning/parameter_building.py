@@ -29,7 +29,7 @@ class StaticAndExplorableMixture(MetaParameterMixture):
             self._parse(k, v)
 
     def _parse(self, k, v):
-        print 'K', k, 'TYPE:', type(v)
+        # print 'K', k, 'TYPE:', type(v)
         if isinstance(v, StaticAndExplorableMixture):
             self._assimilate_mixture(v)
         elif type(v) in (str, int, float):
@@ -225,12 +225,9 @@ class RegularizersActivationDefinitionBuilder(object):
         seen = set()
         return [x for x in self._reg_types if x not in seen and not seen.add(x)]
 
-
     def done(self):
         if self._tuner:
             self._tuner.active_regularizers = self.build()
-
-# regularizers_activation_definition_builder = RegularizersActivationDefinitionBuilder()
 
 
 if __name__ == '__main__':
@@ -245,12 +242,12 @@ if __name__ == '__main__':
     # d1 = tdb.initialize().nb_topics(20).collection_passes(100).document_passes(1).background_topics_pct(0.1).\
     #     ideology_class_weight(5).sparse_phi().deactivate(10).kind('quadratic').start(-1).end(-10).build()
     #
-    # d2 = tdb.initialize().nb_topics([20, 40]).collection_passes(100).document_passes(1).background_topics_pct(0.1). \
+    # tuner_definition = tdb.initialize().nb_topics([20, 40]).collection_passes(100).document_passes(1).background_topics_pct(0.1). \
     #     ideology_class_weight(5).sparse_phi().deactivate(10).kind(['quadratic', 'cubic']).start(-1).end([-10, -20, -30]).\
     #     sparse_theta().deactivate(10).kind(['quadratic', 'cubic']).start([-1, -2, -3]).end(-10).build()
     #
-    # print 'LENS', len(d1), len(d2)
+    # print 'LENS', len(d1), len(tuner_definition)
     # print 'D1 static', d1.static_parameters
-    # print 'D2 static', d2.static_parameters
+    # print 'D2 static', tuner_definition.static_parameters
     # print 'D1 expl', d1.explorable_parameters
-    # print 'D2 expl', d2.explorable_parameters
+    # print 'D2 expl', tuner_definition.explorable_parameters

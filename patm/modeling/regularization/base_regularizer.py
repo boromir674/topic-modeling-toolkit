@@ -1,4 +1,4 @@
-from patm.modeling.parameters.trajectory import trajectory_builder
+from patm.modeling.parameters import trajectory_builder
 
 import artm
 
@@ -13,7 +13,7 @@ class ArtmRegularizerWrapper(object):
         if verbose:
             print "Constructed '{}' reg, named '{}', with settings: {}".format(self._type, self._name, '{'+', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), parameters.items()))+'}')
 
-    def __init__(self, reg_type, parameters_dict, artm_constructor):
+    def __init__(self, reg_type, parameters_dict, artm_constructor, verbose=False):
         self._name = parameters_dict.pop('name', 'no-name')
         self._type = reg_type
         self._label = ''
@@ -40,7 +40,7 @@ class ArtmRegularizerWrapper(object):
                 except ValueError:
                     self._traj_def[k] = self._traj_type2traj_def_creator[k]([self._start, v])  # case: parameter_value is a trajectory definition without the 'start' setting (nb of initial iterations that regularizer stays inactive)
                     self._params_for_labeling[k] = self._traj_def[k]
-        self._create_artm_regularizer(dict(self._reg_constr_params, **{'name': self._name}), verbose=True)
+        self._create_artm_regularizer(dict(self._reg_constr_params, **{'name': self._name}), verbose=verbose)
 
     @property
     def label(self):
@@ -99,7 +99,7 @@ class SmoothPhiRegularizerWrapper(SmoothSparsePhiRegularizerWrapper):
 class SmoothSparseThetaRegularizerWrapper(ArtmRegularizerWrapper):
     _artm_constructor_callback = artm.SmoothSparseThetaRegularizer
     def __init__(self, reg_type, name, params_dict, topic_names):
-        super(SmoothSparseThetaRegularizerWrapper, self).__init__(reg_type, dict(params_dict, **{'name': name, 'topic_names': topic_names}), self._artm_constructor_callback )
+        super(SmoothSparseThetaRegularizerWrapper, self).__init__(reg_type, dict(params_dict, **{'name': name, 'topic_names': topic_names}), self._artm_constructor_callback)
 
 class SparseThetaRegularizerWrapper(SmoothSparseThetaRegularizerWrapper):
     def __init__(self, name, params_dict, topic_names):

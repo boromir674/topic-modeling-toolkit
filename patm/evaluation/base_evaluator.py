@@ -48,7 +48,6 @@ class ArtmEvaluator(AbstractEvaluator):
         super(ArtmEvaluator, self).__init__(name)
         self._artm_score = artm_score
         self._attrs = reportable_attributes
-        print 'ArtmEvaluator created:', name
 
     def evaluate(self, model):
         """
@@ -57,7 +56,7 @@ class ArtmEvaluator(AbstractEvaluator):
         :return: the attribute => metrics-4all-cycles information
         :rtype: dict
         """
-        return {attr: model.score_tracker[self.name].__getattribute__(attr) for attr in sorted(self._attrs)}
+        return {attr: model.score_tracker[self.name].__getattribute__(attr) for attr in self._attrs}
         # return {attr: model.score_tracker[self.name].__getattribute__('last_{}'.format(attr)) for attr in sorted(self._attrs)}
 
     @property

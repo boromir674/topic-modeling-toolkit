@@ -1,5 +1,3 @@
-import re
-import sys
 import warnings
 
 import artm
@@ -7,9 +5,7 @@ from collections import OrderedDict
 from configparser import ConfigParser
 
 from patm.utils import cfg2model_settings
-from patm.definitions import REGULARIZERS_CFG, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
-from patm.modeling.parameters.trajectory import trajectory_builder
-from patm.modeling.parameters.trajectory import ParameterTrajectory
+from patm.definitions import REGULARIZERS_CFG, DEFAULT_CLASS_NAME
 
 from base_regularizer import *
 
@@ -139,77 +135,13 @@ class RegularizersFactory:
         :return: the regularizer's wrapper object reference
         :rtype: ArtmRegularizerWrapper
         """
+        if reg_type not in self._regularizer_type2constructor:
+            warnings.warn("Requested to create '{}' regularizer, which is not supported".format(reg_type))
+            return None
         if len(self._back_t) == 0 and reg_type.startswith('smooth'):
+            warnings.warn("Requested to create '{}' regularizer, but there are no 'background' topics defined".format(reg_type))
             return None
         return self._regularizer_type2constructor[reg_type](settings)
 
 
 regularizers_factory = RegularizersFactory()
-
-
-class RegularizerPoolBuilder:
-    def __init__(self):
-        self._topics = []
-        self._nb_topics = 0
-        self._pool = []
-        self.background_topics_ratio = 0
-        self._background_topics = []
-        self._domain_topics = []
-
-    def init_pool(self, topics_labels):
-        self._topics = topics_labels
-        # self._nb_topics = len(selpatm / modeling / regularization / regularizers.pyf._topics)
-        self._pool = []
-        self._background_topics = []
-        self._domain_topics = []
-        return self
-
-    def separate_background(self, background_topics_ratio):
-        self._pool = []
-        self.background_topics_ratio = background_topics_ratio
-        _ = int(self.background_topics_ratio * self._nb_topics)
-        self._background_topics = self._topics[:_]
-        self._domain_topics = self._topics[_:]
-        return self
-
-    def add_regularizers(self, reg_type2reg_attributes):
-        for reg_type, reg_settings in sorted(reg_type2reg_attributes.items(), key=lambda x: x[1][
-            'name']):  # sort by regularizer custom name following same ordering as TopicModel
-            self._pool.append(construct_regularizer(reg_type, reg_settings['name'], reg_settings['attributes']))
-
-    # def smooth_background(self, matrix, tau): # ('phi', 'theta'}
-    #     self._pool.append(construct_regularizer('smooth-' + matrix, 'sb' + matrix[0], {'topic_names': self._background_topics, 'tau': tau}))
-    #     return self
-    # def sparse_domain(self, matrix):
-    #     # expects to receive a tau trajectory as a paramter later
-    #     self._pool.append(construct_regularizer('sparse' + matrix, 'sd' + matrix[0], {'topic_names': self._domain_topics, 'tau': -0.1}))
-    #     return self
-    # def decorrelate(self):
-    #     self._pool.append(construct_regularizer('decorrelate-phi', 'ddt', {'topic_names': self._domain_topics, 'tau': 2e+5}))
-    #     return self
-
-    def build_pool(self):
-        return self._pool
-
-regularizer_pool_builder = RegularizerPoolBuilder()
-
-
-# def construct_regularizer(reg_type, name, reg_settings):
-#     """
-#     Constructs a new artm regularizer object given its type, a name and optional initialization values for its attributes.\n
-#     :param str reg_type: the regularizer's type
-#     :param str name: the regularizers name
-#     :param dict reg_settings: key, values pairs to initialize the regularizer parameters
-#     :return: the regularizer's object reference
-#     :rtype: artm.regularizers.BaseRegularizer
-#     """
-#     reg_parameters = {k: v for k, v in reg_settings.items() if v}
-#     if reg_type != 'kl-function-info':
-#         reg_parameters = dict(reg_parameters, **{'name': name})
-#     elif 'name' in reg_settings:
-#         reg_parameters = {k: v for k, v in reg_settings.items() if k != 'name'}
-#     artm_reg = _regularizers_section_name2constructor[reg_type](**reg_parameters)
-#     found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), reg_parameters.items()))
-#     not_found = ', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), {k: v for k, v in reg_settings.items() if not v}.items()))
-#     print 'Constructed reg: {}: set params: ({}); using defaults: ({})'.format(reg_type+'.'+name, found, not_found)
-#     return artm_reg

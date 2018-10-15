@@ -46,6 +46,7 @@ class ParameterSpan(object):
 class ParameterGrid(object):
     def __init__(self, parameter_spans):
         self._spans = []
+        self._filtered_out_indices = []
         for sp in parameter_spans:
             if type(sp) == list:
                 self._spans.append(ParameterSpan(sp))
@@ -55,13 +56,28 @@ class ParameterGrid(object):
                 print sp
                 raise InvalidSpanException("Invalid span object given of type " + type(sp).__name__)
 
-    def generate_with_filter(self, inds):
-        return (v for v, i in enumerate(self) if i not in inds)
+    def remove_filter(self):
+        self._filtered_out_indices = []
+
+    @property
+    def ommited_indices(self):
+        return self._filtered_out_indices
+
+    @ommited_indices.setter
+    def ommited_indices(self, indices_to_ommit):
+        self._filtered_out_indices = indices_to_ommit
 
     def __len__(self):
-        if len(self._spans) == 1:
-            return len(self._spans[0])
-        return reduce(lambda x,y: x*y, map(len, self._spans))
+        return len([_ for _ in self._get_filtered_generator()])
+
+        # if len(self._filtered_out_indices) == len(self._spans):
+        #     return 0
+        # return reduce(lambda x, y: x * y, map(len, self._generate_spans()))
+
+    def _generate_spans(self):
+        for i, sp in enumerate(self._spans):
+            if i not in self._filtered_out_indices:
+                yield sp
 
     def _init(self):
         self._span_lens = [len(_) for _ in self._spans]
@@ -83,6 +99,14 @@ class ParameterGrid(object):
         return [_ for _ in self._parameter_vector]
 
     def __iter__(self):
+        for _ in self._get_filtered_generator():
+            yield _
+
+    def _get_filtered_generator(self):
+        return (vector for i, vector in enumerate(self._raw_generate()) if i not in self._filtered_out_indices)
+
+    def _raw_generate(self):
+        # TODO include logic here to ommit filtered out indices
         self._init()
         yield self._spit()
         for i in range(reduce(lambda x, y: x*y, self._span_lens) - 1):

@@ -70,7 +70,7 @@ class ModelTrainer(object):
             if effects:
                 print 'Will fit on {} chunks and train with tau trajectories for regs [{}]'.format(len(all_iter_chunks), ', '.join((_[0] for _ in trajectories_data)))
                 from tqdm import tqdm
-                gener = tqdm(all_iter_chunks, unit='fit-operation')
+                gener = tqdm(all_iter_chunks, total=len(all_iter_chunks), unit='fit-operation')
             for chunk in gener:
                 topic_model.set_parameters(specs.to_taus_slice(iter_sum))
                 topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=chunk.span)

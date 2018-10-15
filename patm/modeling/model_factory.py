@@ -43,7 +43,6 @@ class ModelFactory(object):
 
     def construct_model(self, label, nb_topics, nb_collection_passes, nb_document_passes, background_topics_pct, modality_weights, scores, regularizers, reg_settings=None):
         """
-
         :param str label:
         :param int nb_topics:
         :param int nb_collection_passes:
@@ -52,7 +51,7 @@ class ModelFactory(object):
         :param dict modality_weights: IDEOLOGY_CLASS_NAME and/or DEFAULT_CLASS_NAME as keys
         :param dict scores:
         :param dict regularizers:
-        :param: dict reg_settings:
+        :param dict reg_settings:
         :return:
         :rtype: patm.modeling.topic_model.TopicModel
         """
@@ -135,7 +134,6 @@ class ModelFactory(object):
         Sets '\@default_class' weight to 1 if key not found.\n
         Sets '\@ideology_class' weight to 0 if key not found.\n
         """
-        print 'SETTER', modality_weights
         assert all(map(lambda x: x in (DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME), modality_weights.keys()))
         weight = modality_weights.get(DEFAULT_CLASS_NAME, 0)
         if weight == 0:
@@ -147,7 +145,6 @@ class ModelFactory(object):
             self._modality_weights[IDEOLOGY_CLASS_NAME] = weight
 
     def _parse_modalities(self, information_dict):
-        print 'PARSE', information_dict
         return {DEFAULT_CLASS_NAME: float(information_dict.get('default-class-weight', 1)), IDEOLOGY_CLASS_NAME: float(information_dict.get('ideology-class-weight', 0))}
 
 

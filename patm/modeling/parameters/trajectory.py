@@ -241,10 +241,7 @@ class IterSingle(IterChunk):
 
 
 class TrajectoryBuilder(object):
-    """
-    This class acts as a ParameterTrajectory factory.
-    """
-    interpolation_kind2interpolant = {'linear': {'preprocess': lambda x: (x[2], x[0], x[1]),
+    _interpolation_kind2interpolant = {'linear': {'preprocess': lambda x: (x[2], x[0], x[1]),
                                                  'process': lambda x: list(np.interp(*x))},
                                       'quadratic': {'preprocess': lambda x: (np.polyfit(x[0], x[1], 2), x[2]),
                                                     'process': lambda x: np.polyval(*x)},
@@ -292,8 +289,8 @@ class TrajectoryBuilder(object):
     def _interpolate(self, prev_iter, iter_inds, start_y, end_y, interpolation='linear'):
         xs = [prev_iter, iter_inds[-1]]
         ys = [start_y, end_y]
-        prods = self.interpolation_kind2interpolant[interpolation]['preprocess']((xs, ys, iter_inds))
-        vals = self.interpolation_kind2interpolant[interpolation]['process'](prods)
+        prods = self._interpolation_kind2interpolant[interpolation]['preprocess']((xs, ys, iter_inds))
+        vals = self._interpolation_kind2interpolant[interpolation]['process'](prods)
         self._values.extend(vals)
 
     def begin_trajectory(self, name):
@@ -318,9 +315,6 @@ def get_fit_iteration_chunks(parameter_trajectories):
     :rtype: IterationChunks
     """
     return reduce(lambda x, y: x.common_chunks(y), map(lambda x: x.steady_chunks, parameter_trajectories))
-
-
-trajectory_builder = TrajectoryBuilder()
 
 
 def _test(builder):
@@ -382,5 +376,5 @@ def _test(builder):
     print "All tests passed"
 
 if __name__ == '__main__':
-
-    _test(trajectory_builder)
+    tr_builder = TrajectoryBuilder()
+    _test(tr_builder)
