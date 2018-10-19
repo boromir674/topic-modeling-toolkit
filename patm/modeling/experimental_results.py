@@ -1,15 +1,67 @@
 import sys
+import json
 from abc import ABCMeta, abstractproperty
 
+
+tracked_entities = {
+    'perplexity': ['value', 'class_id_info'],
+    'sparsity-phi': ['value'],
+    'sparsity-theta': ['value'],
+    'topic-kernel': ['average_coherence', 'average_contrast', 'average_purity', 'average_size', 'coherence', 'contrast', 'purity', 'size'],  # tokens are not tracked over time; they will be saved only for the lastest state of the inferred topics
+    'top-tokens': ['average_coherence', 'coherence'],  # tokens are not tracked over time; they will be saved only for the lastest state of the inferred topics
+    'background-tokens-ratio': ['value'] # tokens are not tracked over time; they will be saved only for the lastest state of the inferred topics
+}
+
+
 class ExperimentalResults(object):
-    def __init__(self, root_dir, model_label, nb_topics, document_passes, background_topics, domain_topics, modalities, tracked):
+    def __init__(self, root_dir, model_label, nb_topics, document_passes, background_topics, domain_topics, modalities, tracked, kernel_tokens, top_tokens_defs, background_tokens):
         """
-        :param patm.modeling.experiment.Experiment experiment:
+        Examples:
+            4 elements: kernel_data = [[1,2], [3,4], [5,6], {'t01': {'coherence': [1,2,3],
+                                                                 'contrast': [6, 3],
+                                                                 'purity': [1, 8]},
+                                                         't00': {'coherence': [10,2,3],
+                                                                 'contrast': [67, 36],
+                                                                 'purity': [12, 89]},
+                                                         't02': {'coherence': [10,11],
+                                                                 'contrast': [656, 32],
+                                                                 'purity': [17, 856]}
+                                                         }]
+
+            top10_data = [[1, 2], {'t01': [1,2,3], 't00': [10,2,3], 't02': [10,11]}]
+            tau_trajectories_data = {'phi': [1,2,3,4,5], 'theta': [5,6,7,8,9]} \n
+            tracked = {'perplexity': [1, 2, 3], 'kernel': kernel_data, 'top10': top10_data, 'tau_trajectories': tau_trajectories_data}
+
+        :param str root_dir:
+        :param str model_label:
+        :param int nb_topics:
+        :param int document_passes:
+        :param list of str background_topics:
+        :param list of str domain_topics:
+        :param dict modalities: class_name => weight , ie {'@default_class': 1.0, '@ideology_class': 5.0}
+        :param tracked: ie kernel_data = [[1,2], [3,4], [5,6], {'t01': {'coherence': [1,2,3],\n
+                                                                 'contrast': [6, 3],\n
+                                                                 'purity': [1, 8]},\n
+                                                         't00': {'coherence': [10,2,3],\n
+                                                                 'contrast': [67, 36],\n
+                                                                 'purity': [12, 89]},\n
+                                                         't02': {'coherence': [10,11],\n
+                                                                 'contrast': [656, 32],\n
+                                                                 'purity': [17, 856]}\n
+                                                         }]\n
+
+            top10_data = [[1, 2], {'t01': [1,2,3], 't00': [10,2,3], 't02': [10,11]}]
+            tau_trajectories_data = {'phi': [1,2,3,4,5], 'theta': [5,6,7,8,9]}
+        :param dict kernel_tokens: topic_name => list_of_tokens
+        :param dict top_tokens_defs:
+        :param list background_tokens: list of background tokens, p(t) and p(t | w) distributions \mathrm{KL}(p(t) | | p(t | w)) (or vice versa)
+            for each token and counts the part of tokens that have this value greater than a given (non-negative) delta_threshold.
         """
         # self._steady_container = SteadyTrackedItems(sum(experiment.collection_passes), experiment.topic_model.label,
         #                                             experiment.topic_model.nb_topics, experiment.topic_model.document_passes,
         #                                             experiment.topic_model.background_topics, experiment.topic_model.domain_topics,
         #                                             experiment.topic_model.modalities_dictionary)
+        assert len(background_topics) + len(domain_topics) == nb_topics
         self._steady_container = SteadyTrackedItems(root_dir, model_label, nb_topics, document_passes, background_topics, domain_topics, modalities)
         self._tracker = ValueTracker(tracked)
 
@@ -21,6 +73,45 @@ class ExperimentalResults(object):
     def tracked(self):
         return self._tracker
 
+    def to_json(self):
+        json.dumps(self)
+
+    @staticmethod
+    def from_experiment(experiment):
+        # {'perplexity': [1, 2, 3], 'kernel': kernel_data, 'top10': top10_data, 'tau_trajectories': tau_trajectories_data}
+        # trackables = {experiment.topic_model.evaluator_definitions[experiment.topic_model.evaluator_names.index(evaluator_name)]:
+        #                        {inner_k: [] for inner_k in experiment.topic_model.get_evaluator(evaluator_name).attributes} for evaluator_name in experiment.topic_model.evaluator_names}
+        # for evaluator_name, evaluator_definition in zip(experiment.topic_model.evaluator_names, experiment.topic_model.evaluator_definitions):
+        #     current_eval = experiment.topic_model.get_evaluator(evaluator_name).evaluate(experiment.topic_model.artm_model)
+        #     for eval_reportable, value in current_eval.items():
+        #         trackables[evaluator_definition][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values
+        trackables = {}
+        for k, v in experiment.trackables.items():
+            tracked_type = _strip_paramters(k)
+            if tracked_type in tracked_entities:
+                trackables[k] = experiment.trackables[k]
+
+
+        return ExperimentalResults(experiment.current_root_dir,
+                                   experiment.topic_model.label,
+                                   experiment.topic_model.nb_topics,
+                                   experiment.topic_model.document_passes,
+                                   experiment.topic_model.background_topics,
+                                   experiment.topic_model.domain_topics,
+                                   experiment.topic_model.modalities_dictionary,
+                                   trackables)
+
+    @staticmethod
+    def from_json(file_path):
+        return json.loads(file_path)
+
+class ExperimentalResultsFactory(object):
+    def __init__(self):
+        pass
+
+    def create_from_experiment(self):
+        pass
+
 
 class AbstractValueTracker(object):
     __metaclass__ = ABCMeta
@@ -28,21 +119,22 @@ class AbstractValueTracker(object):
         self._flat = {}
         self._groups = {}
         self._metrics = {}
-        for k, v in tracked.items():  # assumes maximum depth is 2
-            if k == 'kernel':
-                self._groups[k] = TrackedKernel(*v)
-            elif k in ('top10', 'top100'):
-                self._groups[k] = TrackedTopTokens(*v)
-            elif k == 'tau_trajectories':
-                self._groups[k] = TrackedTrajectories(v)
+        for evaluator_definition, v in tracked.items():  # assumes maximum depth is 2
+            score_type = _strip_paramters(evaluator_definition)
+            if score_type == 'topic-kernel':
+                self._groups[evaluator_definition] = TrackedKernel(*v)
+            elif score_type == 'top-tokens':
+                self._groups[evaluator_definition] = TrackedTopTokens(*v)
+            elif score_type == 'tau_trajectories':
+                self._groups[score_type] = TrackedTrajectories(v)
             # if type(v) == dict:
             #     tracked_entities = []
             #     for ink, inv in v.items():
             #         tracked_entities.append(TrackedEntity(ink.replace('-', '_'), inv))
-            #     self._metrics[k.replace('-', '_')] = TrackedGroup(tracked_entities)
+            #     self._metrics[score_type.replace('-', '_')] = TrackedGroup(tracked_entities)
             else:
-                self._flat[k.replace('-', '_')] = TrackedEntity(k, v)
-                # self._metrics[k.replace('-', '_')] = TrackedEntity(k, v)
+                self._flat[score_type.replace('-', '_')] = TrackedEntity(score_type, v)
+                # self._metrics[score_type.replace('-', '_')] = TrackedEntity(score_type, v)
 
     def _query_metrics(self):
         _ = sys._getframe(1).f_code.co_name
@@ -85,6 +177,17 @@ class AbstractValueTracker(object):
         raise NotImplemented
 
 
+def _strip_parameters(score_definition):
+    tokens = []
+    for el in score_definition.split('-'):
+        try:
+            _ = float(el)
+        except ValueError:
+            if el[0] != '@':
+                tokens.append(el)
+    return '-'.join(tokens)
+
+
 class ValueTracker(AbstractValueTracker):
 
     def __init__(self, tracked):
@@ -125,20 +228,6 @@ class ValueTracker(AbstractValueTracker):
     @property
     def tau_trajectories(self):
         return super(ValueTracker, self)._query_metrics()
-
-# class TrackedGroup(object):
-#     def __init__(self, tracked_entities_list):
-#         self._tracked_entities = tracked_entities_list
-#     def __getattr__(self, item):
-#         for tracked_entity in self._tracked_entities:
-#             if item == tracked_entity.name:
-#                 return tracked_entity
-#         raise AttributeError
-#     def __iter__(self):
-#         for tr_ent in self._tracked_entities:
-#             yield tr_ent.name
-#     def __dir__(self):
-#         return map(lambda x: x.name, self._tracked_entities)
 
 
 class KernelSubGroup(object):

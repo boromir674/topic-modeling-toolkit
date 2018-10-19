@@ -148,7 +148,7 @@ class BackgroundTokensRatioEvaluator(ArtmEvaluator):
         """
         assert 0 <= delta_threshold
         super(BackgroundTokensRatioEvaluator, self)._set_settings({'delta_threshold': delta_threshold})
-        super(BackgroundTokensRatioEvaluator, self).__init__(name, BackgroundTokensRatioScore(name=name, class_id=DEFAULT_CLASS_NAME, delta_threshold=delta_threshold), self.attributes)
+        super(BackgroundTokensRatioEvaluator, self).__init__(name, BackgroundTokensRatioScore(name=name, class_id=DEFAULT_CLASS_NAME, delta_threshold=delta_threshold, save_tokens=True), self.attributes)
         self._delta_threshold = delta_threshold
 
     @property

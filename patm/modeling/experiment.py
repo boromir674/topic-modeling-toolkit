@@ -1,6 +1,7 @@
 from .model_factory import get_model_factory
 from .persistence import ResultsWL, ModelWL
 from patm.modeling.regularization.regularizers import regularizer_type2dynamic_parameters as dyn_coefs
+from patm.modeling.experimental_results import ExperimentalResults
 
 
 class Experiment:
@@ -32,7 +33,8 @@ class Experiment:
 
     def init_empty_trackables(self, model):
         self._topic_model = model
-        self.trackables = {self._topic_model.evaluator_definitions[self._topic_model.evaluator_names.index(evaluator_name)]: {inner_k: [] for inner_k in self._topic_model.get_evaluator(evaluator_name).attributes} for evaluator_name in self._topic_model.evaluator_names}
+        self.trackables = {self._topic_model.evaluator_definitions[self._topic_model.evaluator_names.index(evaluator_name)]:
+                               {inner_k: [] for inner_k in self._topic_model.get_evaluator(evaluator_name).attributes} for evaluator_name in self._topic_model.evaluator_names}
         self.collection_passes = []
         self.reg_params = {reg_type: {attr: [] for attr in dyn_coefs} for reg_type in model.regularizer_types}
         self.model_params = {'nb_topics': [], 'document_passes': []}
@@ -90,7 +92,8 @@ class Experiment:
 
     def get_results(self):
 
-
+        # res = ExperimentalResults(self._dir, self._topic_model.label, self._topic_model.nb_topics, self._topic_model.document_passes, self.topic_model.background_topics, self.topic_model.domain_topics, self.topic_model.modalities_dictionary, self.trackables)
+        res = ExperimentalResults(self)
         return {
             'collection_passes': self.collection_passes,  # eg [20, 20, 40, 100]
             'trackables': self.trackables,  # TODO try list of tuples [('perplexity'), dict), ..]

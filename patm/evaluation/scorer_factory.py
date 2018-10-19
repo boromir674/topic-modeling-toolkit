@@ -14,7 +14,8 @@ class EvaluationFactory(object):
         """
         self._abbr2class = abbreviation2class_name
         if not abbreviation2class_name:
-            self._abbr2class = {k: v for k, v in map(lambda x: (x[0] + ''.join(map(lambda y: y[0], x[1:].split('_'))), x), self.class_names)}
+            self._abbr2class = {k: v for k, v in map(lambda x: tuple(['{}{}'.format(x[0], ''.join(map(lambda y: y[0], x[1:].split('_')))),
+                                                                      x]), self.class_names)}
         self._dict = dictionary
         self.cooc_df_dict = cooc_dict['df']['obj']
         self._domain_topics = []
