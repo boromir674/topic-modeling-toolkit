@@ -5,7 +5,7 @@ import warnings
 from tqdm import tqdm
 from collections import OrderedDict, Counter
 
-from parameter_building import RegularizersActivationDefinitionBuilder
+from building import RegularizersActivationDefinitionBuilder
 
 from patm import trainer_factory, Experiment
 from patm.modeling.parameters import ParameterGrid
@@ -97,7 +97,7 @@ class Tuner(object):
 
     def tune(self, parameters_mixture, prefix_label='', append_explorables='all', append_static=True, static_regularizers_specs=None, force_overwrite=False, verbose=False):
         """
-        :param patm.tuning.parameter_building.TunerDefinition parameters_mixture:
+        :param patm.tuning.building.TunerDefinition parameters_mixture:
         :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix used for the naming files (models, results) saved on disk
         :param list or str append_explorables: if list is given will use these exact parameters' names as part of unique names used for files saved on disk. If 'all' is given then all possible parameter names will be used
         :param bool append_static: indicates whether to use the values of the parameters remaining constant during space exploration, as part of the unique names used for files saved on disk
@@ -120,7 +120,7 @@ class Tuner(object):
 
     def _initialize0(self, tuner_definition, verbose=False):
         """
-        :param patm.tuning.parameter_building.TunerDefinition tuner_definition:
+        :param patm.tuning.building.TunerDefinition tuner_definition:
         """
         print 'Initializing Tuner..'
         self._static_params_hash = tuner_definition.static_parameters
@@ -320,7 +320,7 @@ class ParameterFoundInStaticAndExplorablesException(Exception):
 
 if __name__ == '__main__':
     tuner = Tuner('gav')
-    from patm.tuning.parameter_building import tuner_definition_builder as tdb
+    from patm.tuning.building import tuner_definition_builder as tdb
 
     d2 = tdb.initialize().nb_topics([20]).collection_passes(100).document_passes(1).background_topics_pct(
         0.1).ideology_class_weight([5]). \

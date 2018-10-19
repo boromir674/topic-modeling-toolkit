@@ -68,12 +68,12 @@ if __name__ == '__main__':
     args = get_cli_arguments()
 
     tuner = Tuner(args.dataset)
-    from patm.tuning.parameter_building import tuner_definition_builder as tdb
+    from patm.tuning.building import tuner_definition_builder as tdb
 
-    tuner_definition = tdb.initialize().nb_topics([20]).collection_passes([30]).document_passes([1, 5, 20]).background_topics_pct(0.1).\
+    tuner_definition = tdb.initialize().nb_topics([20]).collection_passes([30]).document_passes([1]).background_topics_pct(0.1).\
         ideology_class_weight([5]). \
-        sparse_phi().deactivate(4).kind(['quadratic']).start([-1]).end([-20]). \
-        sparse_theta().deactivate(4).kind('linear').start([-5]).end([-10]).build()
+        sparse_phi().deactivate(4).kind(['quadratic']).start([-1, -5]).end([-10, -20]). \
+        sparse_theta().deactivate(4).kind('linear').start([-1, -5]).end([-10, -20]).build()
 
     tuner.activate_regularizers.smoothing.phi.theta.sparsing.phi.theta.done()
 

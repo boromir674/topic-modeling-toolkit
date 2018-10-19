@@ -35,7 +35,7 @@ class ParameterTrajectory(object):
 
     def group_iterations(self):
         """
-        This [0, 0, 0, 0, 0, 1, 1, 0.8, 0.6, 0.4, 0.2] leads to this [5, 2, 1, 1, 1, 1].\n
+        This [0, 0, 0, 0, 1, 1, 0.8, 0.6, 0.4, 0.2, 0.2, 0.1] leads to this [4, 2, 1, 1, 1, 2, 1].\n
         :return: steady_chunks of fit calls that have to be made to satisfy the dynamic change of the parameter value
         :rtype: list
         """

@@ -1,5 +1,6 @@
 from .model_factory import get_model_factory
 from .persistence import ResultsWL, ModelWL
+from patm.modeling.regularization.regularizers import regularizer_type2dynamic_parameters as dyn_coefs
 
 
 class Experiment:
@@ -25,7 +26,6 @@ class Experiment:
         self._topic_model = None
         self.collection_passes = []
         self.trackables = None
-        self.reg_params = []
         self.model_params = {'nb_topics': [], 'document_passes': []}
         self.train_results_handler = ResultsWL(self, None)
         self.phi_matrix_handler = ModelWL(self, None)
@@ -34,7 +34,7 @@ class Experiment:
         self._topic_model = model
         self.trackables = {self._topic_model.evaluator_definitions[self._topic_model.evaluator_names.index(evaluator_name)]: {inner_k: [] for inner_k in self._topic_model.get_evaluator(evaluator_name).attributes} for evaluator_name in self._topic_model.evaluator_names}
         self.collection_passes = []
-        self.reg_params = []
+        self.reg_params = {reg_type: {attr: [] for attr in dyn_coefs} for reg_type in model.regularizer_types}
         self.model_params = {'nb_topics': [], 'document_passes': []}
 
     @property
@@ -43,6 +43,9 @@ class Experiment:
 
     @property
     def topic_model(self):
+        """
+        :rtype: patm.modeling.topic_model.TopicModel
+        """
         return self._topic_model
 
     @property
@@ -54,33 +57,40 @@ class Experiment:
 
     # TODO refactor this; remove dubious exceptions
     def update(self, topic_model, span):
-        self.collection_passes.append(span) # iterations
-        self.model_params['nb_topics'].append(tuple((span, topic_model.nb_topics)))
-        self.model_params['document_passes'].append(tuple((span, topic_model.document_passes)))
-        self.reg_params.append(tuple((span, topic_model.get_regs_param_dict())))
+        self.collection_passes.append(span) # iterations performed on the train set for the current 'steady' chunk
+        # self.model_params['nb_topics'].append(tuple((span, topic_model.nb_topics)))
+        # self.model_params['document_passes'].append(tuple((span, topic_model.document_passes)))
+        # r = topic_model.get_regs_param_dict()
+        for k, v in topic_model.get_regs_param_dict().items():
+            for ik, iv in (_ for _ in v.items() if _[1]):
+                self.reg_params[k][ik].extend([iv]*span)
+        # append(tuple((span, topic_model.get_regs_param_dict())))
         for evaluator_name, evaluator_definition in zip(topic_model.evaluator_names, topic_model.evaluator_definitions):
             current_eval = topic_model.get_evaluator(evaluator_name).evaluate(topic_model.artm_model)
             for eval_reportable, value in current_eval.items():
-                try:
-                    if type(value) == list:
-                        self.trackables[evaluator_definition][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values
-                    else:
-                        raise RuntimeError
-                except RuntimeError as e:
-                    print e, '\n', type(value)
-                    try:
-                        print len(value)
-                        raise e
-                    except TypeError as er:
-                        print 'does not have __len__ implemented'
-                        print er
-                    raise EvaluationOutputLoadingException("Could not assign the value of type '{}' with key '{}' as an item in self.trackables'".format(type(value), eval_reportable))
+                self.trackables[evaluator_definition][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values
+                # try:
+                #     if type(value) == list:
+                #         self.trackables[evaluator_definition][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values
+                #     else:
+                #         raise RuntimeError
+                # except RuntimeError as e:
+                #     print e, '\n', type(value)
+                #     try:
+                #         print len(value)
+                #         raise e
+                #     except TypeError as er:
+                #         print 'does not have __len__ implemented'
+                #         print er
+                #     raise EvaluationOutputLoadingException("Could not assign the value of type '{}' with key '{}' as an item in self.trackables'".format(type(value), eval_reportable))
 
     @property
     def current_root_dir(self):
         return self._dir
 
     def get_results(self):
+
+
         return {
             'collection_passes': self.collection_passes,  # eg [20, 20, 40, 100]
             'trackables': self.trackables,  # TODO try list of tuples [('perplexity'), dict), ..]
@@ -134,15 +144,6 @@ class Experiment:
         self._topic_model = self.phi_matrix_handler.load(model_label, results)
         return self._topic_model
 
-    # def set_parameters(self, expressions_list):
-    #     """
-    #     Allows setting new values to already existing
-    #     :param expressions_list:
-    #     :return:
-    #     """
-    #     components_lists = [expression.split('.') for expression in expressions_list]
-    #     for reg_name, param, value in components_lists:
-    #         self._topic_model.set_parameter(reg_name, param, value)
 
 class EvaluationOutputLoadingException(Exception):
     def __init__(self, msg):

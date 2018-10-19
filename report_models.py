@@ -16,6 +16,7 @@ results_root = 'results'
 models_root = 'models'
 collections_dir = '/data/thesis/data/collections'
 
+
 def load_results(results_path):
     with open(results_path, 'r') as results_file:
         results = results_file.read()
@@ -41,7 +42,9 @@ def load_reportables(results_path):
             }
     for i, v in _.items():
         if not v:
-            print 'V', i, v
+            print 'nV', i, v
+        else:
+            print 'yV', i, v
     assert all(map(lambda x: _[x] not in (None, ''), _.keys()))
     return _
 

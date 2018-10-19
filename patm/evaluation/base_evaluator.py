@@ -1,7 +1,7 @@
-from artm.scores import *
-from abc import ABCMeta, abstractmethod
-from patm.definitions import DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 import warnings
+from abc import ABCMeta, abstractmethod
+from artm.scores import *
+from patm.definitions import DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 
 
 class MetaEvaluator:
@@ -131,6 +131,7 @@ class TopTokensEvaluator(ArtmEvaluator):
     @property
     def label(self):
         return 'tt' + str(self._top_tokens)
+
 
 class BackgroundTokensRatioEvaluator(ArtmEvaluator):
     """

@@ -35,6 +35,11 @@ regularizer2parameters = {
     # the reasonable parameters to consider experiment with setting to different values and to also change between training cycles
 }
 
+supported_dynamic_parameters = ('tau', 'gamma')
+
+regularizer_type2dynamic_parameters = dict(zip(regularizer2parameters.keys(), [supported_dynamic_parameters]*len(regularizer2parameters)))
+
+
 parameter_name2encoder = {
     'tau': str, # the coefficient of regularization for this regularizer
     'start': str, # the number of iterations to initially keep the regularizer turned off
