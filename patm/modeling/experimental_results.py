@@ -357,6 +357,9 @@ class SteadyTrackedItems(object):
         self._dm_topics = domain_topics
         self._modalities = modalities
     @property
+    def dir(self):
+        return self._root_dir
+    @property
     def model_label(self):
         return self._model_label
 
@@ -412,31 +415,85 @@ def test():
     assert tracked_kernel.t01.coherence.last == 3
 
     tracked = {'perplexity': [1, 2, 3], 'kernel': kernel_data, 'top10': top10_data, 'tau_trajectories': tau_trajectories_data}
-    exp = ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked)
-
-    assert exp.scalars.nb_topics == 5
-    assert exp.scalars.document_passes == 2
-
-    assert exp.tracked.perplexity.last == 3
-    assert exp.tracked.perplexity.all == [1, 2, 3]
-    assert exp.tracked.kernel.average.purity.all == [5, 6]
-    assert exp.tracked.kernel.t02.coherence.all == [10, 11]
-    assert exp.tracked.kernel.t02.purity.all == [17, 856]
-    assert exp.tracked.kernel.t02.contrast.last == 32
-    assert exp.tracked.kernel.average.coherence.all == [1, 2]
-    assert exp.tracked.top10.t01.all == [1, 2, 3]
-    assert exp.tracked.top10.t00.last == 3
-    assert exp.tracked.top10.average_coherence.all == [1, 2]
-
-    assert exp.tracked.tau_trajectories.phi.all == [1,2,3,4,5]
-    assert exp.tracked.tau_trajectories.theta.last == 9
-
-    try:
-        _ = exp.tracked.tau_trajectories.gav.last
-    except AttributeError as e:
-        pass
+    # exp = ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked)
+    #
+    # assert exp.scalars.nb_topics == 5
+    # assert exp.scalars.document_passes == 2
+    #
+    # assert exp.tracked.perplexity.last == 3
+    # assert exp.tracked.perplexity.all == [1, 2, 3]
+    # assert exp.tracked.kernel.average.purity.all == [5, 6]
+    # assert exp.tracked.kernel.t02.coherence.all == [10, 11]
+    # assert exp.tracked.kernel.t02.purity.all == [17, 856]
+    # assert exp.tracked.kernel.t02.contrast.last == 32
+    # assert exp.tracked.kernel.average.coherence.all == [1, 2]
+    # assert exp.tracked.top10.t01.all == [1, 2, 3]
+    # assert exp.tracked.top10.t00.last == 3
+    # assert exp.tracked.top10.average_coherence.all == [1, 2]
+    #
+    # assert exp.tracked.tau_trajectories.phi.all == [1,2,3,4,5]
+    # assert exp.tracked.tau_trajectories.theta.last == 9
+    #
+    # try:
+    #     _ = exp.tracked.tau_trajectories.gav.last
+    # except AttributeError as e:
+    #     pass
 
     print 'ALL ASSERTIONS SUCCEEDED'
+
+
+import json, datetime
+
+class RoundTripEncoder(json.JSONEncoder):
+    DATE_FORMAT = "%Y-%m-%d"
+    TIME_FORMAT = "%H:%M:%S"
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            return {
+                "_type": "datetime",
+                "value": obj.strftime("%s %s" % (
+                    self.DATE_FORMAT, self.TIME_FORMAT
+                ))
+            }
+        if isinstance(obj, SteadyTrackedItems):
+            return {'dir': obj.dir,
+                    'label': obj.model_label,
+                    'nb_topics': obj.nb_topics,
+                    'document_passes': obj.document_passes,
+                    'background_topics': obj.background_topics,
+                    'domain_topics': obj.domain_topics,
+                    'modalities': obj.modalities}
+        return super(RoundTripEncoder, self).default(obj)
+
+data = {
+    "name": "Silent Bob",
+    "dt": datetime.datetime(2013, 11, 11, 10, 40, 32),
+    'names': ['alpha', 'beta'],
+    'steady': SteadyTrackedItems('gav-dir', 'alpha_model', 20, 1, ['t00, t01'], ['t02', 't03', 't04'], {'@default_class': 1, '@ideology_class': 5}),
+}
+
+s = json.dumps(data, cls=RoundTripEncoder, indent=2)
+print 'S:\n', s
+
+import json, datetime
+from dateutil import parser
+
+class RoundTripDecoder(json.JSONDecoder):
+    def __init__(self, *args, **kwargs):
+        json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
+
+    def object_hook(self, obj):
+        if '_type' not in obj:
+            return obj
+        type = obj['_type']
+        if type == 'datetime':
+            return parser.parse(obj['value'])
+        return obj
+
+res = json.loads(s, cls=RoundTripDecoder)
+print 'R:\n', res
+
+
 
 if __name__ == '__main__':
     test()
