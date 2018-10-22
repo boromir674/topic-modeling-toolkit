@@ -3,6 +3,10 @@ import json
 from abc import ABCMeta, abstractproperty
 
 
+import json, datetime
+from dateutil import parser
+
+
 tracked_entities = {
     'perplexity': ['value', 'class_id_info'],
     'sparsity-phi': ['value'],
@@ -14,7 +18,7 @@ tracked_entities = {
 
 
 class ExperimentalResults(object):
-    def __init__(self, root_dir, model_label, nb_topics, document_passes, background_topics, domain_topics, modalities, tracked, kernel_tokens, top_tokens_defs, background_tokens):
+    def __init__(self, root_dir, model_label, nb_topics, document_passes, background_topics, domain_topics, modalities, tracked):  #, kernel_tokens, top_tokens_defs, background_tokens):
         """
         Examples:
             4 elements: kernel_data = [[1,2], [3,4], [5,6], {'t01': {'coherence': [1,2,3],
@@ -118,9 +122,10 @@ class AbstractValueTracker(object):
     def __init__(self, tracked):
         self._flat = {}
         self._groups = {}
-        self._metrics = {}
         for evaluator_definition, v in tracked.items():  # assumes maximum depth is 2
-            score_type = _strip_paramters(evaluator_definition)
+            print 'ED:', evaluator_definition
+            score_type = _strip_parameters(evaluator_definition)
+            print 'ST', score_type
             if score_type == 'topic-kernel':
                 self._groups[evaluator_definition] = TrackedKernel(*v)
             elif score_type == 'top-tokens':
@@ -136,13 +141,28 @@ class AbstractValueTracker(object):
                 self._flat[score_type.replace('-', '_')] = TrackedEntity(score_type, v)
                 # self._metrics[score_type.replace('-', '_')] = TrackedEntity(score_type, v)
 
+        print 'COMPLEX', sorted(self._groups.keys())
+        print 'FLAT', sorted(self._flat.keys())
+
+    @property
+    def top_tokens_cardinalities(self):
+        return sorted(int(_.split('-')[-1]) for _ in self._groups.keys() if _.startswith('top-tokens'))
+
+    @property
+    def kernel_thresholds(self):
+        return sorted(float(_.split('-')[-1]) for _ in self._groups.keys() if _.startswith('topic-kernel'))
+
+    @property
+    def tracked_entity_names(self):
+        return sorted(self._flat.keys() + self._groups.keys())
+
     def _query_metrics(self):
         _ = sys._getframe(1).f_code.co_name
         if _ in self._flat:
             return self._flat[_]
         if _ in self._groups:
             return self._groups[_]
-        raise AttributeError
+        return None
 
     @abstractproperty
     def perplexity(self):
@@ -196,6 +216,11 @@ class ValueTracker(AbstractValueTracker):
 
     def __iter__(self):
         return iter(self._metrics.keys())
+
+    def __getattr__(self, item):
+        if item.startswith('kernel'):
+            return self._groups['topic-kernel-0.' + item[6:]]
+        return None
 
     @property
     def top100(self):
@@ -254,7 +279,21 @@ class SingleTopicGroup(KernelSubGroup):
         super(SingleTopicGroup, self).__init__(coherence_list, contrast_list, purity_list)
 
 
-class TrackedKernel(object):
+class TrackedTopics(object):
+    def __init__(self, topics_data):
+        self._data = topics_data
+
+    @property
+    def topics(self):
+        return sorted(self._data.keys())
+
+    def __getattr__(self, item):
+        if item in self._data:
+            return self._data[item]
+        raise AttributeError("Topic '{}' is not registered as tracked".format(item))
+
+
+class TrackedKernel(TrackedTopics):
     def __init__(self, avg_coherence_list, avg_contrast_list, avg_purity_list, topic_name2elements_hash):
         """
         :param list avg_coherence:
@@ -265,41 +304,48 @@ class TrackedKernel(object):
             'top_01': {'coherence': [0,3], 'contrast': [5,8], 'purity': [6,3]}}
         """
         self._avgs_group = KernelSubGroup(avg_coherence_list, avg_contrast_list, avg_purity_list)
-        self._topics_groups = map(lambda x: SingleTopicGroup(x[0], x[1]['coherence'], x[1]['contrast'], x[1]['purity']), sorted(topic_name2elements_hash.items(), key=lambda x: x[0]))
+        super(TrackedKernel, self).__init__({key: SingleTopicGroup(key, val['coherence'], val['contrast'], val['purity']) for key, val in topic_name2elements_hash.items()})
+        # self._topics_groups = map(lambda x: SingleTopicGroup(x[0], x[1]['coherence'], x[1]['contrast'], x[1]['purity']), sorted(topic_name2elements_hash.items(), key=lambda x: x[0]))
+        # d = {key: SingleTopicGroup(key, val['coherence'], val['contrast'], val['purity']) for key, val in topic_name2elements_hash.items()}
         # super(TrackedKernel, self).__init__([TrackedCoherence(avg_coherences), TrackedContrast(avg_contrasts), TrackedPurity(avg_purities)])
 
     @property
     def average(self):
         return self._avgs_group
 
-    def __getattr__(self, item):
-        for topic_group in self._topics_groups:
-            if topic_group.name == item:
-                return topic_group
-        raise AttributeError("Topic named as '{}' is not registered in the kernel tracked entities".format(item))
+    # def __getattr__(self, item):
+    #     for topic_group in self._topics_groups:
+    #         if topic_group.name == item:
+    #             return topic_group
+    #     raise AttributeError("Topic named as '{}' is not registered in the kernel tracked entities".format(item))
 
-class TrackedTopTokens(object):
+class TrackedTopTokens(TrackedTopics):
     def __init__(self, avg_coherence, topic_name2coherence):
         """
         :param list avg_coherence:
         :param dict topic_name2coherence: contains coherence per topic
         """
         self._avg_coh = TrackedEntity('average_coherence', avg_coherence)
-        self._topics_coh = map(lambda x: TrackedEntity(x[0], x[1]), sorted(topic_name2coherence.items(), key=lambda x: x[0]))
+        # self._topics_coh = map(lambda x: TrackedEntity(x[0], x[1]), topic_name2coherence.items())
+        super(TrackedTopTokens, self).__init__({key: TrackedEntity(key, val) for key, val in topic_name2coherence.items()})
 
     @property
     def average_coherence(self):
         return self._avg_coh
 
-    def __getattr__(self, item):
-        for tracked_entity in self._topics_coh:
-            if tracked_entity.name == item:
-                return tracked_entity
-        raise AttributeError("Topic named as '{}' not found as registered".format(item))
+    # def __getattr__(self, item):
+    #     for tracked_entity in self._topics_coh:
+    #         if tracked_entity.name == item:
+    #             return tracked_entity
+    #     raise AttributeError("Topic named as '{}' not found as registered".format(item))
 
 class TrackedTrajectories(object):
     def __init__(self, matrix_name2elements_hash):
         self._trajs = {k: TrackedEntity(k, v) for k, v in matrix_name2elements_hash.items()}
+
+    @property
+    def trajectories(self):
+        return sorted(self._trajs.items(), key=lambda x: x[0])
 
     @property
     def phi(self):
@@ -392,6 +438,13 @@ def test():
     dm_t = ['t2', 't3', 't4']
     mods = {'dcn': 1, 'icn': 5}
 
+    tr_t = TrackedTopTokens([1,2,3], {'t00': [4,5,6], 't01': [4,5,5]})
+
+    assert tr_t.average_coherence.all == [1,2,3]
+    assert tr_t.average_coherence.last == 3
+    assert tr_t.t00.all == [4,5,6]
+    assert tr_t.t01.last == 5
+
     kernel_data = [[1,2], [3,4], [5,6], {'t01': {'coherence': [1,2,3],
                                                                  'contrast': [6, 3],
                                                                  'purity': [1, 8]},
@@ -403,7 +456,7 @@ def test():
                                                                  'purity': [17, 856]}
                                                          }]
 
-    top10_data = [[1, 2], {'t01': [1,2,3], 't00': [10,2,3], 't02': [10,11]}]
+    top10_data = [[1, 2], {'t01': [12,22,3], 't00': [10,2,3], 't02': [10,11]}]
     tau_trajectories_data = {'phi': [1,2,3,4,5], 'theta': [5,6,7,8,9]}
 
     tracked_kernel = TrackedKernel(*kernel_data)
@@ -414,40 +467,83 @@ def test():
     assert tracked_kernel.t02.purity.all == [17, 856]
     assert tracked_kernel.t01.coherence.last == 3
 
-    tracked = {'perplexity': [1, 2, 3], 'kernel': kernel_data, 'top10': top10_data, 'tau_trajectories': tau_trajectories_data}
-    # exp = ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked)
+    tracked = {'perplexity': [1, 2, 3], 'sparsity_phi': [-2, -4, -6], 'sparsity_theta': [2, 4, 6], 'topic-kernel-0.6': kernel_data, 'top-tokens-10': top10_data, 'tau-trajectories': tau_trajectories_data}
+    exp = ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked)
     #
-    # assert exp.scalars.nb_topics == 5
-    # assert exp.scalars.document_passes == 2
-    #
-    # assert exp.tracked.perplexity.last == 3
-    # assert exp.tracked.perplexity.all == [1, 2, 3]
-    # assert exp.tracked.kernel.average.purity.all == [5, 6]
-    # assert exp.tracked.kernel.t02.coherence.all == [10, 11]
-    # assert exp.tracked.kernel.t02.purity.all == [17, 856]
-    # assert exp.tracked.kernel.t02.contrast.last == 32
-    # assert exp.tracked.kernel.average.coherence.all == [1, 2]
-    # assert exp.tracked.top10.t01.all == [1, 2, 3]
-    # assert exp.tracked.top10.t00.last == 3
-    # assert exp.tracked.top10.average_coherence.all == [1, 2]
-    #
-    # assert exp.tracked.tau_trajectories.phi.all == [1,2,3,4,5]
-    # assert exp.tracked.tau_trajectories.theta.last == 9
-    #
-    # try:
-    #     _ = exp.tracked.tau_trajectories.gav.last
-    # except AttributeError as e:
-    #     pass
+    assert exp.scalars.nb_topics == 5
+    assert exp.scalars.document_passes == 2
+
+    assert exp.tracked.perplexity.last == 3
+    assert exp.tracked.perplexity.all == [1, 2, 3]
+    assert exp.tracked.sparsity_phi.all == [-2, -4, -6]
+    assert exp.tracked.sparsity_theta.last == 6
+    print type(exp.tracked.kernel6)
+    print dir(exp.tracked)
+    assert exp.tracked.kernel6.average.purity.all == [5, 6]
+    assert exp.tracked.kernel6.t02.coherence.all == [10, 11]
+    assert exp.tracked.kernel6.t02.purity.all == [17, 856]
+    assert exp.tracked.kernel6.t02.contrast.last == 32
+    assert exp.tracked.kernel6.average.coherence.all == [1, 2]
+    assert exp.tracked.top10.t01.all == [1, 2, 3]
+    assert exp.tracked.top10.t00.last == 3
+    assert exp.tracked.top10.average_coherence.all == [1, 2]
+
+    assert exp.tracked.tau_trajectories.phi.all == [1,2,3,4,5]
+    assert exp.tracked.tau_trajectories.theta.last == 9
+
+    try:
+        _ = exp.tracked.tau_trajectories.gav.last
+    except AttributeError as e:
+        pass
+
+
+    value_tracker = ValueTracker(tracked)
+    tracked_kernel = TrackedKernel(*kernel_data)
+
+    data = {
+        # "name": "Silent Bob",
+        # "dt": datetime.datetime(2013, 11, 11, 10, 40, 32),
+        # 'names': ['alpha', 'beta'],
+        # 'steady': SteadyTrackedItems('gav-dir', 'alpha_model', 20, 1, ['t00, t01'], ['t02', 't03', 't04'],
+        #                              {'@default_class': 1, '@ideology_class': 5}),
+        # 'ent1': TrackedPurity([0, 0, -1, -2, -3]),
+        # 'ent3': TrackedEntity('gg-ent', [0, 0, -1, -2, -3]),
+        # 'tracked_taus:': TrackedTrajectories({'phi': [0, 0, -1, -2, -3], 'theta': [0, -2, -4, -6, -8]}),
+        # 'top10': TrackedTopTokens([1, 2], {'t01': [1, 2, 3], 't00': [10, 2, 3], 't02': [10, 11]}),
+        # 'kernel': tracked_kernel,
+        # 'value_tracker': value_tracker,
+        'exp': exp
+    }
+
+    s = json.dumps(exp, cls=RoundTripEncoder, indent=2)
+    print 'S:\n', s
+
+    res = json.loads(s, cls=RoundTripDecoder)
+    print 'R: {}\n'.format(type(res)), res
+
+    assert res['scalars']['dir'] == 'dir'
+    assert res['scalars']['domain_topics'] == ['t2', 't3', 't4']
+    assert res['scalars']['modalities'] == {'dcn': 1, 'icn': 5}
+
+    assert res['tracked']['perplexity'] == [1, 2, 3]
+    assert res['tracked']['top-tokens']['10']['avg_coh'] == [1, 2]
+    assert res['tracked']['top-tokens']['10']['topics']['t01'] == [12, 22, 3]
+    assert res['tracked']['top-tokens']['10']['topics']['t02'] == [10, 11]
+    assert res['tracked']['topic-kernel']['0.6']['avg_pur'] == [5, 6]
+    assert res['tracked']['topic-kernel']['0.6']['topics']['t00']['purity'] == [12, 89]
+    assert res['tracked']['topic-kernel']['0.6']['topics']['t01']['contrast'] == [6, 3]
+    assert res['tracked']['topic-kernel']['0.6']['topics']['t02']['coherence'] == [10, 11]
+
 
     print 'ALL ASSERTIONS SUCCEEDED'
-
-
-import json, datetime
 
 class RoundTripEncoder(json.JSONEncoder):
     DATE_FORMAT = "%Y-%m-%d"
     TIME_FORMAT = "%H:%M:%S"
     def default(self, obj):
+        print 'OBJ TYPE', type(obj).__name__
+        if hasattr(obj, 'name'):
+            print 'N', obj.name
         if isinstance(obj, datetime.datetime):
             return {
                 "_type": "datetime",
@@ -463,20 +559,30 @@ class RoundTripEncoder(json.JSONEncoder):
                     'background_topics': obj.background_topics,
                     'domain_topics': obj.domain_topics,
                     'modalities': obj.modalities}
+        if isinstance(obj, TrackedEntity):
+            return obj.all
+        if isinstance(obj, TrackedTrajectories):
+            return {matrix_name: tau_elements for matrix_name, tau_elements in obj.trajectories}
+        if isinstance(obj, TrackedTopTokens):
+            return {'avg_coh': obj.average_coherence,
+                    'topics': {topic_name: obj.__getattr__(topic_name).all for topic_name in obj.topics}}
+        if isinstance(obj, TrackedKernel):
+            return {'avg_coh': obj.average.coherence,
+                    'avg_con': obj.average.contrast,
+                    'avg_pur': obj.average.purity,
+                    'topics': {topic_name: {'coherence': obj.__getattr__(topic_name).coherence.all,
+                                            'contrast': obj.__getattr__(topic_name).contrast.all,
+                                            'purity': obj.__getattr__(topic_name).purity.all} for topic_name in obj.topics}}
+        if isinstance(obj, ValueTracker):
+            _ = {name: tracked_entity for name, tracked_entity in obj._flat.items()}
+            _['top-tokens'] = {k: obj._groups['top-tokens-' + str(k)] for k in obj.top_tokens_cardinalities}
+            _['topic-kernel'] = {k: obj._groups['topic-kernel-' + str(k)] for k in obj.kernel_thresholds}
+            return _
+        if isinstance(obj, ExperimentalResults):
+            return {'scalars': obj.scalars,
+                    'tracked': obj.tracked}
         return super(RoundTripEncoder, self).default(obj)
 
-data = {
-    "name": "Silent Bob",
-    "dt": datetime.datetime(2013, 11, 11, 10, 40, 32),
-    'names': ['alpha', 'beta'],
-    'steady': SteadyTrackedItems('gav-dir', 'alpha_model', 20, 1, ['t00, t01'], ['t02', 't03', 't04'], {'@default_class': 1, '@ideology_class': 5}),
-}
-
-s = json.dumps(data, cls=RoundTripEncoder, indent=2)
-print 'S:\n', s
-
-import json, datetime
-from dateutil import parser
 
 class RoundTripDecoder(json.JSONDecoder):
     def __init__(self, *args, **kwargs):
@@ -489,10 +595,6 @@ class RoundTripDecoder(json.JSONDecoder):
         if type == 'datetime':
             return parser.parse(obj['value'])
         return obj
-
-res = json.loads(s, cls=RoundTripDecoder)
-print 'R:\n', res
-
 
 
 if __name__ == '__main__':
