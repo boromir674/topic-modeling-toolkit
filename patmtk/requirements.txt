@@ -1,0 +1,6 @@
+tqdm
+progressbar
+artm
+easyplot
+matplotlib
+numpy
