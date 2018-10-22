@@ -91,7 +91,7 @@ class ExperimentalResults(object):
         #         trackables[evaluator_definition][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values
         trackables = {}
         for k, v in experiment.trackables.items():
-            tracked_type = _strip_paramters(k)
+            tracked_type = _strip_parameters(k)
             if tracked_type in tracked_entities:
                 trackables[k] = experiment.trackables[k]
 
@@ -113,8 +113,27 @@ class ExperimentalResultsFactory(object):
     def __init__(self):
         pass
 
-    def create_from_experiment(self):
-        pass
+    def save_to_json(self, experimental_results, file_path):
+        with open(file_path, 'w') as fp:
+            json.dump(experimental_results, fp, cls=RoundTripDecoder, indent=2)
+        # s = json.dumps(exp, cls=RoundTripEncoder, indent=2)
+
+    def create_from_experiment(self, experiment):
+        trackables = {}
+        for k, v in experiment.trackables.items():
+            tracked_type = _strip_parameters(k)
+            assert '_' not in tracked_type
+            if tracked_type in tracked_entities:
+                trackables[k] = experiment.trackables[k]
+
+        return ExperimentalResults(experiment.current_root_dir,
+                                   experiment.topic_model.label,
+                                   experiment.topic_model.nb_topics,
+                                   experiment.topic_model.document_passes,
+                                   experiment.topic_model.background_topics,
+                                   experiment.topic_model.domain_topics,
+                                   experiment.topic_model.modalities_dictionary,
+                                   trackables)
 
 
 class AbstractValueTracker(object):
@@ -124,13 +143,14 @@ class AbstractValueTracker(object):
         self._groups = {}
         for evaluator_definition, v in tracked.items():  # assumes maximum depth is 2
             print 'ED:', evaluator_definition
-            score_type = _strip_parameters(evaluator_definition)
+            score_type = _strip_parameters(evaluator_definition.replace('_', '-'))
             print 'ST', score_type
             if score_type == 'topic-kernel':
                 self._groups[evaluator_definition] = TrackedKernel(*v)
             elif score_type == 'top-tokens':
                 self._groups[evaluator_definition] = TrackedTopTokens(*v)
-            elif score_type == 'tau_trajectories':
+            elif score_type == 'tau-trajectories':
+                print 'HH'
                 self._groups[score_type] = TrackedTrajectories(v)
             # if type(v) == dict:
             #     tracked_entities = []
@@ -138,10 +158,13 @@ class AbstractValueTracker(object):
             #         tracked_entities.append(TrackedEntity(ink.replace('-', '_'), inv))
             #     self._metrics[score_type.replace('-', '_')] = TrackedGroup(tracked_entities)
             else:
-                self._flat[score_type.replace('-', '_')] = TrackedEntity(score_type, v)
+                self._flat[score_type] = TrackedEntity(score_type, v)
                 # self._metrics[score_type.replace('-', '_')] = TrackedEntity(score_type, v)
 
         print 'COMPLEX', sorted(self._groups.keys())
+        print type(self._groups['top-tokens-10'])
+        print self._groups['top-tokens-10'].topics
+        print self._groups['top-tokens-10'].t01
         print 'FLAT', sorted(self._flat.keys())
 
     @property
@@ -157,12 +180,17 @@ class AbstractValueTracker(object):
         return sorted(self._flat.keys() + self._groups.keys())
 
     def _query_metrics(self):
-        _ = sys._getframe(1).f_code.co_name
+        _ = self._decode(sys._getframe(1).f_code.co_name).replace('_', '-')
         if _ in self._flat:
             return self._flat[_]
         if _ in self._groups:
             return self._groups[_]
         return None
+
+    def _decode(self, method_name):
+        if method_name.startswith('top'):
+            return 'top-tokens-' + method_name[3:]
+        return method_name
 
     @abstractproperty
     def perplexity(self):
@@ -218,6 +246,7 @@ class ValueTracker(AbstractValueTracker):
         return iter(self._metrics.keys())
 
     def __getattr__(self, item):
+        print 'GI', item
         if item.startswith('kernel'):
             return self._groups['topic-kernel-0.' + item[6:]]
         return None
@@ -477,14 +506,12 @@ def test():
     assert exp.tracked.perplexity.all == [1, 2, 3]
     assert exp.tracked.sparsity_phi.all == [-2, -4, -6]
     assert exp.tracked.sparsity_theta.last == 6
-    print type(exp.tracked.kernel6)
-    print dir(exp.tracked)
     assert exp.tracked.kernel6.average.purity.all == [5, 6]
     assert exp.tracked.kernel6.t02.coherence.all == [10, 11]
     assert exp.tracked.kernel6.t02.purity.all == [17, 856]
     assert exp.tracked.kernel6.t02.contrast.last == 32
     assert exp.tracked.kernel6.average.coherence.all == [1, 2]
-    assert exp.tracked.top10.t01.all == [1, 2, 3]
+    assert exp.tracked.top10.t01.all == [12,22,3]
     assert exp.tracked.top10.t00.last == 3
     assert exp.tracked.top10.average_coherence.all == [1, 2]
 
