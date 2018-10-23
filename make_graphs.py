@@ -35,7 +35,7 @@ def _dictify_results(results):
 def load_results(path_file):
     with open(path_file, 'r') as results_file:
         results = json.load(results_file, encoding='utf-8')
-    assert 'collection_passes' in results and 'trackables' in results, 'root_dir' in results
+    assert 'collection_passes' in results and 'trackables' in results, 'patm_root_dir' in results
     return _dictify_results(results)
 
 

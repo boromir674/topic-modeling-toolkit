@@ -19,7 +19,7 @@ class Experiment:
     """
     def __init__(self, root_dir, cooc_dict):
         """
-        Encapsulates experimentation by doing topic modeling on a 'collection' in the given root_dir. A 'collection' is a proccessed document collection into BoW format and possibly split into 'train' and 'test' splits
+        Encapsulates experimentation by doing topic modeling on a 'collection' in the given patm_root_dir. A 'collection' is a proccessed document collection into BoW format and possibly split into 'train' and 'test' splits
         """
         self._dir = root_dir
         self.cooc_dict = cooc_dict
@@ -63,9 +63,9 @@ class Experiment:
         # self.model_params['nb_topics'].append(tuple((span, topic_model.nb_topics)))
         # self.model_params['document_passes'].append(tuple((span, topic_model.document_passes)))
         # r = topic_model.get_regs_param_dict()
-        for k, v in topic_model.get_regs_param_dict().items():
-            for ik, iv in (_ for _ in v.items() if _[1]):
-                self.reg_params[k][ik].extend([iv]*span)
+        for reg_type, reg_settings in topic_model.get_regs_param_dict().items():
+            for param_name, param_value in (_ for _ in reg_settings.items() if _[1]):
+                self.reg_params[reg_type][param_name].extend([param_value]*span)
         # append(tuple((span, topic_model.get_regs_param_dict())))
         for evaluator_name, evaluator_definition in zip(topic_model.evaluator_names, topic_model.evaluator_definitions):
             current_eval = topic_model.get_evaluator(evaluator_name).evaluate(topic_model.artm_model)
@@ -97,7 +97,7 @@ class Experiment:
         return {
             'collection_passes': self.collection_passes,  # eg [20, 20, 40, 100]
             'trackables': self.trackables,  # TODO try list of tuples [('perplexity'), dict), ..]
-            'root_dir': self.current_root_dir,  # eg /data/blah/
+            'patm_root_dir': self.current_root_dir,  # eg /data/blah/
             'model_label': self._topic_model.label,
             'model_parameters': self.model_params,  # nb_topics and document_passes
             'reg_parameters': self.reg_params,

@@ -1,15 +1,13 @@
 language: python
 
 python:
-  - "3.5"
+  - "2.7"
 
 before_install:
-  - chmod +x install-nltk-resources.py
-  - chmod +x green_magic/tests/weedmaster_test.py
+
 
 install:
   - pip install .
  
 script:
-  - python install-nltk-resources.py
-  - python green_magic/tests/weedmaster_test.py
+  - python patm/tests/experimental_results_test.py

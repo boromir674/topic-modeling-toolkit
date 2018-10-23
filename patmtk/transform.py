@@ -11,7 +11,7 @@ from gensim.models.tfidfmodel import TfidfModel
 
 from patm.modeling import get_posts_generator
 from patm import Pipeline, TextDataset, get_pipeline
-from patm.definitions import root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, COLLECTIONS_DIR, poster_id2ideology_label, IDEOLOGY_CLASS_NAME, COOCURENCE_DICT_FILE_NAMES
+from patm.definitions import patm_root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, COLLECTIONS_DIR, poster_id2ideology_label, IDEOLOGY_CLASS_NAME, COOCURENCE_DICT_FILE_NAMES
 
 
 class PipeHandler(object):
@@ -44,25 +44,25 @@ class PipeHandler(object):
         }
 
     def create_pipeline(self, pipeline_cfg):
-        pipe_settings = cfg2pipe_settings(os.path.join(root_dir, 'code', pipeline_cfg), 'preprocessing')
+        pipe_settings = cfg2pipe_settings(pipeline_cfg, 'preprocessing')
         print 'Pipe-Config:\n' + ',\n'.join('{}: {}'.format(key, value) for key, value in pipe_settings.items())
         self.pipeline = get_pipeline(pipe_settings)
         return self.pipeline
 
-    def set_doc_gen(self, category, num_docs='all', labels=False):
+    def set_doc_gen(self, category, num_docs='all'):
         self.sample = num_docs
         self.cat2textgen_proc = get_posts_generator(nb_docs=self.sample)
         self.text_generator = self.cat2textgen_proc.process(category)
         print self.cat2textgen_proc, '\n'
 
     # TODO refactor in OOP style preprocess
-    def preprocess(self, a_pipe, collection, labels=False):
+    def preprocess(self, a_pipe, collection):
         self._collection = collection
         self._col_dir = os.path.join(COLLECTIONS_DIR, collection)
         if not os.path.exists(self._col_dir):
             os.makedirs(self._col_dir)
             print 'Created \'{}\' as target directory for persisting'.format(self._col_dir)
-        self.set_doc_gen(self.category, num_docs=self.sample, labels=labels)
+        self.set_doc_gen(self.category, num_docs=self.sample)
 
         self.uci_file = os.path.join(COLLECTIONS_DIR, self._collection, 'docword.{}.txt'.format(self._collection))
         self.vowpal_file = os.path.join(COLLECTIONS_DIR, self._collection, 'vowpal.{}.txt'.format(self._collection))
@@ -190,7 +190,6 @@ def get_cl_arguments():
     parser.add_argument('config', help='the .cfg file to use for constructing a pipeline')
     parser.add_argument('collection', help='a given name for the collection')
     parser.add_argument('--sample', metavar='nb_docs', default='all', help='the number of documents to consider. Defaults to all documents')
-    parser.add_argument('--labels', action='store_true', help='whether or not to load outlet labels per document if present. Defaults to not use labels')
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
@@ -205,7 +204,7 @@ if __name__ == '__main__':
     ph = PipeHandler(args.category, sample=nb_docs)
     pipe = ph.create_pipeline(args.config)
     print '\n', pipe, '\n'
-    uci_dt = ph.preprocess(pipe, args.collection, labels=args.labels)
+    uci_dt = ph.preprocess(pipe, args.collection)
     print uci_dt
 
     print 'Building coocurences informtion'

@@ -5,13 +5,15 @@ from processors.string_processors import LowerCaser, MonoSpacer, UtfEncoder, DeA
 from processors.generator_processors import MinLengthFilter, MaxLengthFilter, WordToNgramGenerator
 from processors.disk_writer_processors import UciFormatWriter, VowpalFormatWriter
 
+my_dir = os.path.dirname(os.path.realpath(__file__))
+
 results_root = 'results'
 models_root = 'models'
 
-REGULARIZERS_CFG = '/data/thesis/code/regularizers.cfg'
-TRAIN_CFG = '/data/thesis/code/train.cfg'
+REGULARIZERS_CFG = os.path.join(my_dir, '../regularizers.cfg')
+TRAIN_CFG = os.path.join(my_dir, '../train.cfg')
 
-root_dir = '/data/thesis'
+patm_root_dir = '/data/thesis'
 data_root_dir = '/data/thesis/data'
 bows_dir = '/data/thesis/data/collections'
 words_dir = '/data/thesis/data/collections'

@@ -277,6 +277,7 @@ class TrajectoryBuilder(object):
         used, (or from 'start' value if specified) to the specified 'value' using 'iters' steps. Each step is a train
         cycle through the collection\n
         Supports linear interpolation"""
+        print "INTERPOLATE", iters, value, start
         assert iters > 1
         prev_iter = len(self._values)
         iter_inds = range(prev_iter, prev_iter + iters)

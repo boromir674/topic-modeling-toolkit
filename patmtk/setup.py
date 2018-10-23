@@ -7,27 +7,26 @@ def readme():
 
 
 setup(
-    name='green_magic',
-    version='0.5.7',
-    description='The Green Magic library of the Green-Machine',
+    name='patmtk',
+    version='0.5',
+    description='Perspectivew Aware Topic Modeling Toolkit',
     long_description=readme(),
-    keywords='cannabis strain self-organizing maps visualization',
+    keywords='topic modeling machine learning',
     classifiers=[
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-        'Programming Language :: Python :: 3.5',
-        'Topic :: Software Development :: Libraries :: Python Modules',
+        'Programming Language :: Python :: 2.7',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
-        'Topic :: Scientific/Engineering :: Visualization',
+        'Topic :: Software Development :: Libraries :: Python Modules',
         'Intended Audience :: Science/Research',
         ],
-    url='https://github.com/boromir674/green-magic',
+    # url='https://github.com/boromir674/....',
     author='Konstantinos',
     author_email='k.lampridis@hotmail.com',
     license='GNU GPLv3',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
-    install_requires=['numpy', 'nltk', 'sklearn', 'somoclu', 'pandas'],
+    install_requires=['numpy', 'nltk'],
     include_package_data=True,
-    test_suite='green_magic.tests',
+    test_suite='patm.tests',
     zip_safe=False
 )

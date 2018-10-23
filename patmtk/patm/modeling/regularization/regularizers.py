@@ -69,8 +69,7 @@ class RegularizersFactory:
 
     def __init__(self):
         self._registry = {}
-        self._regularizers_cfg = REGULARIZERS_CFG
-        self._reg_settings = cfg2regularizer_settings(self._regularizers_cfg)
+        self._reg_settings = cfg2regularizer_settings(REGULARIZERS_CFG)
         self._reg_defs = {}
         self._wrappers = []
         self._col_passes = 0

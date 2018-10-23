@@ -61,10 +61,6 @@ class ExperimentalResults(object):
         :param list background_tokens: list of background tokens, p(t) and p(t | w) distributions \mathrm{KL}(p(t) | | p(t | w)) (or vice versa)
             for each token and counts the part of tokens that have this value greater than a given (non-negative) delta_threshold.
         """
-        # self._steady_container = SteadyTrackedItems(sum(experiment.collection_passes), experiment.topic_model.label,
-        #                                             experiment.topic_model.nb_topics, experiment.topic_model.document_passes,
-        #                                             experiment.topic_model.background_topics, experiment.topic_model.domain_topics,
-        #                                             experiment.topic_model.modalities_dictionary)
         assert len(background_topics) + len(domain_topics) == nb_topics
         self._steady_container = SteadyTrackedItems(root_dir, model_label, nb_topics, document_passes, background_topics, domain_topics, modalities)
         self._tracker = ValueTracker(tracked)
@@ -77,54 +73,59 @@ class ExperimentalResults(object):
     def tracked(self):
         return self._tracker
 
-    def to_json(self):
-        json.dumps(self)
+    def to_json(self, human_redable=True):
+        if human_redable:
+            indent = 2
+        else:
+            indent = None
+        return json.dumps(self, cls=RoundTripEncoder, indent=indent)
 
-    @staticmethod
-    def from_experiment(experiment):
-        # {'perplexity': [1, 2, 3], 'kernel': kernel_data, 'top10': top10_data, 'tau_trajectories': tau_trajectories_data}
-        # trackables = {experiment.topic_model.evaluator_definitions[experiment.topic_model.evaluator_names.index(evaluator_name)]:
-        #                        {inner_k: [] for inner_k in experiment.topic_model.get_evaluator(evaluator_name).attributes} for evaluator_name in experiment.topic_model.evaluator_names}
-        # for evaluator_name, evaluator_definition in zip(experiment.topic_model.evaluator_names, experiment.topic_model.evaluator_definitions):
-        #     current_eval = experiment.topic_model.get_evaluator(evaluator_name).evaluate(experiment.topic_model.artm_model)
-        #     for eval_reportable, value in current_eval.items():
-        #         trackables[evaluator_definition][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values
-        trackables = {}
-        for k, v in experiment.trackables.items():
-            tracked_type = _strip_parameters(k)
-            if tracked_type in tracked_entities:
-                trackables[k] = experiment.trackables[k]
-
-
-        return ExperimentalResults(experiment.current_root_dir,
-                                   experiment.topic_model.label,
-                                   experiment.topic_model.nb_topics,
-                                   experiment.topic_model.document_passes,
-                                   experiment.topic_model.background_topics,
-                                   experiment.topic_model.domain_topics,
-                                   experiment.topic_model.modalities_dictionary,
-                                   trackables)
-
-    @staticmethod
-    def from_json(file_path):
-        return json.loads(file_path)
+    def save_as_json(self, file_path, human_redable=True):
+        if human_redable:
+            indent = 2
+        else:
+            indent = None
+        with open(file_path, 'w') as fp:
+            json.dump(self, fp, cls=RoundTripEncoder, indent=indent)
 
 class ExperimentalResultsFactory(object):
     def __init__(self):
-        pass
+        self._data = []
 
-    def save_to_json(self, experimental_results, file_path):
-        with open(file_path, 'w') as fp:
-            json.dump(experimental_results, fp, cls=RoundTripDecoder, indent=2)
-        # s = json.dumps(exp, cls=RoundTripEncoder, indent=2)
+    def create_from_json_file(self, file_path):
+        with open(file_path, 'r') as fp:
+            res = json.load(fp, cls=RoundTripDecoder)
+        # self._data['modality-phi-sparsities'] = {key: value for key, value in res['tracked'].items() if key.startswith('sparsity-phi-')}
+        self._data =[{'perplexity': res['tracked']['perplexity'],
+                      'sparsity-theta': res['tracked']['sparsity-theta']}]
+        self._data.append({'tau-trajectories': res['tracked']['tau-trajectories']})
+        self._data.append({'topic-kernel-' + key: [value['avg_coh'], value['avg_con'], value['avg_pur'],
+                                                                  {t_name: t_data for t_name, t_data in
+                                                                   value['topics'].items()}] for key, value in
+                                          res['tracked']['topic-kernel'].items()})
+        self._data.append({'top-tokens-' + key: [value['avg_coh'], {t_name: t_data for t_name, t_data in value['topics'].items()}] for key, value in res['tracked']['top-tokens'].items()})
+        self._data.append({key: v for key, v in res['tracked'].items() if key.startswith('sparsity-phi-@')})
+        return ExperimentalResults(res['scalars']['dir'],
+                                   res['scalars']['label'],
+                                   res['scalars']['nb_topics'],
+                                   res['scalars']['document_passes'],
+                                   res['scalars']['background_topics'],
+                                   res['scalars']['domain_topics'],
+                                   res['scalars']['modalities'],
+                                   reduce(lambda x, y: dict(x, **y), self._data))
 
     def create_from_experiment(self, experiment):
-        trackables = {}
-        for k, v in experiment.trackables.items():
-            tracked_type = _strip_parameters(k)
-            assert '_' not in tracked_type
-            if tracked_type in tracked_entities:
-                trackables[k] = experiment.trackables[k]
+        self._data['tracked_entities'] = {'perplexity': experiment.trackables['perplexity'],
+                                          'sparsity-phi': experiment.trackables['sparsity-phi'],
+                                          'sparsity-theta': experiment.trackables['sparsity-theta']}
+        self._data['kernel_data_hash'] = {'topic-kernel-' + key: [value['avg_coh'], value['avg_con'], value['avg_pur'],
+                                                                  {t_name: t_data for t_name, t_data in
+                                                                   value['topics'].items()}] for key, value in
+                                          res['tracked']['topic-kernel'].items()}
+        self._data['top_tokens_data_hash'] = {
+        'top-tokens-' + key: [value['avg_coh'], {t_name: t_data for t_name, t_data in value['topics'].items()}] for
+        key, value in res['tracked']['top-tokens'].items()}
+        self._data['tau_values_data_hash'] = res['tracked']['tau-trajectories']
 
         return ExperimentalResults(experiment.current_root_dir,
                                    experiment.topic_model.label,
@@ -133,39 +134,41 @@ class ExperimentalResultsFactory(object):
                                    experiment.topic_model.background_topics,
                                    experiment.topic_model.domain_topics,
                                    experiment.topic_model.modalities_dictionary,
-                                   trackables)
+                                   reduce(lambda x, y: dict(x, **y), self._data.values()))
 
 
 class AbstractValueTracker(object):
     __metaclass__ = ABCMeta
+
+    def __str__(self):
+        return '[{}]'.format(', '.join(list(self._flat.keys()) + list(self._groups)))
+
     def __init__(self, tracked):
         self._flat = {}
         self._groups = {}
         for evaluator_definition, v in tracked.items():  # assumes maximum depth is 2
-            print 'ED:', evaluator_definition
             score_type = _strip_parameters(evaluator_definition.replace('_', '-'))
-            print 'ST', score_type
             if score_type == 'topic-kernel':
+                print 'G Decided {} with input {}'.format(score_type, evaluator_definition)
                 self._groups[evaluator_definition] = TrackedKernel(*v)
             elif score_type == 'top-tokens':
+                print 'G Decided {} with input {}'.format(score_type, evaluator_definition)
                 self._groups[evaluator_definition] = TrackedTopTokens(*v)
             elif score_type == 'tau-trajectories':
-                print 'HH'
                 self._groups[score_type] = TrackedTrajectories(v)
+                print 'G Decided {} with input {}'.format(score_type, evaluator_definition)
+            else:
+                self._flat[evaluator_definition.replace('_', '-')] = TrackedEntity(score_type, v)
+                print 'F Decided {} with input {}'.format(score_type, evaluator_definition)
+                # self._metrics[score_type.replace('-', '_')] = TrackedEntity(score_type, v)
             # if type(v) == dict:
             #     tracked_entities = []
             #     for ink, inv in v.items():
             #         tracked_entities.append(TrackedEntity(ink.replace('-', '_'), inv))
             #     self._metrics[score_type.replace('-', '_')] = TrackedGroup(tracked_entities)
-            else:
-                self._flat[score_type] = TrackedEntity(score_type, v)
-                # self._metrics[score_type.replace('-', '_')] = TrackedEntity(score_type, v)
 
-        print 'COMPLEX', sorted(self._groups.keys())
-        print type(self._groups['top-tokens-10'])
-        print self._groups['top-tokens-10'].topics
-        print self._groups['top-tokens-10'].t01
-        print 'FLAT', sorted(self._flat.keys())
+        print 'Created ValueTracker', self
+        print self._groups['tau-trajectories']
 
     @property
     def top_tokens_cardinalities(self):
@@ -185,7 +188,7 @@ class AbstractValueTracker(object):
             return self._flat[_]
         if _ in self._groups:
             return self._groups[_]
-        return None
+        raise AttributeError("'{}' not found within [{}]".format(_, ', '.join(list(self._flat.keys()) + list(self._groups))))
 
     def _decode(self, method_name):
         if method_name.startswith('top'):
@@ -195,31 +198,24 @@ class AbstractValueTracker(object):
     @abstractproperty
     def perplexity(self):
         raise NotImplemented
-
     @abstractproperty
     def sparsity_phi(self):
         raise NotImplemented
-
     @abstractproperty
     def sparsity_theta(self):
         raise NotImplemented
-
     @abstractproperty
     def background_token_ratio(self):
         raise NotImplemented
-
     @abstractproperty
     def kernel(self):
         raise NotImplemented
-
     @abstractproperty
     def top10(self):
         raise NotImplemented
-
     @abstractproperty
     def top100(self):
         raise NotImplemented
-
     @abstractproperty
     def tau_trajectories(self):
         raise NotImplemented
@@ -246,9 +242,14 @@ class ValueTracker(AbstractValueTracker):
         return iter(self._metrics.keys())
 
     def __getattr__(self, item):
-        print 'GI', item
         if item.startswith('kernel'):
             return self._groups['topic-kernel-0.' + item[6:]]
+        if item.startswith('sparsity_phi_'):
+            try:
+                _ = self._flat['sparsity-phi-@{}c'.format(item[13:])]
+            except KeyError:
+                raise KeyError('{} not in {}. Maybe in [{}] ??'.format(item, self._flat.keys(), self._groups.keys()))
+            return self._flat['sparsity-phi-@{}c'.format(item[13:])]
         return None
 
     @property
@@ -283,6 +284,9 @@ class ValueTracker(AbstractValueTracker):
     def tau_trajectories(self):
         return super(ValueTracker, self)._query_metrics()
 
+    @property
+    def tau_trajectory_matrices_names(self):
+        return self._groups['tau-trajectories'].matrices_names
 
 class KernelSubGroup(object):
     def __init__(self, coherence_list, contrast_list, purity_list):
@@ -320,7 +324,6 @@ class TrackedTopics(object):
         if item in self._data:
             return self._data[item]
         raise AttributeError("Topic '{}' is not registered as tracked".format(item))
-
 
 class TrackedKernel(TrackedTopics):
     def __init__(self, avg_coherence_list, avg_contrast_list, avg_purity_list, topic_name2elements_hash):
@@ -377,6 +380,10 @@ class TrackedTrajectories(object):
         return sorted(self._trajs.items(), key=lambda x: x[0])
 
     @property
+    def matrices_names(self):
+        return sorted(self._trajs.keys())
+
+    @property
     def phi(self):
         if 'phi' in self._trajs:
             return self._trajs['phi']
@@ -387,6 +394,9 @@ class TrackedTrajectories(object):
         if 'theta' in self._trajs:
             return self._trajs['theta']
         raise AttributeError
+
+    def __str__(self):
+        return str(self.matrices_names)
 
 class TrackedEntity(object):
     def __init__(self, name, elements_list):
@@ -419,7 +429,6 @@ class TrackedContrast(TrackedEntity):
 class TrackedPurity(TrackedEntity):
     def __init__(self, elements_list):
         super(TrackedPurity, self).__init__('purity', elements_list)
-
 
 class SteadyTrackedItems(object):
 
@@ -486,6 +495,7 @@ def test():
                                                          }]
 
     top10_data = [[1, 2], {'t01': [12,22,3], 't00': [10,2,3], 't02': [10,11]}]
+    top100_data = [[10, 20], {'t01': [5, 7, 9], 't00': [12, 32, 3], 't02': [11, 1]}]
     tau_trajectories_data = {'phi': [1,2,3,4,5], 'theta': [5,6,7,8,9]}
 
     tracked_kernel = TrackedKernel(*kernel_data)
@@ -496,7 +506,7 @@ def test():
     assert tracked_kernel.t02.purity.all == [17, 856]
     assert tracked_kernel.t01.coherence.last == 3
 
-    tracked = {'perplexity': [1, 2, 3], 'sparsity_phi': [-2, -4, -6], 'sparsity_theta': [2, 4, 6], 'topic-kernel-0.6': kernel_data, 'top-tokens-10': top10_data, 'tau-trajectories': tau_trajectories_data}
+    tracked = {'perplexity': [1, 2, 3], 'sparsity_phi': [-2, -4, -6], 'sparsity_theta': [2, 4, 6], 'topic-kernel-0.6': kernel_data, 'top-tokens-10': top10_data, 'top-tokens-100':top100_data, 'tau-trajectories': tau_trajectories_data}
     exp = ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked)
     #
     assert exp.scalars.nb_topics == 5
@@ -539,7 +549,7 @@ def test():
         # 'top10': TrackedTopTokens([1, 2], {'t01': [1, 2, 3], 't00': [10, 2, 3], 't02': [10, 11]}),
         # 'kernel': tracked_kernel,
         # 'value_tracker': value_tracker,
-        'exp': exp
+        'exp1': exp
     }
 
     s = json.dumps(exp, cls=RoundTripEncoder, indent=2)
@@ -548,18 +558,18 @@ def test():
     res = json.loads(s, cls=RoundTripDecoder)
     print 'R: {}\n'.format(type(res)), res
 
-    assert res['scalars']['dir'] == 'dir'
-    assert res['scalars']['domain_topics'] == ['t2', 't3', 't4']
-    assert res['scalars']['modalities'] == {'dcn': 1, 'icn': 5}
-
-    assert res['tracked']['perplexity'] == [1, 2, 3]
-    assert res['tracked']['top-tokens']['10']['avg_coh'] == [1, 2]
-    assert res['tracked']['top-tokens']['10']['topics']['t01'] == [12, 22, 3]
-    assert res['tracked']['top-tokens']['10']['topics']['t02'] == [10, 11]
-    assert res['tracked']['topic-kernel']['0.6']['avg_pur'] == [5, 6]
-    assert res['tracked']['topic-kernel']['0.6']['topics']['t00']['purity'] == [12, 89]
-    assert res['tracked']['topic-kernel']['0.6']['topics']['t01']['contrast'] == [6, 3]
-    assert res['tracked']['topic-kernel']['0.6']['topics']['t02']['coherence'] == [10, 11]
+    # assert res['scalars']['dir'] == 'dir'
+    # assert res['scalars']['domain_topics'] == ['t2', 't3', 't4']
+    # assert res['scalars']['modalities'] == {'dcn': 1, 'icn': 5}
+    #
+    # assert res['tracked']['perplexity'] == [1, 2, 3]
+    # assert res['tracked']['top-tokens']['10']['avg_coh'] == [1, 2]
+    # assert res['tracked']['top-tokens']['10']['topics']['t01'] == [12, 22, 3]
+    # assert res['tracked']['top-tokens']['10']['topics']['t02'] == [10, 11]
+    # assert res['tracked']['topic-kernel']['0.6']['avg_pur'] == [5, 6]
+    # assert res['tracked']['topic-kernel']['0.6']['topics']['t00']['purity'] == [12, 89]
+    # assert res['tracked']['topic-kernel']['0.6']['topics']['t01']['contrast'] == [6, 3]
+    # assert res['tracked']['topic-kernel']['0.6']['topics']['t02']['coherence'] == [10, 11]
 
 
     print 'ALL ASSERTIONS SUCCEEDED'
@@ -568,9 +578,6 @@ class RoundTripEncoder(json.JSONEncoder):
     DATE_FORMAT = "%Y-%m-%d"
     TIME_FORMAT = "%H:%M:%S"
     def default(self, obj):
-        print 'OBJ TYPE', type(obj).__name__
-        if hasattr(obj, 'name'):
-            print 'N', obj.name
         if isinstance(obj, datetime.datetime):
             return {
                 "_type": "datetime",
@@ -604,6 +611,7 @@ class RoundTripEncoder(json.JSONEncoder):
             _ = {name: tracked_entity for name, tracked_entity in obj._flat.items()}
             _['top-tokens'] = {k: obj._groups['top-tokens-' + str(k)] for k in obj.top_tokens_cardinalities}
             _['topic-kernel'] = {k: obj._groups['topic-kernel-' + str(k)] for k in obj.kernel_thresholds}
+            _['tau-trajectories'] = {k: obj.tau_trajectories.__getattribute__(k) for k in obj.tau_trajectory_matrices_names}
             return _
         if isinstance(obj, ExperimentalResults):
             return {'scalars': obj.scalars,
@@ -614,13 +622,24 @@ class RoundTripEncoder(json.JSONEncoder):
 class RoundTripDecoder(json.JSONDecoder):
     def __init__(self, *args, **kwargs):
         json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
-
+        self._data = {}
     def object_hook(self, obj):
-        if '_type' not in obj:
-            return obj
-        type = obj['_type']
-        if type == 'datetime':
-            return parser.parse(obj['value'])
+        # print obj.items()
+        # self._data['tracked_entities'] = {'perplexity': obj['tracked']['perplexity'],
+        #                             'sparsity_phi': obj['tracked']['sparsity-phi'],
+        #                             'sparsity_theta': obj['tracked']['sparsity-theta']}
+        # self._data['kernel_data_hash'] = {'topic-kernel-'+key: [value['avg_coh'], value['avg_con'], value['avg_pur'], {t_name: t_data for t_name, t_data in value['topics'].items()}] for key, value in obj['tracked']['topic-kernel'].items()}
+        # self._data['top_tokens_data_hash'] = {'top-tokens-'+key: [value['avg_coh'], {t_name: t_data for t_name, t_data in value['topics'].items()}] for key, value in obj['tracked']['top-tokens'].items()}
+        # self._data['tau_values_data_hash'] = obj['tracked']['tau-trajectories']
+        #
+        # return ExperimentalResults(obj['scalars']['dir'],
+        #                            obj['scalars']['label'],
+        #                            obj['scalars']['nb_topics'],
+        #                            obj['scalars']['document_passes'],
+        #                            obj['scalars']['background_topics'],
+        #                            obj['scalars']['domain_topics'],
+        #                            obj['scalars']['modalities'],
+        #                            reduce(lambda x,y: dict(x, **y), self._data.values()))
         return obj
 
 
