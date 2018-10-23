@@ -99,8 +99,9 @@ class TopicModel(object):
     def domain_topics(self):
         """Returns the mostly agreed list of topic names found in all evaluators"""
         c = Counter()
-        for evaluator in self._definition2evaluator.values():
+        for definition, evaluator in self._definition2evaluator.items():
             if hasattr(evaluator.artm_score, 'topic_names'):
+                # print definition, evaluator.artm_score.topic_names
                 tn = evaluator.artm_score.topic_names
                 if tn:
                     c['+'.join(tn)] += 1
@@ -129,6 +130,9 @@ class TopicModel(object):
 
     def get_evaluator(self, eval_name):
         return self._definition2evaluator[self._evaluator_name2definition[eval_name]]
+
+    def get_evaluator_by_def(self, definition):
+        return self._definition2evaluator[definition]
 
     def get_scorer_by_name(self, eval_name):
         return self.artm_model.scores[eval_name]

@@ -17,6 +17,19 @@ class Experiment:
     - regularization parameters
     - _evaluator_name2definition
     """
+    # tracked_entities = {
+    #     'perplexity': ['value', 'class_id_info'],
+    #     'sparsity-phi': ['value'],
+    #     'sparsity-theta': ['value'],
+    #     'topic-kernel': ['average_coherence', 'average_contrast', 'average_purity', 'average_size', 'coherence',
+    #                      'contrast', 'purity'],
+    # # tokens are not tracked over time; they will be saved only for the lastest state of the inferred topics
+    #     'top-tokens': ['average_coherence', 'coherence'],
+    # # tokens are not tracked over time; they will be saved only for the lastest state of the inferred topics
+    #     'background-tokens-ratio': ['value']
+    # # tokens are not tracked over time; they will be saved only for the lastest state of the inferred topics
+    # }
+
     def __init__(self, root_dir, cooc_dict):
         """
         Encapsulates experimentation by doing topic modeling on a 'collection' in the given patm_root_dir. A 'collection' is a proccessed document collection into BoW format and possibly split into 'train' and 'test' splits
@@ -33,10 +46,16 @@ class Experiment:
 
     def init_empty_trackables(self, model):
         self._topic_model = model
-        self.trackables = {self._topic_model.evaluator_definitions[self._topic_model.evaluator_names.index(evaluator_name)]:
-                               {inner_k: [] for inner_k in self._topic_model.get_evaluator(evaluator_name).attributes} for evaluator_name in self._topic_model.evaluator_names}
+        self.trackables = {}
+        for evaluator_definition in model.evaluator_definitions:
+            if self._strip_parameters(evaluator_definition) in ('perplexity', 'sparsity-phi', 'sparsity-theta', 'background-tokens-ratio'):
+                self.trackables[evaluator_definition] = []
+            elif evaluator_definition.startswith('topic-kernel-'):
+                self.trackables[evaluator_definition] = [[], [], [], {t_name: {'coherence': [], 'contrast': [], 'purity': []} for t_name in model.domain_topics}]
+            elif evaluator_definition.startswith('top-tokens-'):
+                self.trackables[evaluator_definition] = [[], {t_name: [] for t_name in model.domain_topics}]
         self.collection_passes = []
-        self.reg_params = {reg_type: {attr: [] for attr in dyn_coefs} for reg_type in model.regularizer_types}
+        self.reg_params = {reg_type: {attr: [] for attr in dyn_coefs[reg_type]} for reg_type in model.regularizer_types}
         self.model_params = {'nb_topics': [], 'document_passes': []}
 
     @property
@@ -50,6 +69,17 @@ class Experiment:
         """
         return self._topic_model
 
+    @staticmethod
+    def _strip_parameters(score_definition):
+        tokens = []
+        for el in score_definition.split('-'):
+            try:
+                _ = float(el)
+            except ValueError:
+                if el[0] != '@':
+                    tokens.append(el)
+        return '-'.join(tokens)
+
     @property
     def dictionary(self):
         return self._loaded_dictionary
@@ -60,17 +90,60 @@ class Experiment:
     # TODO refactor this; remove dubious exceptions
     def update(self, topic_model, span):
         self.collection_passes.append(span) # iterations performed on the train set for the current 'steady' chunk
-        # self.model_params['nb_topics'].append(tuple((span, topic_model.nb_topics)))
-        # self.model_params['document_passes'].append(tuple((span, topic_model.document_passes)))
-        # r = topic_model.get_regs_param_dict()
+        print 'TOP', topic_model.domain_topics, 'AND', topic_model.background_topics
+
         for reg_type, reg_settings in topic_model.get_regs_param_dict().items():
             for param_name, param_value in (_ for _ in reg_settings.items() if _[1]):
                 self.reg_params[reg_type][param_name].extend([param_value]*span)
-        # append(tuple((span, topic_model.get_regs_param_dict())))
+        print topic_model.evaluator_names
+        print topic_model.evaluator_definitions
+        print "MODEL TOP-TOKENS-EVALS: [{}]".format(', '.join(_ for _ in topic_model.evaluator_definitions if _.startswith('top-tokens-')))
+        # print "MODEL TOP-TOKENS-EVALS: [{}]".format(', '.join(topic_model.ge_ for _ in topic_model.evaluator_definitions if _.startswith('top-tokens-')))
         for evaluator_name, evaluator_definition in zip(topic_model.evaluator_names, topic_model.evaluator_definitions):
-            current_eval = topic_model.get_evaluator(evaluator_name).evaluate(topic_model.artm_model)
-            for eval_reportable, value in current_eval.items():
-                self.trackables[evaluator_definition][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values
+            # print 'REPORTABLES:', topic_model.get_evaluator(evaluator_name).reportable_attributes
+
+            # for eval_name, evaluator_definition2 in zip(topic_model.evaluator_names, topic_model.evaluator_definitions):
+            #     reportable_to_results = topic_model.get_evaluator(evaluator_name).evaluate(topic_model.artm_model)
+            #     if hasattr(topic_model.get_evaluator(eval_name), 'topic_names') and evaluator_definition2.startswith('top-tokens-'):
+            #         print 'NAME {}, DEF {}, topics:'.format(eval_name, evaluator_definition2), topic_model.get_evaluator(eval_name).topic_names
+            #         print "top-tokens-dict-keys: [{}]".format(', '.join(sorted(reportable_to_results.keys())))
+            #         print 'value type', type(reportable_to_results['value'])
+            #         print reportable_to_results['coherence'][0].keys()
+
+            reportable_to_results = topic_model.get_evaluator(evaluator_name).evaluate(topic_model.artm_model)
+            # import pprint
+            # pprint.pprint(reportable_to_results, indent=1)
+            if self._strip_parameters(evaluator_definition) in ('perplexity', 'sparsity-phi', 'sparsity-theta', 'background-tokens-ratio'):
+                self.trackables[evaluator_definition].extend(reportable_to_results['value'][-span:])
+            elif evaluator_definition.startswith('topic-kernel-'):
+                self.trackables[evaluator_definition][0].extend(reportable_to_results['average_coherence'][-span:])
+                self.trackables[evaluator_definition][1].extend(reportable_to_results['average_contrast'][-span:])
+                self.trackables[evaluator_definition][2].extend(reportable_to_results['average_purity'][-span:])
+                for topic_name, topic_metrics in self.trackables[evaluator_definition][3].items():
+                    # print type(reportable_to_results['coherence'])
+                    topic_metrics['coherence'].extend(map(lambda x: x[topic_name], reportable_to_results['coherence'][-span:]))
+                    topic_metrics['contrast'].extend(map(lambda x: x[topic_name], reportable_to_results['contrast'][-span:]))
+                    topic_metrics['purity'].extend(map(lambda x: x[topic_name], reportable_to_results['purity'][-span:]))
+            elif evaluator_definition.startswith('top-tokens-'):
+                self.trackables[evaluator_definition][0].extend(reportable_to_results['average_coherence'][-span:])
+
+                print type(reportable_to_results['coherence'][0])
+                print 'ELA', reportable_to_results['coherence'][0].keys()
+                print self.trackables[evaluator_definition][1].keys()
+                # import pprint
+                # pprint.pprint(reportable_to_results, indent=2)
+
+                for topic_name, topic_metrics in self.trackables[evaluator_definition][1].items():
+                    topic_metrics.extend(map(lambda x: x[topic_name], reportable_to_results['coherence'][-span:]))
+
+            # for eval_reportable, value in reportable_to_results.items():
+            #     if evaluator_definition == 'perplexity':
+            #         print value
+            #         # self.trackables['perplexity'].extend()
+
+                # print ' REPORTABLE', eval_reportable
+                # # pprint.pprint(value, indent=2)
+                # self.trackables[evaluator_definition][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values
                 # try:
                 #     if type(value) == list:
                 #         self.trackables[evaluator_definition][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values

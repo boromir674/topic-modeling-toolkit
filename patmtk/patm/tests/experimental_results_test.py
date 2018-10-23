@@ -95,15 +95,15 @@ class TestExperimentalResults(unittest.TestCase):
     def setUp(self):
         """Method to prepare the test fixture. Run BEFORE the test methods."""
         self.tracked_kernel = TrackedKernel(*kernel_data)
-        self.evaluation_definition2evaluation_name = {'perplexity': 'per',
+        self.eval_def2eval_name = {'perplexity': 'per',
                                                       'sparsity-phi-@dc': 'sppd',
                                                       'sparsity-phi-@ic': 'sppi',
                                                       'sparsity-theta': 'spt',
                                                       'topic-kernel-0.6': 'tk1',
                                                       'topic-kernel-0.8': 'tk2',
                                                       'top-tokens-10': 'tt10',
-                                                      'top-tokens-100': 'tt100',
-                                                      'background-tokens-ratio-0.3': 'btr'}
+                                   'top-tokens-100': 'tt100',
+                                   'background-tokens-ratio-0.3': 'btr'}
         self.reg_type2name = {'sparse-phi': 'spp', 'smooth-phi': 'smp', 'sparse-theta': 'spt', 'smooth-theta': 'smt'}
 
     def tearDown(self):
@@ -163,7 +163,7 @@ class TestExperimentalResults(unittest.TestCase):
         model_trainer = trainer_factory.create_trainer(test_collection, exploit_ideology_labels=True, force_new_batches=False)
         experiment = Experiment(test_collection_root, model_trainer.cooc_dicts)
         model_trainer.register(experiment)  # when the model_trainer trains, the experiment object listens to changes
-        topic_model = model_trainer.model_factory.construct_model(test_model, 20, 30, 1, 0.15, {IDEOLOGY_CLASS_NAME: 5, DEFAULT_CLASS_NAME: 1}, self.evaluation_definition2evaluation_name, self.reg_type2name)
+        topic_model = model_trainer.model_factory.construct_model(test_model, 4, 10, 1, 0.25, {IDEOLOGY_CLASS_NAME: 5, DEFAULT_CLASS_NAME: 1}, self.eval_def2eval_name, self.reg_type2name)
         train_specs = model_trainer.model_factory.create_train_specs()
         experiment.init_empty_trackables(topic_model)
         model_trainer.train(topic_model, train_specs, effects=False)
