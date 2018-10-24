@@ -99,6 +99,9 @@ class Experiment:
         print topic_model.evaluator_definitions
         print "MODEL TOP-TOKENS-EVALS: [{}]".format(', '.join(_ for _ in topic_model.evaluator_definitions if _.startswith('top-tokens-')))
         # print "MODEL TOP-TOKENS-EVALS: [{}]".format(', '.join(topic_model.ge_ for _ in topic_model.evaluator_definitions if _.startswith('top-tokens-')))
+
+        print 'MODEL topic names:\n{}'.format('\n'.join(map(lambda x: ' {}: [{}]'.format(x[0], ', '.join(x[1])), topic_model.report_topic_names())))
+
         for evaluator_name, evaluator_definition in zip(topic_model.evaluator_names, topic_model.evaluator_definitions):
             # print 'REPORTABLES:', topic_model.get_evaluator(evaluator_name).reportable_attributes
 
@@ -132,7 +135,8 @@ class Experiment:
                 print self.trackables[evaluator_definition][1].keys()
                 # import pprint
                 # pprint.pprint(reportable_to_results, indent=2)
-
+                for i, dd in enumerate(reportable_to_results['coherence'][-span:]):
+                    print 'iter {} topics: [{}]'.format(i, ', '.join(dd.keys()))
                 for topic_name, topic_metrics in self.trackables[evaluator_definition][1].items():
                     topic_metrics.extend(map(lambda x: x[topic_name], reportable_to_results['coherence'][-span:]))
 

@@ -57,19 +57,28 @@ class ArtmEvaluator(AbstractEvaluator):
         :return: the attribute => metrics-4all-cycles information
         :rtype: dict
         """
+        print 'EVALUATE'
+        if hasattr(self.artm_score, 'topic_names'):
+            print self.name, 'topic_names:', self.artm_score.topic_names
         if self.name in ['tt10', 'tt100']:
-            print 'EVALUATE'
             print ' attrs', self._attrs
             print self.artm_score.topic_names
             print self.topic_names
             print self._settings
-            print [model.score_tracker[self.name].__getattribute__(attr) for attr in self._attrs if attr in ['coherence', 'average_coherence']]
+            # print [model.score_tracker[self.name].__getattribute__(attr) for attr in self._attrs if attr in ['coherence', 'average_coherence']]
             print dir(model.score_tracker[self.name])
             print 'avg_coh', model.score_tracker[self.name].average_coherence
             print 'last_coh keys', model.score_tracker[self.name].last_coherence.keys()
-        return {attr: model.score_tracker[self.name].__getattribute__(attr) for attr in self._attrs}
+        if 'coherence' in self._attrs:
+            print 'coherence type', type(model.score_tracker[self.name].coherence)
+            print 'sample coherence dict:', model.score_tracker[self.name].coherence[0]
+            print 'average coherence type', type(model.score_tracker[self.name].average_coherence)
+        _ = {attr: model.score_tracker[self.name].__getattribute__(attr) for attr in self._attrs}
+        if 'coherence' in self._attrs:
+            print 'avg_coh', model.score_tracker[self.name].average_coherence
+            print 'last_coh keys', model.score_tracker[self.name].last_coherence.keys()
         # return {attr: model.score_tracker[self.name].__getattribute__('last_{}'.format(attr)) for attr in sorted(self._attrs)}
-
+        return _
     @property
     def reportable_attributes(self):
         return self._attrs

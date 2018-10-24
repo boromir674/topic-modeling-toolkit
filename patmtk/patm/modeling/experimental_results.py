@@ -80,6 +80,7 @@ class ExperimentalResults(object):
         with open(file_path, 'w') as fp:
             json.dump(self, fp, cls=RoundTripEncoder, indent=indent)
 
+
 class ExperimentalResultsFactory(object):
     def __init__(self):
         self._data = []
@@ -331,11 +332,6 @@ class TrackedKernel(TrackedTopics):
     def average(self):
         return self._avgs_group
 
-    # def __getattr__(self, item):
-    #     for topic_group in self._topics_groups:
-    #         if topic_group.name == item:
-    #             return topic_group
-    #     raise AttributeError("Topic named as '{}' is not registered in the kernel tracked entities".format(item))
 
 class TrackedTopTokens(TrackedTopics):
     def __init__(self, avg_coherence, topic_name2coherence):

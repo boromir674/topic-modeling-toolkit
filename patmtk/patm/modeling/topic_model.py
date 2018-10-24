@@ -144,6 +144,17 @@ class TopicModel(object):
     def document_passes(self, iterations):
         self.artm_model.num_document_passes = iterations
 
+    def report_topic_names(self):
+        tps = []
+        for evaluator in self.artm_model.scores.data:
+            print 'RP', evaluator
+            if hasattr(self.artm_model.scores[evaluator], 'topic_names'):
+                tps.append((evaluator, self.artm_model.scores[evaluator].topic_names))
+        return tps
+
+    def get_formated_topic_names(self):
+        return 'MODEL topic names:\n{}'.format('\n'.join(map(lambda x: ' {}: [{}]'.format(x[0], ', '.join(x[1])), self.report_topic_names())))
+
     def set_parameter(self, reg_name, reg_param, value):
         if reg_name in self.artm_model.regularizers.data:
             if hasattr(self.artm_model.regularizers[reg_name], reg_param):
