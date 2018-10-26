@@ -3,6 +3,8 @@ from .persistence import ResultsWL, ModelWL
 from patm.modeling.regularization.regularizers import regularizer_type2dynamic_parameters as dyn_coefs
 from patm.modeling.experimental_results import ExperimentalResults
 
+from experimental_results import experimental_results_factory
+
 
 class Experiment:
     """
