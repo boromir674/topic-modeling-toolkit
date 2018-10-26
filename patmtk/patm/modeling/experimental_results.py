@@ -3,12 +3,6 @@ import json
 from abc import ABCMeta, abstractproperty
 
 
-import json, datetime
-from dateutil import parser
-
-
-
-
 class ExperimentalResults(object):
     def __init__(self, root_dir, model_label, nb_topics, document_passes, background_topics, domain_topics, modalities, tracked):  #, kernel_tokens, top_tokens_defs, background_tokens):
         """
@@ -110,14 +104,10 @@ class ExperimentalResultsFactory(object):
     def create_from_experiment(self, experiment):
         self._data = [{'perplexity': experiment.trackables['perplexity'],
                        'sparsity-theta': experiment.trackables['sparsity-theta']}]
-        self._data.append({key: [value['avg_coh'], value['avg_con'], value['avg_pur'], {t_name: t_data for t_name, t_data in value['topics'].items()}] for key, value in experiment.trackables.items() if key.startswith('topic-kernel')})
-        self._data.append({top_tokens_definition: [value['avg_coh'], {t_name: t_data for t_name, t_data in value['coherence'].items()}] for top_tokens_definition, value in experiment.trackables.items() if top_tokens_definition.startswith('top-tokens-')})
-
-        #     ['top_tokens_data_hash'] = {
-        # 'top-tokens-' + key: [value['avg_coh'], {t_name: t_data for t_name, t_data in value['topics'].items()}] for
-        # key, value in res['tracked']['top-tokens'].items()}
-        # self._data['tau_values_data_hash'] = res['tracked']['tau-trajectories']
-
+        self._data.append({kernel_definition: [value[0], value[1], value[2], value[3]] for kernel_definition, value in experiment.trackables.items() if kernel_definition.startswith('topic-kernel')})
+        self._data.append({top_tokens_definition: [value[0], value[1]] for top_tokens_definition, value in experiment.trackables.items() if top_tokens_definition.startswith('top-tokens-')})
+        self._data.append({'tau-trajectories': {matrix_name: experiment.reg_params['sparse-'+matrix_name]['tau']} for matrix_name in ['phi', 'theta']})
+        self._data.append({key: v for key, v in experiment.trackables.items() if key.startswith('sparsity-phi-@')})
         return ExperimentalResults(experiment.current_root_dir,
                                    experiment.topic_model.label,
                                    experiment.topic_model.nb_topics,
@@ -125,7 +115,9 @@ class ExperimentalResultsFactory(object):
                                    experiment.topic_model.background_topics,
                                    experiment.topic_model.domain_topics,
                                    experiment.topic_model.modalities_dictionary,
-                                   reduce(lambda x, y: dict(x, **y), self._data.values()))
+                                   reduce(lambda x, y: dict(x, **y), self._data))
+
+experimental_results_factory = ExperimentalResultsFactory()
 
 
 class AbstractValueTracker(object):
@@ -147,15 +139,6 @@ class AbstractValueTracker(object):
                 self._groups[score_type] = TrackedTrajectories(v)
             else:
                 self._flat[evaluator_definition.replace('_', '-')] = TrackedEntity(score_type, v)
-                # self._metrics[score_type.replace('-', '_')] = TrackedEntity(score_type, v)
-            # if type(v) == dict:
-            #     tracked_entities = []
-            #     for ink, inv in v.items():
-            #         tracked_entities.append(TrackedEntity(ink.replace('-', '_'), inv))
-            #     self._metrics[score_type.replace('-', '_')] = TrackedGroup(tracked_entities)
-
-        print 'Created ValueTracker', self
-        print self._groups['tau-trajectories']
 
     @property
     def top_tokens_cardinalities(self):
@@ -340,18 +323,12 @@ class TrackedTopTokens(TrackedTopics):
         :param dict topic_name2coherence: contains coherence per topic
         """
         self._avg_coh = TrackedEntity('average_coherence', avg_coherence)
-        # self._topics_coh = map(lambda x: TrackedEntity(x[0], x[1]), topic_name2coherence.items())
         super(TrackedTopTokens, self).__init__({key: TrackedEntity(key, val) for key, val in topic_name2coherence.items()})
 
     @property
     def average_coherence(self):
         return self._avg_coh
 
-    # def __getattr__(self, item):
-    #     for tracked_entity in self._topics_coh:
-    #         if tracked_entity.name == item:
-    #             return tracked_entity
-    #     raise AttributeError("Topic named as '{}' not found as registered".format(item))
 
 class TrackedTrajectories(object):
     def __init__(self, matrix_name2elements_hash):
@@ -422,6 +399,7 @@ class SteadyTrackedItems(object):
         self._bg_topics = background_topics
         self._dm_topics = domain_topics
         self._modalities = modalities
+
     @property
     def dir(self):
         return self._root_dir
@@ -520,17 +498,7 @@ def test():
     tracked_kernel = TrackedKernel(*kernel_data)
 
     data = {
-        # "name": "Silent Bob",
-        # "dt": datetime.datetime(2013, 11, 11, 10, 40, 32),
-        # 'names': ['alpha', 'beta'],
-        # 'steady': SteadyTrackedItems('gav-dir', 'alpha_model', 20, 1, ['t00, t01'], ['t02', 't03', 't04'],
-        #                              {'@default_class': 1, '@ideology_class': 5}),
-        # 'ent1': TrackedPurity([0, 0, -1, -2, -3]),
-        # 'ent3': TrackedEntity('gg-ent', [0, 0, -1, -2, -3]),
-        # 'tracked_taus:': TrackedTrajectories({'phi': [0, 0, -1, -2, -3], 'theta': [0, -2, -4, -6, -8]}),
-        # 'top10': TrackedTopTokens([1, 2], {'t01': [1, 2, 3], 't00': [10, 2, 3], 't02': [10, 11]}),
-        # 'kernel': tracked_kernel,
-        # 'value_tracker': value_tracker,
+
         'exp1': exp
     }
 
@@ -557,16 +525,8 @@ def test():
     print 'ALL ASSERTIONS SUCCEEDED'
 
 class RoundTripEncoder(json.JSONEncoder):
-    DATE_FORMAT = "%Y-%m-%d"
-    TIME_FORMAT = "%H:%M:%S"
+
     def default(self, obj):
-        if isinstance(obj, datetime.datetime):
-            return {
-                "_type": "datetime",
-                "value": obj.strftime("%s %s" % (
-                    self.DATE_FORMAT, self.TIME_FORMAT
-                ))
-            }
         if isinstance(obj, SteadyTrackedItems):
             return {'dir': obj.dir,
                     'label': obj.model_label,
@@ -604,7 +564,7 @@ class RoundTripEncoder(json.JSONEncoder):
 class RoundTripDecoder(json.JSONDecoder):
     def __init__(self, *args, **kwargs):
         json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
-        self._data = {}
+
     def object_hook(self, obj):
         return obj
 
