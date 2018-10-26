@@ -4,7 +4,6 @@ import unittest
 from random import randint
 # import patm
 from patm.modeling.experimental_results import ExperimentalResults, TrackedKernel, ExperimentalResultsFactory, RoundTripEncoder, RoundTripDecoder
-from patm.modeling.experimental_results import RoundTripDecoder
 from patm.modeling import Experiment
 from patm.definitions import COLLECTIONS_DIR, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 from patm.modeling import trainer_factory
@@ -105,6 +104,8 @@ class TestExperimentalResults(unittest.TestCase):
                                    'top-tokens-100': 'tt100',
                                    'background-tokens-ratio-0.3': 'btr'}
         self.reg_type2name = {'sparse-phi': 'spp', 'smooth-phi': 'smp', 'sparse-theta': 'spt', 'smooth-theta': 'smt'}
+        self.nb_topics = 5
+        self.collection_passes = 30
 
     def tearDown(self):
         """Method to tear down the test fixture. Run AFTER the test methods."""
@@ -163,18 +164,32 @@ class TestExperimentalResults(unittest.TestCase):
         model_trainer = trainer_factory.create_trainer(test_collection, exploit_ideology_labels=True, force_new_batches=False)
         experiment = Experiment(test_collection_root, model_trainer.cooc_dicts)
         model_trainer.register(experiment)  # when the model_trainer trains, the experiment object listens to changes
-        topic_model = model_trainer.model_factory.construct_model(test_model, 4, 10, 1, 0.25, {IDEOLOGY_CLASS_NAME: 5, DEFAULT_CLASS_NAME: 1}, self.eval_def2eval_name, self.reg_type2name)
+        topic_model = model_trainer.model_factory.construct_model(test_model, self.nb_topics, self.collection_passes, 1, 0.25, {IDEOLOGY_CLASS_NAME: 5, DEFAULT_CLASS_NAME: 1}, self.eval_def2eval_name, self.reg_type2name)
         train_specs = model_trainer.model_factory.create_train_specs()
         experiment.init_empty_trackables(topic_model)
         model_trainer.train(topic_model, train_specs, effects=False)
         exp1 = results_factory.create_from_experiment(experiment)
+        dom = topic_model.domain_topics
 
-        assert 'tracked' in exp1.__dict__
-        assert 'scalars' in exp1.__dict__
-        assert exp1.scalars.nb_topics == 20
+        assert hasattr(exp1, 'tracked')
+        assert hasattr(exp1, 'scalars')
+        assert exp1.scalars.nb_topics == self.nb_topics
         assert exp1.scalars.model_label == 'test-model'
-        assert exp1.scalars.collection_passes == 30
+        assert all(map(lambda x: len(x) == self.collection_passes, [exp1.tracked.perplexity, exp1.tracked.sparsity_theta, exp1.tracked.sparsity_phi_d, exp1.tracked.sparsity_phi_i]))
+        for reg_def in (_ for _ in self.eval_def2eval_name if _.startswith('topic-kernel-')):
+            tr_kernel = getattr(exp1.tracked, 'kernel'+reg_def.split('-')[-1][2:])
+            assert all(map(lambda x: len(getattr(tr_kernel.average, x)) == self.collection_passes, ['coherence', 'contrast', 'purity']))
+        assert all(map(lambda x: len(x.average_coherence) == self.collection_passes,
+                       (getattr(exp1.tracked, 'top' + _.split('-')[-1]) for _ in self.eval_def2eval_name if _.startswith('top-tokens-'))))
+        assert all(map(lambda x: len(x.all) == self.collection_passes,
+                       (getattr(exp1.tracked, 'sparsity_phi_' + _.split('-')[-1][1]) for _ in self.eval_def2eval_name if
+                        _.startswith('sparsity-phi-@'))))
 
+        for reg_def in (_ for _ in self.eval_def2eval_name if _.startswith('top-tokens-')):
+            tr_top = getattr(exp1.tracked, 'top' + reg_def.split('-')[-1])
+            assert len(tr_top.average_coherence) == self.collection_passes
+
+            # assert abs(tr_kernel.average.coherence.last - sum(map(lambda x: getattr(tr_kernel, x).coherence.last, dom)) / float(self.nb_topics)) < 0.001
 
     def _assert_experimental_results_creation(self):
         assert self.exp1.scalars.nb_topics == 5
@@ -196,15 +211,15 @@ class TestExperimentalResults(unittest.TestCase):
         assert self.exp1.tracked.kernel8.t00.contrast.last == 3
         assert self.exp1.tracked.kernel8.average.purity.last == 6
 
-        assert self.exp1.tracked.top10.t01.all == [12, 22, 3]
-        assert self.exp1.tracked.top10.t00.last == 3
+        # assert self.exp1.tracked.top10.t01.all == [12, 22, 3]
+        # assert self.exp1.tracked.top10.t00.last == 3
         assert self.exp1.tracked.top10.average_coherence.all == [1, 2]
 
         assert self.exp1.tracked.tau_trajectories.phi.all == [1, 2, 3, 4, 5]
         assert self.exp1.tracked.tau_trajectories.theta.last == 9
 
 if __name__.__contains__("__main__"):
-    # print(__doc__)
+    
     unittest.main(warnings='ignore')
     # Run just 1 test.
-    # unittest.main(defaultTest='TestWeedMaster.test_dataset_creation', warnings='ignore')
+    # unittest.main(defaultTest='TestExperimentalResults.test_tracked_kernel', warnings='ignore')
