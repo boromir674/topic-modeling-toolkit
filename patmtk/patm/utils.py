@@ -20,6 +20,12 @@ def get_standard_evaluation_definitions():
     """
     return cfg2model_settings(TRAIN_CFG)['scores']
 
+def get_standard_regularization_definitions():
+    return OrderedDict([('sparse-phi', 'spp'),
+                        ('smooth-phi', 'smp'),
+                        ('sparse-theta', 'spt'),
+                        ('smooth-theta', 'smt')])
+
 
 def cfg2model_settings(cfg_file):
     """

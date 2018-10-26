@@ -219,7 +219,7 @@ class TestExperimentalResults(unittest.TestCase):
         assert self.exp1.tracked.tau_trajectories.theta.last == 9
 
 if __name__.__contains__("__main__"):
-    
+
     unittest.main(warnings='ignore')
     # Run just 1 test.
     # unittest.main(defaultTest='TestExperimentalResults.test_tracked_kernel', warnings='ignore')
