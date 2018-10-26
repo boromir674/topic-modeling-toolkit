@@ -17,6 +17,7 @@ class Experiment:
     - regularization parameters
     - _evaluator_name2definition
     """
+
     # tracked_entities = {
     #     'perplexity': ['value', 'class_id_info'],
     #     'sparsity-phi': ['value'],
@@ -43,10 +44,14 @@ class Experiment:
         self.model_params = {'nb_topics': [], 'document_passes': []}
         self.train_results_handler = ResultsWL(self, None)
         self.phi_matrix_handler = ModelWL(self, None)
+        self.failed_top_tokens_coherence = {}
+        self._total_passes = 0
 
     def init_empty_trackables(self, model):
         self._topic_model = model
         self.trackables = {}
+        self.failed_top_tokens_coherence = {}
+        self._total_passes = 0
         for evaluator_definition in model.evaluator_definitions:
             if self._strip_parameters(evaluator_definition) in ('perplexity', 'sparsity-phi', 'sparsity-theta', 'background-tokens-ratio'):
                 self.trackables[evaluator_definition] = []
@@ -54,6 +59,7 @@ class Experiment:
                 self.trackables[evaluator_definition] = [[], [], [], {t_name: {'coherence': [], 'contrast': [], 'purity': []} for t_name in model.domain_topics}]
             elif evaluator_definition.startswith('top-tokens-'):
                 self.trackables[evaluator_definition] = [[], {t_name: [] for t_name in model.domain_topics}]
+                self.failed_top_tokens_coherence[evaluator_definition] = {t_name: [] for t_name in model.domain_topics}
         self.collection_passes = []
         self.reg_params = {reg_type: {attr: [] for attr in dyn_coefs[reg_type]} for reg_type in model.regularizer_types}
         self.model_params = {'nb_topics': [], 'document_passes': []}
@@ -90,32 +96,14 @@ class Experiment:
     # TODO refactor this; remove dubious exceptions
     def update(self, topic_model, span):
         self.collection_passes.append(span) # iterations performed on the train set for the current 'steady' chunk
-        print 'TOP', topic_model.domain_topics, 'AND', topic_model.background_topics
 
         for reg_type, reg_settings in topic_model.get_regs_param_dict().items():
             for param_name, param_value in (_ for _ in reg_settings.items() if _[1]):
                 self.reg_params[reg_type][param_name].extend([param_value]*span)
-        print topic_model.evaluator_names
-        print topic_model.evaluator_definitions
-        print "MODEL TOP-TOKENS-EVALS: [{}]".format(', '.join(_ for _ in topic_model.evaluator_definitions if _.startswith('top-tokens-')))
-        # print "MODEL TOP-TOKENS-EVALS: [{}]".format(', '.join(topic_model.ge_ for _ in topic_model.evaluator_definitions if _.startswith('top-tokens-')))
-
-        print 'MODEL topic names:\n{}'.format('\n'.join(map(lambda x: ' {}: [{}]'.format(x[0], ', '.join(x[1])), topic_model.report_topic_names())))
 
         for evaluator_name, evaluator_definition in zip(topic_model.evaluator_names, topic_model.evaluator_definitions):
-            # print 'REPORTABLES:', topic_model.get_evaluator(evaluator_name).reportable_attributes
-
-            # for eval_name, evaluator_definition2 in zip(topic_model.evaluator_names, topic_model.evaluator_definitions):
-            #     reportable_to_results = topic_model.get_evaluator(evaluator_name).evaluate(topic_model.artm_model)
-            #     if hasattr(topic_model.get_evaluator(eval_name), 'topic_names') and evaluator_definition2.startswith('top-tokens-'):
-            #         print 'NAME {}, DEF {}, topics:'.format(eval_name, evaluator_definition2), topic_model.get_evaluator(eval_name).topic_names
-            #         print "top-tokens-dict-keys: [{}]".format(', '.join(sorted(reportable_to_results.keys())))
-            #         print 'value type', type(reportable_to_results['value'])
-            #         print reportable_to_results['coherence'][0].keys()
-
             reportable_to_results = topic_model.get_evaluator(evaluator_name).evaluate(topic_model.artm_model)
-            # import pprint
-            # pprint.pprint(reportable_to_results, indent=1)
+
             if self._strip_parameters(evaluator_definition) in ('perplexity', 'sparsity-phi', 'sparsity-theta', 'background-tokens-ratio'):
                 self.trackables[evaluator_definition].extend(reportable_to_results['value'][-span:])
             elif evaluator_definition.startswith('topic-kernel-'):
@@ -123,66 +111,31 @@ class Experiment:
                 self.trackables[evaluator_definition][1].extend(reportable_to_results['average_contrast'][-span:])
                 self.trackables[evaluator_definition][2].extend(reportable_to_results['average_purity'][-span:])
                 for topic_name, topic_metrics in self.trackables[evaluator_definition][3].items():
-                    # print type(reportable_to_results['coherence'])
                     topic_metrics['coherence'].extend(map(lambda x: x[topic_name], reportable_to_results['coherence'][-span:]))
                     topic_metrics['contrast'].extend(map(lambda x: x[topic_name], reportable_to_results['contrast'][-span:]))
                     topic_metrics['purity'].extend(map(lambda x: x[topic_name], reportable_to_results['purity'][-span:]))
             elif evaluator_definition.startswith('top-tokens-'):
                 self.trackables[evaluator_definition][0].extend(reportable_to_results['average_coherence'][-span:])
 
-                print type(reportable_to_results['coherence'][0])
-                print 'ELA', reportable_to_results['coherence'][0].keys()
-                print self.trackables[evaluator_definition][1].keys()
-                # import pprint
-                # pprint.pprint(reportable_to_results, indent=2)
-                for i, dd in enumerate(reportable_to_results['coherence'][-span:]):
-                    print 'iter {} topics: [{}]'.format(i, ', '.join(dd.keys()))
+                assert 'coherence' in reportable_to_results
                 for topic_name, topic_metrics in self.trackables[evaluator_definition][1].items():
-                    topic_metrics.extend(map(lambda x: x[topic_name], reportable_to_results['coherence'][-span:]))
-
-            # for eval_reportable, value in reportable_to_results.items():
-            #     if evaluator_definition == 'perplexity':
-            #         print value
-            #         # self.trackables['perplexity'].extend()
-
-                # print ' REPORTABLE', eval_reportable
-                # # pprint.pprint(value, indent=2)
-                # self.trackables[evaluator_definition][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values
-                # try:
-                #     if type(value) == list:
-                #         self.trackables[evaluator_definition][eval_reportable].extend(value[-span:])  # append only the newly produced tracked values
-                #     else:
-                #         raise RuntimeError
-                # except RuntimeError as e:
-                #     print e, '\n', type(value)
-                #     try:
-                #         print len(value)
-                #         raise e
-                #     except TypeError as er:
-                #         print 'does not have __len__ implemented'
-                #         print er
-                #     raise EvaluationOutputLoadingException("Could not assign the value of type '{}' with key '{}' as an item in self.trackables'".format(type(value), eval_reportable))
+                    try:
+                        topic_metrics.extend(map(lambda x: x[topic_name], reportable_to_results['coherence'][-span:]))
+                    except KeyError:
+                        if len(self.failed_top_tokens_coherence[evaluator_definition][topic_name]) == 0:
+                            self.failed_top_tokens_coherence[evaluator_definition][topic_name].append((self._total_passes, span))
+                        else:
+                            if span + self.failed_top_tokens_coherence[evaluator_definition][topic_name][-1][0] == self._total_passes:
+                                perv_tuple = self.failed_top_tokens_coherence[evaluator_definition][topic_name][-1]
+                                self.failed_top_tokens_coherence[evaluator_definition][topic_name][-1] = (self._total_passes, perv_tuple[1]+span)
+                self._total_passes += span
 
     @property
     def current_root_dir(self):
         return self._dir
 
     def get_results(self):
-
-        # res = ExperimentalResults(self._dir, self._topic_model.label, self._topic_model.nb_topics, self._topic_model.document_passes, self.topic_model.background_topics, self.topic_model.domain_topics, self.topic_model.modalities_dictionary, self.trackables)
-        res = ExperimentalResults(self)
-        return {
-            'collection_passes': self.collection_passes,  # eg [20, 20, 40, 100]
-            'trackables': self.trackables,  # TODO try list of tuples [('perplexity'), dict), ..]
-            'patm_root_dir': self.current_root_dir,  # eg /data/blah/
-            'model_label': self._topic_model.label,
-            'model_parameters': self.model_params,  # nb_topics and document_passes
-            'reg_parameters': self.reg_params,
-            'eval_definition2eval_name': dict(zip(self._topic_model.evaluator_definitions, self._topic_model.evaluator_names)),
-            'background_topics': self.topic_model.background_topics,
-            'domain_topics': self.topic_model.domain_topics,
-            'modalities': self.topic_model.modalities_dictionary
-        }
+        return experimental_results_factory.create_from_experiment(self)
 
     def save_experiment(self, save_phi=True):
         """
@@ -218,6 +171,7 @@ class Experiment:
         # print sum(results['collection_passes'])
         assert len(results['trackables']['perplexity']['value']) == sum(results['collection_passes'])
         self.collection_passes = results['collection_passes']
+        self._total_passes = sum(self.collection_passes)
         self.trackables = results['trackables']
         self.reg_params = results['reg_parameters']
         self.model_params = results['model_parameters']
