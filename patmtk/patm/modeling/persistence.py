@@ -2,8 +2,8 @@ import os
 import abc
 import glob
 import json
-
 from patm.utils import load_results
+from patm.modeling.experimental_results import experimental_results_factory
 
 
 class WriterLoader(object):
@@ -89,7 +89,9 @@ class ResultsWL(ExperimentWL):
         super(ResultsWL, self).__init__(experiment, os.path.join(experiment.current_root_dir, self._my_root), split_label, self._ext)
 
     def save(self, name):
-        results = _stringify_trackable_dicts(self._exp.get_results())
+        # results = _stringify_trackable_dicts(self._exp.get_results())
+        results = experimental_results_factory.create_from_experiment(self._exp)
+        results.save_as_json()
         with open(self.get_full_path(name), 'w') as f:
             json.dump(results, f)
         self._saved.append(self.get_full_path(name))
