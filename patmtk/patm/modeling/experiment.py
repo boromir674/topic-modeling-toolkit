@@ -149,7 +149,7 @@ class Experiment:
         # artm.ARTM.scores satisfy this
         # print 'Saving model \'{}\', train set iterations: {}'.format(self.topic_model.label, self.collection_passes)
         assert all(map(lambda x: len(x) == sum(self.collection_passes), [values_list for eval2scoresdict in self.trackables.values() for values_list in eval2scoresdict.values()]))
-        # the above will fail when metrics outside the artm library start to get tracked, because these will be able to only capture the last state of the metric trajectory due to fitting by "junks
+        # the above will fail when metrics outside the artm library start to get tracked, because these will be able to only capture the last state of the metric trajectory due to fitting by "chunks"
         self.train_results_handler.save(self._topic_model.label)
         if save_phi:
             self.phi_matrix_handler.save(self._topic_model.label)
@@ -169,8 +169,6 @@ class Experiment:
         """
         results = self.train_results_handler.load(model_label)
         assert model_label == results['model_label']
-        # print len(results['trackables']['per']['value'])
-        # print sum(results['collection_passes'])
         assert len(results['trackables']['perplexity']['value']) == sum(results['collection_passes'])
         self.collection_passes = results['collection_passes']
         self._total_passes = sum(self.collection_passes)

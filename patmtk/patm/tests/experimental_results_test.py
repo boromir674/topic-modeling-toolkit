@@ -30,12 +30,6 @@ bg_t = ['t0', 't1']
 dm_t = ['t2', 't3', 't4']
 mods = {'dcn': 1, 'icn': 5}
 
-# tr_t = TrackedTopTokens([1,2,3], {'t00': [4,5,6], 't01': [4,5,5]})
-#
-# assert tr_t.average_coherence.all == [1,2,3]
-# assert tr_t.average_coherence.last == 3
-# assert tr_t.t00.all == [4,5,6]
-# assert tr_t.t01.last == 5
 
 kernel_data = [[1,2], [3,4], [5,6], {'t01': {'coherence': [1,2,3],
                                                              'contrast': [6, 3],
@@ -73,8 +67,24 @@ tracked = {'perplexity': [1, 2, 3],
            'top-tokens-100': top100_data,
            'tau-trajectories': tau_trajectories_data}
 
+kernel_tokens = {'topic-kernel-0.6': {'t00': ['a', 'b', 'c'],
+                                      't01': ['d', 'e', 'f'],
+                                      't02': ['g', 'h', 'i']},
+                 'topic-kernel-0.8': {'t00': ['j', 'k', 'l'],
+                                      't01': ['m', 'n', 'o'],
+                                      't02': ['p', 'q', 'r']}}
 
-exp1 = ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked)
+top_tokens = {'top-tokens-10': {'t00': ['s', 't', 'u'],
+                                't01': ['v', 'x', 'y'],
+                                't02': ['z', 'a1', 'b1']},
+              'top-tokens-100': {'t00': ['c1', 'd1', 'e1'],
+                                 't01': ['f1', 'g1', 'h1'],
+                                 't02': ['i1', 'j1', 'k1']}}
+
+background_tokens = ['l1', 'm1', 'n1']
+
+
+exp1 = ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked, kernel_tokens, top_tokens, background_tokens)
 results_factory = ExperimentalResultsFactory()
 
 
@@ -95,17 +105,17 @@ class TestExperimentalResults(unittest.TestCase):
         """Method to prepare the test fixture. Run BEFORE the test methods."""
         self.tracked_kernel = TrackedKernel(*kernel_data)
         self.eval_def2eval_name = {'perplexity': 'per',
-                                                      'sparsity-phi-@dc': 'sppd',
-                                                      'sparsity-phi-@ic': 'sppi',
-                                                      'sparsity-theta': 'spt',
-                                                      'topic-kernel-0.6': 'tk1',
-                                                      'topic-kernel-0.8': 'tk2',
-                                                      'top-tokens-10': 'tt10',
+                                   'sparsity-phi-@dc': 'sppd',
+                                   'sparsity-phi-@ic': 'sppi',
+                                   'sparsity-theta': 'spt',
+                                   'topic-kernel-0.6': 'tk1',
+                                   'topic-kernel-0.8': 'tk2',
+                                   'top-tokens-10': 'tt10',
                                    'top-tokens-100': 'tt100',
                                    'background-tokens-ratio-0.3': 'btr'}
         self.reg_type2name = {'sparse-phi': 'spp', 'smooth-phi': 'smp', 'sparse-theta': 'spt', 'smooth-theta': 'smt'}
         self.nb_topics = 5
-        self.collection_passes = 30
+        self.collection_passes = 20
 
     def tearDown(self):
         """Method to tear down the test fixture. Run AFTER the test methods."""
@@ -153,6 +163,13 @@ class TestExperimentalResults(unittest.TestCase):
         assert res['tracked']['topic-kernel']['0.6']['topics']['t02']['coherence'] == [10, 11]
         assert res['tracked']['tau-trajectories']['phi'] == [1, 2, 3, 4, 5]
         assert res['tracked']['tau-trajectories']['theta'] == [5, 6, 7, 8, 9]
+        assert res['final']['topic-kernel']['0.6']['t00'] == ['a', 'b', 'c']
+        assert res['final']['topic-kernel']['0.6']['t02'] == ['g', 'h', 'i']
+        assert res['final']['topic-kernel']['0.8']['t01'] == ['m', 'n', 'o']
+        assert res['final']['top-tokens']['10']['t02'] == ['z', 'a1', 'b1']
+        assert res['final']['top-tokens']['100']['t00'] == ['c1', 'd1', 'e1']
+        assert res['final']['top-tokens']['100']['t01'] == ['f1', 'g1', 'h1']
+        assert res['final']['background-tokens'] == ['l1', 'm1', 'n1']
 
     def test_creation_from_json(self):
         self.exp1 = results_factory.create_from_json_file(test_json_path)
@@ -217,6 +234,19 @@ class TestExperimentalResults(unittest.TestCase):
 
         assert self.exp1.tracked.tau_trajectories.phi.all == [1, 2, 3, 4, 5]
         assert self.exp1.tracked.tau_trajectories.theta.last == 9
+
+        assert self.exp1.final.kernel6.t00.tokens == ['a', 'b', 'c']
+        assert self.exp1.final.kernel6.t02.tokens == ['g', 'h', 'i']
+        assert self.exp1.final.kernel8.topics == ['t00', 't01', 't02']
+        assert self.exp1.final.top10.t02.tokens == ['z', 'a1', 'b1']
+        assert self.exp1.final.top100.t00.tokens == ['c1', 'd1', 'e1']
+        assert self.exp1.final.top100.t01.tokens == ['f1', 'g1', 'h1']
+        assert len(self.exp1.final.top100.t02) == 3
+        assert 'j1' in self.exp1.final.top100.t02
+        assert self.exp1.final.top_defs == ['top-tokens-10', 'top-tokens-100']
+        assert self.exp1.final.kernels == ['kernel6', 'kernel8']
+        assert self.exp1.final.background_tokens == ['l1', 'm1', 'n1']
+
 
 if __name__.__contains__("__main__"):
 

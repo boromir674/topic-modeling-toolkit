@@ -22,19 +22,10 @@ class TopicModel(object):
         self.label = label
         self.artm_model = artm_model
         self._definition2evaluator = evaluators
-        self._definition2evaluator_name = {k: v.name for k, v in evaluators.items()} # {'sparsity-phi': 'spd_p', 'top-tokens-10': 'tt10'}
+        self.definition2evaluator_name = {k: v.name for k, v in evaluators.items()} # {'sparsity-phi': 'spd_p', 'top-tokens-10': 'tt10'}
         self._evaluator_name2definition = {v.name: k for k, v in evaluators.items()} # {'sp_p': 'sparsity-phi', 'tt10': 'top-tokens-10'}
         self._reg_type2name = {}  # ie {'smooth-theta': 'smb_t', 'sparse-phi': 'spd_p'}
         self._reg_name2wrapper = {}
-
-    # def add_regularizer(self, reg_object, reg_type):
-    #     """
-    #     Adds a regularizer component to the optimization likelihood function. Adds the given object to the underlying artm model.\n
-    #     :param artm.BaseRegularizer reg_object: the object to add
-    #     :param str reg_type:
-    #     """
-    #     self._reg_type2name[reg_type] = reg_object.name
-    #     self.artm_model.regularizers.add(reg_object)
 
     def add_regularizer_wrapper(self, reg_wrapper):
         self._reg_name2wrapper[reg_wrapper.name] = reg_wrapper
@@ -111,6 +102,28 @@ class TopicModel(object):
         return c.most_common(1)[0][0].split('+')
 
     @property
+    def background_tokens(self):
+        background_tokens_eval_name = ''
+        for eval_def, eval_name in self.definition2evaluator_name.items():
+            if eval_def.startswith('background-tokens-ratio-'):
+                background_tokens_eval_name = eval_name
+        if background_tokens_eval_name:
+            res = self.artm_model.score_tracker[background_tokens_eval_name].tokens
+            res1 = self.artm_model.score_tracker[background_tokens_eval_name].value
+            print 'AAAA'
+            print type(res)
+            print len(res)
+            for tokens, value in zip(res, res1):
+                print len(tokens), value
+            # print type(res[0])
+            # print len(res[0])
+            # print len(res[1])
+            # print len(res[-1])
+            assert type(res) == list
+            return res[-1]
+        return None
+
+    @property
     def background_topics(self):
         return [topic_name for topic_name in self.artm_model.topic_names if topic_name not in self.domain_topics]
 
@@ -136,9 +149,6 @@ class TopicModel(object):
 
     def get_scorer_by_name(self, eval_name):
         return self.artm_model.scores[eval_name]
-
-    def get_scorer_by_type(self, eval_type):
-        return self.artm_model.scores[self._definition2evaluator_name[eval_type]]
 
     @document_passes.setter
     def document_passes(self, iterations):

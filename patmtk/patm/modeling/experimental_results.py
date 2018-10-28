@@ -105,7 +105,10 @@ class ExperimentalResultsFactory(object):
                                    res['scalars']['background_topics'],
                                    res['scalars']['domain_topics'],
                                    res['scalars']['modalities'],
-                                   reduce(lambda x, y: dict(x, **y), self._data))
+                                   reduce(lambda x, y: dict(x, **y), self._data),
+                                   {'topic-kernel-'+threshold: tokens_hash for threshold, tokens_hash in res['final']['topic-kernel'].items()},
+                                   {'top-tokens-'+nb_tokens: tokens_hash for nb_tokens, tokens_hash in res['final']['top-tokens'].items()},
+                                   res['final']['background-tokens'])
 
     def create_from_experiment(self, experiment):
         self._data = [{'perplexity': experiment.trackables['perplexity'],
@@ -121,7 +124,11 @@ class ExperimentalResultsFactory(object):
                                    experiment.topic_model.background_topics,
                                    experiment.topic_model.domain_topics,
                                    experiment.topic_model.modalities_dictionary,
-                                   reduce(lambda x, y: dict(x, **y), self._data))
+                                   reduce(lambda x, y: dict(x, **y), self._data),
+                                   {eval_def: experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[eval_def]].tokens[-1] for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('topic-kernel-')},
+                                   {eval_def: experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[eval_def]].tokens[-1] for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('top-tokens-')},
+                                   experiment.topic_model.background_tokens)
+
 
 experimental_results_factory = ExperimentalResultsFactory()
 
@@ -433,11 +440,13 @@ class SteadyTrackedItems(object):
     def modalities(self):
         return self._modalities
 
+
 def kernel_def2_kernel(kernel_def):
     return 'kernel'+kernel_def.split('.')[-1]
 
 def top_tokens_def2_top(top_def):
     return 'top'+top_def.split('-')[-1]
+
 
 class FinalStateEntities(object):
     def __init__(self, kernel_def_2tokens_hash, top_def_2_tokens_hash, background_tokens):
@@ -466,8 +475,8 @@ class FinalStateEntities(object):
         return self._kernel_defs_list
 
     @property
-    def background(self):
-        return self._bg_tokens
+    def background_tokens(self):
+        return self._bg_tokens.tokens
 
 
 class TopicsTokens(object):
@@ -606,7 +615,7 @@ class RoundTripEncoder(json.JSONEncoder):
         if isinstance(obj, FinalStateEntities):
             return {'topic-kernel': {kernel_def.split('-')[-1]: getattr(obj, kernel_def2_kernel(kernel_def)) for kernel_def in obj.kernel_defs},
                     'top-tokens': {top_def.split('-')[-1]: getattr(obj, top_tokens_def2_top(top_def)) for top_def in obj.top_defs},
-                    'background-tokens': obj.background}
+                    'background-tokens': obj.background_tokens}
         if isinstance(obj, SteadyTrackedItems):
             return {'dir': obj.dir,
                     'label': obj.model_label,
