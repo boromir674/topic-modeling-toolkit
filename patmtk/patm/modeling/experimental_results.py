@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractproperty
 
 class ExperimentalResults(object):
     def __init__(self, root_dir, model_label, nb_topics, document_passes, background_topics, domain_topics, modalities,
-                 tracked, kernel_tokens, top_tokens_defs, background_tokens):
+                 tracked, kernel_tokens, top_tokens_defs, background_tokens, degeneration_info):
         """
         Examples:
             4 elements: kernel_data = [[1,2], [3,4], [5,6], {'t01': {'coherence': [1,2,3],
@@ -53,6 +53,11 @@ class ExperimentalResults(object):
                                                     background_topics, domain_topics, modalities)
         self._tracker = ValueTracker(tracked)
         self._final_state_items = FinalStateEntities(kernel_tokens, top_tokens_defs, background_tokens)
+        self._degen_info = degeneration_info
+
+    @property
+    def degeneration_info(self):
+        return self._degen_info
 
     @property
     def scalars(self):
@@ -108,7 +113,8 @@ class ExperimentalResultsFactory(object):
                                    reduce(lambda x, y: dict(x, **y), self._data),
                                    {'topic-kernel-'+threshold: tokens_hash for threshold, tokens_hash in res['final']['topic-kernel'].items()},
                                    {'top-tokens-'+nb_tokens: tokens_hash for nb_tokens, tokens_hash in res['final']['top-tokens'].items()},
-                                   res['final']['background-tokens'])
+                                   res['final']['background-tokens'],
+                                   res['degeneration'])
 
     def create_from_experiment(self, experiment):
         self._data = [{'perplexity': experiment.trackables['perplexity'],
@@ -117,6 +123,17 @@ class ExperimentalResultsFactory(object):
         self._data.append({top_tokens_definition: [value[0], value[1]] for top_tokens_definition, value in experiment.trackables.items() if top_tokens_definition.startswith('top-tokens-')})
         self._data.append({'tau-trajectories': {matrix_name: experiment.reg_params['sparse-'+matrix_name]['tau']} for matrix_name in ['phi', 'theta']})
         self._data.append({key: v for key, v in experiment.trackables.items() if key.startswith('sparsity-phi-@')})
+
+        print 'FACTORY', experiment.topic_model.definition2evaluator_name
+        for eval_def in (_ for _ in experiment.topic_model.evaluator_definitions if _.startswith('top-tokens-')):
+            eval_name = experiment.topic_model.definition2evaluator_name[eval_def]
+            tr = experiment.topic_model.artm_model.score_tracker[eval_name]
+            print 'DEF', eval_def
+            print len(tr.tokens)
+            print map(lambda x: type(x), tr.tokens)
+            print map(lambda x: map(lambda y: len(x[y]), sorted(x.keys())), tr.tokens)
+        st = {eval_def: experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[eval_def]].tokens[-1] for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('top-tokens-')}
+        print st
         return ExperimentalResults(experiment.current_root_dir,
                                    experiment.topic_model.label,
                                    experiment.topic_model.nb_topics,
@@ -126,8 +143,9 @@ class ExperimentalResultsFactory(object):
                                    experiment.topic_model.modalities_dictionary,
                                    reduce(lambda x, y: dict(x, **y), self._data),
                                    {eval_def: experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[eval_def]].tokens[-1] for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('topic-kernel-')},
-                                   {eval_def: experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[eval_def]].tokens[-1] for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('top-tokens-')},
-                                   experiment.topic_model.background_tokens)
+                                   st,
+                                   experiment.topic_model.background_tokens,
+                                   experiment.degeneration_info)
 
 
 experimental_results_factory = ExperimentalResultsFactory()
@@ -454,8 +472,10 @@ class FinalStateEntities(object):
         self._top_defs_list = sorted(top_def_2_tokens_hash.keys())
         self._bg_tokens = TokensList(background_tokens)
         for kernel_def, topic_name2tokens in kernel_def_2tokens_hash.items():
+            print kernel_def, ':', topic_name2tokens.keys()
             setattr(self, kernel_def2_kernel(kernel_def), TopicsTokens(topic_name2tokens))
         for top_def, topic_name2tokens in top_def_2_tokens_hash.items():
+            print top_def, ':', topic_name2tokens.keys()
             setattr(self, top_tokens_def2_top(top_def), TopicsTokens(topic_name2tokens))
 
     @property
@@ -647,7 +667,8 @@ class RoundTripEncoder(json.JSONEncoder):
         if isinstance(obj, ExperimentalResults):
             return {'scalars': obj.scalars,
                     'tracked': obj.tracked,
-                    'final': obj.final}
+                    'final': obj.final,
+                    'degeneration': obj.degeneration_info}
         return super(RoundTripEncoder, self).default(obj)
 
 

@@ -35,14 +35,10 @@ def gen_fields(category, cat2files, sample_docs=None, fields=tuple('text')):
     given then generates till reaching the ammount; generates till depletion otherwise.
     In case it fails to find all the requested fields it generates dictionaries solely having the 'text' field.
     Therefore it expects each document in the dataframes to have a 'text' field.\n
-    :param category: The category of pickled files to consider [posts, comments, posts+comments]. Currently supports only posts
-    :type category: str
-    :param cat2files: mapping of categories [posts, comments] to their corresponding files: string -> list of strings mapping
-    :type cat2files: dict
-    :param sample_docs: Specifies the maximun number of items to generate. If not specified generates till depletion
-    :type sample_docs: int
-    :param fields: the fields of interest to include in the generated dictionaries
-    :type fields: tuple
+    :param str category: The category of pickled files to consider [posts, comments, posts+comments]. Currently supports only posts
+    :param dict cat2files: mapping of categories [posts, comments] to their corresponding files: string -> list of strings mapping
+    :param int sample_docs: Specifies the maximun number of items to generate. If not specified generates till depletion
+    :param tuple fields: the fields of interest to include in the generated dictionaries
     """
     total_docs = 0
     full_docs = 0

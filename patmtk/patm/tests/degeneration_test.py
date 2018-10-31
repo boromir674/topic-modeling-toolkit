@@ -1,6 +1,7 @@
 import unittest
 from random import randint
-from patm.modeling.trainer import DegenerationChecker
+from patm.modeling.experiment import DegenerationChecker
+
 
 # Random order for tests runs. (Original is: -1 if x<y, 0 if x==y, 1 if x>y).
 unittest.TestLoader.sortTestMethodsUsing = lambda _, x, y: randint(-1, 1)

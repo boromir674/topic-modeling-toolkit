@@ -48,6 +48,7 @@ class Experiment:
         self.phi_matrix_handler = ModelWL(self, None)
         self.failed_top_tokens_coherence = {}
         self._total_passes = 0
+        self.degeneration_checker = DegenerationChecker([])
 
     def init_empty_trackables(self, model):
         self._topic_model = model
@@ -177,6 +178,114 @@ class Experiment:
         self.model_params = results['model_parameters']
         self._topic_model = self.phi_matrix_handler.load(model_label, results)
         return self._topic_model
+
+    @property
+    def degeneration_info(self):
+        # r = {}
+        # for k, v in self.trackables.items():
+        #
+        #
+        # return {}
+        return {}
+
+class DegenerationChecker(object):
+    def __init__(self, reference_keys):
+        self._keys = sorted(reference_keys)
+
+    def _initialize(self):
+        self._iter = 0
+        self._degen_info = {key: [] for key in self._keys}
+        self._building = {k: False for k in self._keys}
+        self._li = {k: 0 for k in self._keys}
+        self._ri = {k: 0 for k in self._keys}
+
+    def __str__(self):
+        return '[{}]'.format(', '.join(self._keys))
+
+    def __repr__(self):
+        return "{}({})".format(self.__class__.__name__, str(self))
+
+    @property
+    def keys(self):
+        return self.keys
+
+    @keys.setter
+    def keys(self, keys):
+        self._keys = sorted(keys)
+
+    def get_degeneration_info(self, dict_list):
+        self._initialize()
+        return dict(map(lambda x: (x, self.get_degenerated_tuples(x, self._get_struct(dict_list))), self._keys))
+
+    def get_degen_info_0(self, dict_list):
+        self.build(dict_list)
+        return self._degen_info
+
+    def build(self, dict_list):
+        self._initialize()
+        for k in self._keys:
+            self._build_degen_info(k, self._get_struct(dict_list))
+            self._add_final(k, self._degen_info[k])
+
+    def get_degenerated_tuples(self, key, struct):
+        """
+        :param str key:
+        :param list struct: output of self._get_struct(dict_list)
+        :return: a list of tuples indicating starting and finishing train iterations when the information has been degenerated (missing)
+        """
+        _ = filter(None, map(lambda x: self._build_tuple(key, x[1], x[0]), enumerate(struct)))
+        self._add_final(key, _)
+        return _
+
+    def _add_final(self, key, info):
+        if self._building[key]:
+            info.append((self._li[key], self._ri[key]))
+
+    def _build_tuple(self, key, struct_element, iter_count):
+        """
+
+        :param str key:
+        :param list struct_element:
+        :param int iter_count:
+        :return:
+        """
+        r = None
+        if key in struct_element:  # if has lost its information (has degenerated) for iteration/collection_pass i
+            if self._building[key]:
+                self._ri[key] += 1
+            else:
+                self._li[key] = iter_count
+                self._ri[key] = iter_count + 1
+                self._building[key] = True
+        else:
+            if self._building[key]:
+                r = (self._li[key], self._ri[key])
+                self._building[key] = False
+        return r
+
+    def _build_degen_info(self, key, struct):
+        for i, el in enumerate(struct):
+            if key in el:  # if has lost its information (has degenerated) for iteration/collection_pass i
+                if self._building[key]:
+                    self._ri[key] += 1
+                else:
+                    self._li[key] = i
+                    self._ri[key] = i + 1
+                    self._building[key] = True
+            else:
+                if self._building[key]:
+                    self._degen_info[key].append((self._li[key], self._ri[key]))
+                    self._building[key] = False
+
+    def _get_struct(self, dict_list):
+        return map(lambda x: self._get_degen_keys(self._keys, x), dict_list)
+
+    def _get_degen_keys(self, key_list, a_dict):
+        return filter(None, map(lambda x: x if self._has_degenerated(x, a_dict) else None, key_list))
+
+    def _has_degenerated(self, key, a_dict):
+        if key not in a_dict or len(a_dict[key]) == 0 or not a_dict[key]: return True
+        return False
 
 
 class EvaluationOutputLoadingException(Exception):
