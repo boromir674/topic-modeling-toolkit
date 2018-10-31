@@ -65,14 +65,7 @@ class ParameterTrajectory(object):
         for iter_chunk in iterations_groups:
             left_iter_count = accumulated_iters
             if iter_chunk > 1:
-                try:
-                    right_iter_count = left_iter_count + iter_chunk - 1
-                except TypeError as e:
-                    print 'ERROR'
-                    print left_iter_count
-                    print iter_chunk
-                    import sys
-                    sys.exit(1)
+                right_iter_count = left_iter_count + iter_chunk - 1
                 res.append([left_iter_count, right_iter_count])
                 accumulated_iters += iter_chunk
             else:
@@ -277,7 +270,6 @@ class TrajectoryBuilder(object):
         used, (or from 'start' value if specified) to the specified 'value' using 'iters' steps. Each step is a train
         cycle through the collection\n
         Supports linear interpolation"""
-        print "INTERPOLATE", iters, value, start
         assert iters > 1
         prev_iter = len(self._values)
         iter_inds = range(prev_iter, prev_iter + iters)

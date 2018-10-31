@@ -48,7 +48,7 @@ class Experiment:
         self.phi_matrix_handler = ModelWL(self, None)
         self.failed_top_tokens_coherence = {}
         self._total_passes = 0
-        self.degeneration_checker = DegenerationChecker([])
+        # self.degeneration_checker = DegenerationChecker([])
 
     def init_empty_trackables(self, model):
         self._topic_model = model
@@ -179,14 +179,6 @@ class Experiment:
         self._topic_model = self.phi_matrix_handler.load(model_label, results)
         return self._topic_model
 
-    @property
-    def degeneration_info(self):
-        # r = {}
-        # for k, v in self.trackables.items():
-        #
-        #
-        # return {}
-        return {}
 
 class DegenerationChecker(object):
     def __init__(self, reference_keys):
@@ -217,15 +209,15 @@ class DegenerationChecker(object):
         self._initialize()
         return dict(map(lambda x: (x, self.get_degenerated_tuples(x, self._get_struct(dict_list))), self._keys))
 
-    def get_degen_info_0(self, dict_list):
-        self.build(dict_list)
-        return self._degen_info
-
-    def build(self, dict_list):
-        self._initialize()
-        for k in self._keys:
-            self._build_degen_info(k, self._get_struct(dict_list))
-            self._add_final(k, self._degen_info[k])
+    # def get_degen_info_0(self, dict_list):
+    #     self.build(dict_list)
+    #     return self._degen_info
+    #
+    # def build(self, dict_list):
+    #     self._initialize()
+    #     for k in self._keys:
+    #         self._build_degen_info(k, self._get_struct(dict_list))
+    #         self._add_final(k, self._degen_info[k])
 
     def get_degenerated_tuples(self, key, struct):
         """
@@ -243,7 +235,6 @@ class DegenerationChecker(object):
 
     def _build_tuple(self, key, struct_element, iter_count):
         """
-
         :param str key:
         :param list struct_element:
         :param int iter_count:

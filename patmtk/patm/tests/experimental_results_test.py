@@ -84,7 +84,7 @@ top_tokens = {'top-tokens-10': {'t00': ['s', 't', 'u'],
 background_tokens = ['l1', 'm1', 'n1']
 
 
-exp1 = ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked, kernel_tokens, top_tokens, background_tokens, {})
+exp1 = ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked, kernel_tokens, top_tokens, background_tokens)
 results_factory = ExperimentalResultsFactory()
 
 
@@ -176,51 +176,55 @@ class TestExperimentalResults(unittest.TestCase):
         # print self.exp1.to_json(human_redable=True)  # ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked)
         self._assert_experimental_results_creation()
 
-    # def test_creation_from_experiment(self):
-    #
-    #     model_trainer = trainer_factory.create_trainer(test_collection, exploit_ideology_labels=True, force_new_batches=False)
-    #     experiment = Experiment(test_collection_root, model_trainer.cooc_dicts)
-    #     model_trainer.register(experiment)  # when the model_trainer trains, the experiment object listens to changes
-    #     topic_model = model_trainer.model_factory.construct_model(test_model, self.nb_topics, self.collection_passes, 1, 0.25, {IDEOLOGY_CLASS_NAME: 5, DEFAULT_CLASS_NAME: 1}, self.eval_def2eval_name, self.reg_type2name)
-    #     train_specs = model_trainer.model_factory.create_train_specs()
-    #     experiment.init_empty_trackables(topic_model)
-    #     model_trainer.train(topic_model, train_specs, effects=False)
-    #     exp1 = results_factory.create_from_experiment(experiment)
-    #     dom = topic_model.domain_topics
-    #
-    #     assert hasattr(exp1, 'tracked')
-    #     assert hasattr(exp1, 'scalars')
-    #     assert exp1.scalars.nb_topics == self.nb_topics
-    #     assert exp1.scalars.model_label == 'test-model'
-    #     assert all(map(lambda x: len(x) == self.collection_passes, [exp1.tracked.perplexity, exp1.tracked.sparsity_theta, exp1.tracked.sparsity_phi_d, exp1.tracked.sparsity_phi_i]))
-    #     for reg_def in (_ for _ in self.eval_def2eval_name if _.startswith('topic-kernel-')):
-    #         tr_kernel = getattr(exp1.tracked, 'kernel'+reg_def.split('-')[-1][2:])
-    #         assert all(map(lambda x: len(getattr(tr_kernel.average, x)) == self.collection_passes, ['coherence', 'contrast', 'purity']))
-    #     assert all(map(lambda x: len(x.average_coherence) == self.collection_passes,
-    #                    (getattr(exp1.tracked, 'top' + _.split('-')[-1]) for _ in self.eval_def2eval_name if _.startswith('top-tokens-'))))
-    #     assert all(map(lambda x: len(x.all) == self.collection_passes,
-    #                    (getattr(exp1.tracked, 'sparsity_phi_' + _.split('-')[-1][1]) for _ in self.eval_def2eval_name if
-    #                     _.startswith('sparsity-phi-@'))))
-    #
-    #     for reg_def in (_ for _ in self.eval_def2eval_name if _.startswith('top-tokens-')):
-    #         tr_top = getattr(exp1.tracked, 'top' + reg_def.split('-')[-1])
-    #         assert len(tr_top.average_coherence) == self.collection_passes
+    def test_creation_from_experiment(self):
+
+        model_trainer = trainer_factory.create_trainer(test_collection, exploit_ideology_labels=True, force_new_batches=False)
+        experiment = Experiment(test_collection_root, model_trainer.cooc_dicts)
+        model_trainer.register(experiment)  # when the model_trainer trains, the experiment object listens to changes
+        topic_model = model_trainer.model_factory.construct_model(test_model, self.nb_topics, self.collection_passes, 1, 0.25, {IDEOLOGY_CLASS_NAME: 5, DEFAULT_CLASS_NAME: 1}, self.eval_def2eval_name, self.reg_type2name)
+        train_specs = model_trainer.model_factory.create_train_specs()
+        experiment.init_empty_trackables(topic_model)
+        model_trainer.train(topic_model, train_specs, effects=False)
+        exp1 = results_factory.create_from_experiment(experiment)
+        dom = topic_model.domain_topics
+
+        assert hasattr(exp1, 'tracked')
+        assert hasattr(exp1, 'scalars')
+        assert exp1.scalars.nb_topics == self.nb_topics
+        assert exp1.scalars.model_label == 'test-model'
+        assert all(map(lambda x: len(x) == self.collection_passes, [exp1.tracked.perplexity, exp1.tracked.sparsity_theta, exp1.tracked.sparsity_phi_d, exp1.tracked.sparsity_phi_i]))
+        for reg_def in (_ for _ in self.eval_def2eval_name if _.startswith('topic-kernel-')):
+            tr_kernel = getattr(exp1.tracked, 'kernel'+reg_def.split('-')[-1][2:])
+            assert all(map(lambda x: len(getattr(tr_kernel.average, x)) == self.collection_passes, ['coherence', 'contrast', 'purity']))
+        assert all(map(lambda x: len(x.average_coherence) == self.collection_passes,
+                       (getattr(exp1.tracked, 'top' + _.split('-')[-1]) for _ in self.eval_def2eval_name if _.startswith('top-tokens-'))))
+        assert all(map(lambda x: len(x.all) == self.collection_passes,
+                       (getattr(exp1.tracked, 'sparsity_phi_' + _.split('-')[-1][1]) for _ in self.eval_def2eval_name if
+                        _.startswith('sparsity-phi-@'))))
+        # for ed, en in (_ for _ in self.eval_def2eval_name.items() if _[0].startswith('top-tokens-')):
+        #     print ed, en, '[{}]'.format(', '.join(map(lambda x: str(x), getattr(exp1.tracked, 'top'+ed.split('-')[-1]).average_coherence)))
+        #
+        # for ed, en in (_ for _ in self.eval_def2eval_name.items() if _[0].startswith('topic-kernel-')):
+        #     print ed, en, '[{}]'.format(', '.join(map(lambda x: str(x), getattr(exp1.tracked, 'kernel'+ed.split('-')[-1][2:]).average.coherence)))
+
+        for reg_def in (_ for _ in self.eval_def2eval_name if _.startswith('top-tokens-')):
+            tr_top = getattr(exp1.tracked, 'top' + reg_def.split('-')[-1])
+            assert len(tr_top.average_coherence) == self.collection_passes
     #
     #         # assert abs(tr_kernel.average.coherence.last - sum(map(lambda x: getattr(tr_kernel, x).coherence.last, dom)) / float(self.nb_topics)) < 0.001
     #
-    #     for kernel, kernel_def in zip(exp1.final.kernels, exp1.final.kernel_defs):
-    #         for topic_name in exp1.scalars.domain_topics:
-    #             print dir(getattr(exp1.final, kernel))
-    #             # print getattr(getattr(exp1.final, kernel), topic_name).tokens
-    #             # print experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[kernel_def]].tokens[-1]
-    #             assert getattr(getattr(exp1.final, kernel), topic_name).tokens == experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[kernel_def]].tokens[-1][topic_name]
+        for kernel, kernel_def in zip(exp1.final.kernels, exp1.final.kernel_defs):
+            for topic_name in exp1.scalars.domain_topics:
+                # print dir(getattr(exp1.final, kernel))
+                # print getattr(getattr(exp1.final, kernel), topic_name).tokens
+                # print experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[kernel_def]].tokens[-1]
+                assert getattr(getattr(exp1.final, kernel), topic_name).tokens == experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[kernel_def]].tokens[-1][topic_name]
     #
     #     for top, top_def in zip(exp1.final.top, exp1.final.top_defs):
     #         for topic_name in exp1.scalars.domain_topics:
     #             print dir(getattr(exp1.final, top))
     #             # print experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[kernel_def]].tokens[-1]
     #             assert getattr(getattr(exp1.final, top), topic_name).tokens == experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[top_def]].tokens[-1][topic_name]
-
 
 
     def _assert_experimental_results_creation(self):
@@ -265,6 +269,6 @@ class TestExperimentalResults(unittest.TestCase):
 
 if __name__.__contains__("__main__"):
 
-    unittest.main(warnings='ignore')
+    unittest.main()
     # Run just 1 test.
     # unittest.main(defaultTest='TestExperimentalResults.test_tracked_kernel', warnings='ignore')

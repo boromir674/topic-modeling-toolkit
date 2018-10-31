@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractproperty
 
 class ExperimentalResults(object):
     def __init__(self, root_dir, model_label, nb_topics, document_passes, background_topics, domain_topics, modalities,
-                 tracked, kernel_tokens, top_tokens_defs, background_tokens, degeneration_info):
+                 tracked, kernel_tokens, top_tokens_defs, background_tokens):
         """
         Examples:
             4 elements: kernel_data = [[1,2], [3,4], [5,6], {'t01': {'coherence': [1,2,3],
@@ -53,7 +53,6 @@ class ExperimentalResults(object):
                                                     background_topics, domain_topics, modalities)
         self._tracker = ValueTracker(tracked)
         self._final_state_items = FinalStateEntities(kernel_tokens, top_tokens_defs, background_tokens)
-        self._degen_info = degeneration_info
 
     @property
     def degeneration_info(self):
@@ -113,8 +112,7 @@ class ExperimentalResultsFactory(object):
                                    reduce(lambda x, y: dict(x, **y), self._data),
                                    {'topic-kernel-'+threshold: tokens_hash for threshold, tokens_hash in res['final']['topic-kernel'].items()},
                                    {'top-tokens-'+nb_tokens: tokens_hash for nb_tokens, tokens_hash in res['final']['top-tokens'].items()},
-                                   res['final']['background-tokens'],
-                                   res['degeneration'])
+                                   res['final']['background-tokens'])
 
     def create_from_experiment(self, experiment):
         self._data = [{'perplexity': experiment.trackables['perplexity'],
@@ -123,17 +121,16 @@ class ExperimentalResultsFactory(object):
         self._data.append({top_tokens_definition: [value[0], value[1]] for top_tokens_definition, value in experiment.trackables.items() if top_tokens_definition.startswith('top-tokens-')})
         self._data.append({'tau-trajectories': {matrix_name: experiment.reg_params['sparse-'+matrix_name]['tau']} for matrix_name in ['phi', 'theta']})
         self._data.append({key: v for key, v in experiment.trackables.items() if key.startswith('sparsity-phi-@')})
-
-        print 'FACTORY', experiment.topic_model.definition2evaluator_name
-        for eval_def in (_ for _ in experiment.topic_model.evaluator_definitions if _.startswith('top-tokens-')):
-            eval_name = experiment.topic_model.definition2evaluator_name[eval_def]
-            tr = experiment.topic_model.artm_model.score_tracker[eval_name]
-            print 'DEF', eval_def
-            print len(tr.tokens)
-            print map(lambda x: type(x), tr.tokens)
-            print map(lambda x: map(lambda y: len(x[y]), sorted(x.keys())), tr.tokens)
-        st = {eval_def: experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[eval_def]].tokens[-1] for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('top-tokens-')}
-        print st
+        final_kernel_tokens = {eval_def: self._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('topic-kernel-')}
+        final_top_tokens = {eval_def: self._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('top-tokens-')}
+        # print 'FACTORY', experiment.topic_model.definition2evaluator_name
+        # for eval_def in (_ for _ in experiment.topic_model.evaluator_definitions if _.startswith('top-tokens-')):
+        #     eval_name = experiment.topic_model.definition2evaluator_name[eval_def]
+        #     tr = experiment.topic_model.artm_model.score_tracker[eval_name]
+        #     print 'DEF', eval_def
+        #     print len(tr.tokens)
+        #     print map(lambda x: type(x), tr.tokens)
+        #     print map(lambda x: map(lambda y: len(x[y]), sorted(x.keys())), tr.tokens)
         return ExperimentalResults(experiment.current_root_dir,
                                    experiment.topic_model.label,
                                    experiment.topic_model.nb_topics,
@@ -142,10 +139,21 @@ class ExperimentalResultsFactory(object):
                                    experiment.topic_model.domain_topics,
                                    experiment.topic_model.modalities_dictionary,
                                    reduce(lambda x, y: dict(x, **y), self._data),
-                                   {eval_def: experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[eval_def]].tokens[-1] for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('topic-kernel-')},
-                                   st,
-                                   experiment.topic_model.background_tokens,
-                                   experiment.degeneration_info)
+                                   final_kernel_tokens,
+                                   final_top_tokens,
+                                   experiment.topic_model.background_tokens)
+
+    def _get_final_tokens(self, experiment, evaluation_definition):
+        return experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[evaluation_definition]].tokens[-1]
+
+    def _get_evolved_tokens(self, experiment, evaluation_definition):
+        """
+        :param experiment:
+        :param evaluation_definition:
+        :return:
+        :rtype: list of dicts
+        """
+        return experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[evaluation_definition]].tokens
 
 
 experimental_results_factory = ExperimentalResultsFactory()
@@ -472,10 +480,8 @@ class FinalStateEntities(object):
         self._top_defs_list = sorted(top_def_2_tokens_hash.keys())
         self._bg_tokens = TokensList(background_tokens)
         for kernel_def, topic_name2tokens in kernel_def_2tokens_hash.items():
-            print kernel_def, ':', topic_name2tokens.keys()
             setattr(self, kernel_def2_kernel(kernel_def), TopicsTokens(topic_name2tokens))
         for top_def, topic_name2tokens in top_def_2_tokens_hash.items():
-            print top_def, ':', topic_name2tokens.keys()
             setattr(self, top_tokens_def2_top(top_def), TopicsTokens(topic_name2tokens))
 
     @property
@@ -528,102 +534,6 @@ class TokensList(object):
     def __contains__(self, item):
         return item in self._tokens
 
-def test():
-    _dir = 'dir'
-    label = 'gav'
-    topics = 5
-    doc_passes = 2
-    bg_t = ['t0', 't1']
-    dm_t = ['t2', 't3', 't4']
-    mods = {'dcn': 1, 'icn': 5}
-
-    tr_t = TrackedTopTokens([1,2,3], {'t00': [4,5,6], 't01': [4,5,5]})
-
-    assert tr_t.average_coherence.all == [1,2,3]
-    assert tr_t.average_coherence.last == 3
-    assert tr_t.t00.all == [4,5,6]
-    assert tr_t.t01.last == 5
-
-    kernel_data = [[1,2], [3,4], [5,6], {'t01': {'coherence': [1,2,3],
-                                                                 'contrast': [6, 3],
-                                                                 'purity': [1, 8]},
-                                                         't00': {'coherence': [10,2,3],
-                                                                 'contrast': [67, 36],
-                                                                 'purity': [12, 89]},
-                                                         't02': {'coherence': [10,11],
-                                                                 'contrast': [656, 32],
-                                                                 'purity': [17, 856]}
-                                                         }]
-
-    top10_data = [[1, 2], {'t01': [12,22,3], 't00': [10,2,3], 't02': [10,11]}]
-    top100_data = [[10, 20], {'t01': [5, 7, 9], 't00': [12, 32, 3], 't02': [11, 1]}]
-    tau_trajectories_data = {'phi': [1,2,3,4,5], 'theta': [5,6,7,8,9]}
-
-    tracked_kernel = TrackedKernel(*kernel_data)
-    assert tracked_kernel.average.contrast.all == [3, 4]
-    assert tracked_kernel.average.purity.last == 6
-    assert tracked_kernel.average.coherence.all == [1, 2]
-    assert tracked_kernel.t00.contrast.all == [67, 36]
-    assert tracked_kernel.t02.purity.all == [17, 856]
-    assert tracked_kernel.t01.coherence.last == 3
-
-    tracked = {'perplexity': [1, 2, 3], 'sparsity_phi': [-2, -4, -6], 'sparsity_theta': [2, 4, 6], 'topic-kernel-0.6': kernel_data, 'top-tokens-10': top10_data, 'top-tokens-100':top100_data, 'tau-trajectories': tau_trajectories_data}
-    exp = ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked)
-    #
-    assert exp.scalars.nb_topics == 5
-    assert exp.scalars.document_passes == 2
-
-    assert exp.tracked.perplexity.last == 3
-    assert exp.tracked.perplexity.all == [1, 2, 3]
-    assert exp.tracked.sparsity_phi.all == [-2, -4, -6]
-    assert exp.tracked.sparsity_theta.last == 6
-    assert exp.tracked.kernel6.average.purity.all == [5, 6]
-    assert exp.tracked.kernel6.t02.coherence.all == [10, 11]
-    assert exp.tracked.kernel6.t02.purity.all == [17, 856]
-    assert exp.tracked.kernel6.t02.contrast.last == 32
-    assert exp.tracked.kernel6.average.coherence.all == [1, 2]
-    assert exp.tracked.top10.t01.all == [12,22,3]
-    assert exp.tracked.top10.t00.last == 3
-    assert exp.tracked.top10.average_coherence.all == [1, 2]
-
-    assert exp.tracked.tau_trajectories.phi.all == [1,2,3,4,5]
-    assert exp.tracked.tau_trajectories.theta.last == 9
-
-    try:
-        _ = exp.tracked.tau_trajectories.gav.last
-    except AttributeError as e:
-        pass
-
-
-    value_tracker = ValueTracker(tracked)
-    tracked_kernel = TrackedKernel(*kernel_data)
-
-    data = {
-
-        'exp1': exp
-    }
-
-    s = json.dumps(exp, cls=RoundTripEncoder, indent=2)
-    print 'S:\n', s
-
-    res = json.loads(s, cls=RoundTripDecoder)
-    print 'R: {}\n'.format(type(res)), res
-
-    # assert res['scalars']['dir'] == 'dir'
-    # assert res['scalars']['domain_topics'] == ['t2', 't3', 't4']
-    # assert res['scalars']['modalities'] == {'dcn': 1, 'icn': 5}
-    #
-    # assert res['tracked']['perplexity'] == [1, 2, 3]
-    # assert res['tracked']['top-tokens']['10']['avg_coh'] == [1, 2]
-    # assert res['tracked']['top-tokens']['10']['topics']['t01'] == [12, 22, 3]
-    # assert res['tracked']['top-tokens']['10']['topics']['t02'] == [10, 11]
-    # assert res['tracked']['topic-kernel']['0.6']['avg_pur'] == [5, 6]
-    # assert res['tracked']['topic-kernel']['0.6']['topics']['t00']['purity'] == [12, 89]
-    # assert res['tracked']['topic-kernel']['0.6']['topics']['t01']['contrast'] == [6, 3]
-    # assert res['tracked']['topic-kernel']['0.6']['topics']['t02']['coherence'] == [10, 11]
-
-
-    print 'ALL ASSERTIONS SUCCEEDED'
 
 class RoundTripEncoder(json.JSONEncoder):
 
@@ -667,8 +577,7 @@ class RoundTripEncoder(json.JSONEncoder):
         if isinstance(obj, ExperimentalResults):
             return {'scalars': obj.scalars,
                     'tracked': obj.tracked,
-                    'final': obj.final,
-                    'degeneration': obj.degeneration_info}
+                    'final': obj.final}
         return super(RoundTripEncoder, self).default(obj)
 
 

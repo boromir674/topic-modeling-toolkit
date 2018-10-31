@@ -54,7 +54,7 @@ class ModelTrainer(object):
         trajectories_data = specs.tau_trajectory_list
         if not trajectories_data:
             if effects:
-                print 'Training with constant taus'
+                print 'Training with constant tau coefficients'
                 from patm.utils import Spinner
                 self.spinner.start()
             topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=specs.collection_passes)
