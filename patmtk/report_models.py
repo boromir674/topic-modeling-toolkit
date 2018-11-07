@@ -189,6 +189,7 @@ class ModelReporter(object):
         st += ' '.join(map(lambda x: self.get_values_n_columns(), columns))
 
     def _exp_res(self, result_path):
+        print 'MODEL_REPORTER._exp_res.results_path', result_path
         return experimental_results_factory.create_from_json_file(result_path)
 
     def _get_columns_to_render(self, result_path_list):

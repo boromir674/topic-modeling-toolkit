@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import warnings
+import pprint
 from tqdm import tqdm
 from collections import OrderedDict, Counter
 
@@ -34,6 +35,7 @@ class Tuner(object):
     - sparse_theta_reg_coef_trajectory   eg: {'deactivation_period_pct': [0.2], 'start': [-0.2, -0.3, -0.4], 'end' = [-1, -3, -5]}\n
     - decorrelate_topics_reg_coef        eg: 1e+5\n
     """
+
     def __init__(self, collection, evaluation_definitions=None):
         """
 
@@ -51,14 +53,28 @@ class Tuner(object):
         else:
             self._score_defs = get_standard_evaluation_definitions()
         self._required_labels = []
+        self._active_regs = {}
         self._reg_specs = {}
         self._max_digits_version = 3
-        self._allowed_labeling_params = ('collection_passes', 'nb_topics', 'document_passes', 'background_topics_pct', 'ideology_class_weight')
+        self._allowed_labeling_params = ['collection_passes', 'nb_topics', 'document_passes', 'background_topics_pct', 'ideology_class_weight'] + \
+                                        reduce(lambda i,j: i+j, map(lambda y: map(lambda x: y+'.'+x, ('deactivate', 'kind', 'start', 'end')), ('sparse_phi', 'sparse_theta')))
         self._active_reg_def_builder = RegularizersActivationDefinitionBuilder(tuner=self)
         self.trainer = trainer_factory.create_trainer(collection, exploit_ideology_labels=True)  # forces to use (and create if not found) batches holding modality information in case it is needed
         self.experiment = Experiment(self._dir, self.trainer.cooc_dicts)
         self.trainer.register(self.experiment)  # when the model_trainer trains, the experiment object listens to changes
         self._parameter_grid_searcher = None
+        self._default_regularizer_parameters = {'smooth-phi': {'tau': 1.0},
+                                                'smooth-theta': {'tau': 1.0, 'alpha_iter': 1.0},
+                                                'sparse-phi': {'tau': 'linear_-5_-15', 'start': 4},
+                                                'sparse-theta': {'alpha_iter': 1, 'tau': 'linear_-3_-13', 'start': 4}}
+    @staticmethod
+    def _create_active_regs_with_default_names(reg_types_list):
+        """
+        :param list reg_types_list:
+        :return: keys are the regularizer-types (ie 'smooth-theta', 'sparse-phi') and values automatically genereted abbreviations of the regularizer-types to serve as unique names
+        :rtype: OrderedDict
+        """
+        return OrderedDict(map(lambda y: ('-'.join(y), ''.join(map(lambda z: z[0] if len(y) > 2 else z[:2], y))), map(lambda x: x.split('-'), sorted(reg_types_list))))
 
     @property
     def explorable_parameters_names(self):
@@ -77,15 +93,16 @@ class Tuner(object):
 
     @active_regularizers.setter
     def active_regularizers(self, active_regularizers):
+        """
+        :param dist or dict active_regularizers: in case of list it should be a list of regularizer-types ie ['smooth-phi', 'sparse-phi', 'smooth-theta']\n
+            in case of dict it should be a dict with keys regularizer-types ie ('smooth-phi', 'sparse-phi', 'smooth-theta') and values unique corresponding names
+        """
         if type(active_regularizers) == list:
-            self._create_active_regs_with_default_names(active_regularizers)
+            self._active_regs = Tuner._create_active_regs_with_default_names(active_regularizers)
         elif isinstance(active_regularizers, dict):
             self._active_regs = active_regularizers
         else:
             raise TypeError
-
-    def _create_active_regs_with_default_names(self, reg_types_list):
-        self._active_regs = OrderedDict(map(lambda y: ('-'.join(y), ''.join(map(lambda z: z[0] if len(y) > 2 else z[:2], y))), map(lambda x: x.split('-'), reg_types_list)))
 
     @property
     def static_regularization_specs(self):
@@ -95,7 +112,7 @@ class Tuner(object):
     def static_regularization_specs(self, regularizers_specs):
         self._reg_specs = regularizers_specs
 
-    def tune(self, parameters_mixture, prefix_label='', append_explorables='all', append_static=True, static_regularizers_specs=None, force_overwrite=False, verbose=False):
+    def tune(self, parameters_mixture, prefix_label='', append_explorables='all', append_static=True, static_regularizers_specs=None, force_overwrite=False, verbose=0):
         """
         :param patm.tuning.building.TunerDefinition parameters_mixture:
         :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix used for the naming files (models, results) saved on disk
@@ -103,39 +120,64 @@ class Tuner(object):
         :param bool append_static: indicates whether to use the values of the parameters remaining constant during space exploration, as part of the unique names used for files saved on disk
         :return:
         """
-        self._initialize0(parameters_mixture, verbose=verbose)
-        self._initialize1(prefix_label=prefix_label, append_explorables=append_explorables, append_static=append_static, static_regularizers_specs=static_regularizers_specs, overwrite=force_overwrite)
+        try:
+            vb = int(verbose)
+            if verbose < 0:
+                verbose = 0
+            elif 4 < verbose:
+                verbose = 4
+        except ValueError:
+            vb = bool(verbose)
+
+        self._initialize0(parameters_mixture, verbose=vb)
+        self._initialize1(prefix_label=prefix_label, append_explorables=append_explorables, append_static=append_static,
+                          static_regularizers_specs=static_regularizers_specs, overwrite=force_overwrite, verbose=vb)
         expected_iters = len(self._parameter_grid_searcher)
-        print 'Doing grid-search, taking {} samples'.format(expected_iters)
+        if vb:
+            print 'Tuning..'
+            generator = tqdm(self._parameter_grid_searcher, total=expected_iters, unit='model')
+        else:
+            generator = iter(self._parameter_grid_searcher)
+        if 1 < vb:
+            print 'Taking {} samples for grid-search'.format(expected_iters)
+
         self._label_groups = Counter()
-        for i, self.parameter_vector in enumerate(tqdm(self._parameter_grid_searcher, total=expected_iters, unit='model')):
+        for i, self.parameter_vector in enumerate(generator):
             # print 'TUNE on vector:', self.parameter_vector
             self._cur_label = self._build_label(self.parameter_vector)
             assert self._cur_label == self._required_labels[i]
+            if 4 == vb:
+                tqdm.write(pprint.pformat(self.static_regularization_specs))
             tm, specs = self._create_model_n_specs()
             self.experiment.init_empty_trackables(tm)
             self.trainer.train(tm, specs)
             self.experiment.save_experiment(save_phi=True)
-            tqdm.write(self._cur_label)
+            if 2 < vb:
+                tqdm.write(self._cur_label)
             del tm
 
     def _initialize0(self, tuner_definition, verbose=False):
         """
         :param patm.tuning.building.TunerDefinition tuner_definition:
         """
-        print 'Initializing Tuner..'
+        if verbose:
+            print 'Initializing Tuner..'
         self._static_params_hash = tuner_definition.static_parameters
         self._expl_params_hash = tuner_definition.explorable_parameters
         self._check_parameters()
         self._tau_traj_to_build = tuner_definition.valid_trajectory_defs()
         self._parameter_grid_searcher = ParameterGrid(tuner_definition.parameter_spans)
-        if verbose:
+        if verbose == 2:
             print 'STATIC:', self._static_params_hash.keys(), '\nEXPL:', self._expl_params_hash.keys()
             print 'Tau trajectories for:', self._tau_traj_to_build.keys()
             print 'Search space', tuner_definition.parameter_spans
             print 'Potential GRID LENGTH:', len(self._parameter_grid_searcher)
 
-    def _initialize1(self, prefix_label='', append_explorables='all', append_static=True, static_regularizers_specs=None, overwrite=False):
+    def _get_labeling_mask(self, expl_list, static_flag):
+        return self._get_mask(self._allowed_labeling_params, expl_list)
+
+
+    def _initialize1(self, prefix_label='', append_explorables='all', append_static=True, static_regularizers_specs=None, overwrite=False, verbose=1):
         """
         :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix used for the naming files (models, results) saved on disk
         :param bool enable_ideology_labels: Enable using the 'vowpal_wabbit' format to exploit extra modalities modalities. A modalitity is a disctreet space of values (tokens, class_labels, ..)
@@ -149,9 +191,13 @@ class Tuner(object):
         self._label_groups = Counter()
         self._labeling_params = []
         self._overwrite = overwrite
-
+        # TODO fix below
+        mask = self._get_mask(self._allowed_labeling_params, self._expl_params_hash.keys())
         if append_static:
-            self._labeling_params = [param_name for param_name in self._static_params_hash.keys() if param_name in self._allowed_labeling_params]
+            mask = map(lambda x: x[0] or x[1], zip(mask, self._get_mask(self._allowed_labeling_params, self._static_params_hash.keys())))
+
+            # self._labeling_params = map(lambda x: self._static_params_hash)
+            # [param_name for param_name in self._static_params_hash.keys() if param_name in self._allowed_labeling_params]
         self._versioning_needed = False
 
         expl_labeling_params = []
@@ -163,26 +209,40 @@ class Tuner(object):
             self._versioning_needed = True
 
         self._labeling_params.extend(expl_labeling_params)
-        print 'Automatic labeling files using:', self._labeling_params, 'values'
-        if static_regularizers_specs is not None:
-            self.static_regularization_specs = static_regularizers_specs
+        if verbose:
+            print 'Automatically labeling files using:', self._labeling_params, 'values'
+
+        if static_regularizers_specs:
+            # for which ever of the activated regularizers there is a missing setting, then use a default value
+            self.static_regularization_specs = self._create_reg_specs(static_regularizers_specs, self.active_regularizers)
         else:
-            self.static_regularization_specs = self._get_default_parameters()
+            self.static_regularization_specs = self._create_reg_specs(self._default_regularizer_parameters, self.active_regularizers)
 
         self._build_required_labels()  # depends on self.parameter_grid_searcher and self._labeling_params
-        _ = self._get_overlapping_indices()
-        result_inds, model_inds = IndicesList(_[0], 'train results'), IndicesList(_[1], 'phi matrix')
-        common = result_inds + model_inds  # finds intersection of indices
-        only_res = result_inds - common
-        only_mods = model_inds - common
 
-        for obj in (_ for _ in (common, only_mods, only_res) if _):
-            print obj.msg(self._required_labels)
         if not self._overwrite:
+            _ = self._get_overlapping_indices()
+            result_inds, model_inds = IndicesList(_[0], 'train results'), IndicesList(_[1], 'phi matrix')
+            common = result_inds + model_inds  # finds intersection of indices
+            only_res = result_inds - common
+            only_mods = model_inds - common
             self._parameter_grid_searcher.ommited_indices = common.indices
             self._required_labels = [x for i, x in enumerate(self._required_labels) if i not in common.indices]
-            print 'REQ', self._required_labels
-        print 'Number of parameter vectors:', len(self._parameter_grid_searcher)
+            if 2 < verbose:
+                for obj in (_ for _ in (common, only_mods, only_res) if _):
+                    print obj.msg(self._required_labels)
+            if 3 < verbose:
+                print 'Required labels:', '[{}]'.format(', '.join(self._required_labels))
+            if 1 < verbose:
+                print 'Ommiting creating a total of {} files'.format(len(common)+len(only_res)+len(only_mods))
+
+    def _get_mask(self, reference, subset):
+        return map(lambda x: x in subset, reference)
+
+    def _create_reg_specs(self, reg_settings, active_regularizers):
+        """Call this method to use default values when missing, according to given activated regularizers"""
+        return {k: dict(map(lambda x: (x[0], reg_settings[k].get(x[0],
+            self._default_regularizer_parameters[k][x[0]])), self._default_regularizer_parameters[k].items())) for k in active_regularizers}
 
     def _get_overlapping_indices(self):
         _ = map(lambda x: self._expr((x[1] in self.experiment.train_results_handler.list, x[1] in self.experiment.phi_matrix_handler.list), x[0]), enumerate(self._required_labels))
@@ -209,22 +269,10 @@ class Tuner(object):
             return str(int_num)
         return '{}{}'.format((self._max_digits_version - nb_digits) * '0', int_num)
 
-    def _get_default_parameters(self):
-        reg_specs = {}
-        for reg_type in self._active_regs.keys():
-            if reg_type.startswith('smooth-'):
-                reg_specs[reg_type] = {'tau': 1.0}
-            elif reg_type.startswith('sparse-'):
-                reg_specs[reg_type] = {}
-                if 'sparse_' + reg_type.split('-')[1] not in self._tau_traj_to_build:
-                    warnings.warn("Activated a '{}' regularizer, but did not define a tau coefficient value trajectory".format(reg_type))
-            if reg_type.endswith('-theta'):
-                reg_specs[reg_type]['alpha_iter'] = 1.0
-        return reg_specs
-
     def _create_model_n_specs(self):
-        for reg_type in (_ for _ in self._active_regs.keys() if _.startswith('sparse_')):
-            self._reg_specs[reg_type] = self._build_definition(self._val('sparse_' + reg_type.split('-')[1]))
+        self.static_regularization_specs = self._replace_settings_with_supported_explorable(self._reg_specs)
+        # for reg_type in (_ for _ in self.active_regularizers if _.startswith('sparse_')):
+        #     self._reg_specs[reg_type] = self._build_definition(self._val('sparse_' + reg_type.split('-')[1]))
         tm = self.trainer.model_factory.construct_model(self._cur_label, self._val('nb_topics'),
                                                               self._val('collection_passes'),
                                                               self._val('document_passes'),
@@ -232,15 +280,30 @@ class Tuner(object):
                                                               {DEFAULT_CLASS_NAME: self._val('default_class_weight'), IDEOLOGY_CLASS_NAME: self._val('ideology_class_weight')},
                                                               self._score_defs,
                                                               self._active_regs,
-                                                              reg_settings=self._reg_specs)
+                                                              reg_settings=self.static_regularization_specs)
         tr_specs = self.trainer.model_factory.create_train_specs(self._val('collection_passes'))
         return tm, tr_specs
 
-    def _build_definition(self, traj_dict):
-        print 'BUILD DEFINITION', traj_dict
-        if traj_dict is None:
-            return None
-        return {'tau': '_'.join(map(lambda x: str(x) ,(traj_dict['kind'], traj_dict['start'], traj_dict['end']))), 'start': traj_dict.get('deactivate', 0)}
+    def _replace_settings_with_supported_explorable(self, settings):
+            # _ = map(lambda y: y(1), filter(None, map(lambda x: getattr(re.match('^(sparse_\w+)$', x), 'group', None), self._tau_traj_to_build)))
+        # for reg_type in map(lambda x: x.replace('_', '-'), self._tau_traj_to_build):
+        #     settings[reg_type] = dict(settings[reg_type], **self._get_tau_trajectory_definition_dict(reg_type.replace('-', '_')))
+        # return dict(map(lambda x: (x[0], x[1]), map(lambda x: x.replace('_', '-'), self._tau_traj_to_build)))
+        return dict(map(lambda x: (x[0], self._get_settings_dict(x[0], x[1])), settings.items()))
+
+    def _get_settings_dict(self, reg_type, settings_dict):
+        if reg_type.replace('-', '_') in self._tau_traj_to_build:
+            return dict(settings_dict, **self._get_tau_trajectory_definition_dict(reg_type.replace('-', '_')))
+        return settings_dict
+
+    def _get_tau_trajectory_definition_dict(self, tau_traj_type):
+        """
+        Call this method to query the current parameter vector for a specific tau trajectory\n
+        :param str tau_traj_type: underscore splittable
+        :rtype: dict
+        """
+        _ = self._val(tau_traj_type)
+        return {'tau': '_'.join(map(lambda x: str(x) ,(_['kind'], _['start'], _['end']))), 'start': _['deactivate']}
 
     def _val(self, parameter_name):
         return self._extract(self.parameter_vector, parameter_name)

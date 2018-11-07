@@ -2,7 +2,6 @@ import os
 import abc
 import glob
 import json
-from patm.utils import load_results
 from patm.modeling.experimental_results import experimental_results_factory
 from patm.definitions import MODELS_DIR_NAME, RESULTS_DIR_NAME
 

@@ -103,9 +103,3 @@ class Spinner:
     def stop(self):
         self.busy = False
         time.sleep(self.delay)
-
-
-def load_results(results_path):
-    with open(results_path, 'r') as results_file:
-        results = results_file.read()
-    return json.loads(results)
