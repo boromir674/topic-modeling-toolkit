@@ -239,10 +239,10 @@ if __name__ == '__main__':
     print 'REGS', activated_regularizer_types
     #
     #
-    # d1 = tdb.initialize().nb_topics(20).collection_passes(100).document_passes(1).background_topics_pct(0.1).\
+    # d1 = tdb.initialize()._nb_topics(20).collection_passes(100).document_passes(1).background_topics_pct(0.1).\
     #     ideology_class_weight(5).sparse_phi().deactivate(10).kind('quadratic').start(-1).end(-10).build()
     #
-    # tuner_definition = tdb.initialize().nb_topics([20, 40]).collection_passes(100).document_passes(1).background_topics_pct(0.1). \
+    # tuner_definition = tdb.initialize()._nb_topics([20, 40]).collection_passes(100).document_passes(1).background_topics_pct(0.1). \
     #     ideology_class_weight(5).sparse_phi().deactivate(10).kind(['quadratic', 'cubic']).start(-1).end([-10, -20, -30]).\
     #     sparse_theta().deactivate(10).kind(['quadratic', 'cubic']).start([-1, -2, -3]).end(-10).build()
     #

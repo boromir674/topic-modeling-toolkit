@@ -37,6 +37,7 @@ def cfg2model_settings(cfg_file):
     config.read(u'{}'.format(cfg_file))
     return OrderedDict([(section.encode('utf-8'), OrderedDict([(setting_name.encode('utf-8'), _section2encoder[section](value)) for setting_name, value in config.items(section) if value])) for section in config.sections()])
 
+
 class GenericTopicNamesBuilder:
     def __init__(self, nb_topics=0, background_topics_pct=0.0):
         self._nb_topics = nb_topics

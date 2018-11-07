@@ -56,16 +56,18 @@ kernel_data1 = [[10,20], [30,40], [50,6], {'t01': {'coherence': [3, 9],
 top10_data = [[1, 2], {'t01': [12,22,3], 't00': [10,2,3], 't02': [10,11]}]
 top100_data = [[10, 20], {'t01': [5,7,9], 't00': [12,32,3], 't02': [11,1]}]
 tau_trajectories_data = {'phi': [1,2,3,4,5], 'theta': [5,6,7,8,9]}
-
 tracked = {'perplexity': [1, 2, 3],
            'sparsity-phi-@dc': [-2, -4, -6],
            'sparsity-phi-@ic': [-56, -12, -32],
            'sparsity-theta': [2, 4, 6],
+           'background-tokens-ratio-0.3': [0.4, 0.3, 0.2],
            'topic-kernel-0.6': kernel_data,
            'topic-kernel-0.8': kernel_data1,
            'top-tokens-10': top10_data,
            'top-tokens-100': top100_data,
-           'tau-trajectories': tau_trajectories_data}
+           'tau-trajectories': tau_trajectories_data,
+           'collection_passes': [3]}
+
 
 kernel_tokens = {'topic-kernel-0.6': {'t00': ['a', 'b', 'c'],
                                       't01': ['d', 'e', 'f'],
@@ -82,9 +84,10 @@ top_tokens = {'top-tokens-10': {'t00': ['s', 't', 'u'],
                                  't02': ['i1', 'j1', 'k1']}}
 
 background_tokens = ['l1', 'm1', 'n1']
+regs = ['reg1', 'reg2']
 
 
-exp1 = ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked, kernel_tokens, top_tokens, background_tokens)
+exp1 = ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked, kernel_tokens, top_tokens, background_tokens, regs)
 results_factory = ExperimentalResultsFactory()
 
 
@@ -161,6 +164,7 @@ class TestExperimentalResults(unittest.TestCase):
         assert res['tracked']['topic-kernel']['0.6']['topics']['t00']['purity'] == [12, 89]
         assert res['tracked']['topic-kernel']['0.6']['topics']['t01']['contrast'] == [6, 3]
         assert res['tracked']['topic-kernel']['0.6']['topics']['t02']['coherence'] == [10, 11]
+        assert res['tracked']['background-tokens-ratio-0.3'] == [0.4, 0.3, 0.2]
         assert res['tracked']['tau-trajectories']['phi'] == [1, 2, 3, 4, 5]
         assert res['tracked']['tau-trajectories']['theta'] == [5, 6, 7, 8, 9]
         assert res['final']['topic-kernel']['0.6']['t00'] == ['a', 'b', 'c']
@@ -177,7 +181,6 @@ class TestExperimentalResults(unittest.TestCase):
         self._assert_experimental_results_creation()
 
     def test_creation_from_experiment(self):
-
         model_trainer = trainer_factory.create_trainer(test_collection, exploit_ideology_labels=True, force_new_batches=False)
         experiment = Experiment(test_collection_root, model_trainer.cooc_dicts)
         model_trainer.register(experiment)  # when the model_trainer trains, the experiment object listens to changes
@@ -210,7 +213,7 @@ class TestExperimentalResults(unittest.TestCase):
         for reg_def in (_ for _ in self.eval_def2eval_name if _.startswith('top-tokens-')):
             tr_top = getattr(exp1.tracked, 'top' + reg_def.split('-')[-1])
             assert len(tr_top.average_coherence) == self.collection_passes
-    #
+
     #         # assert abs(tr_kernel.average.coherence.last - sum(map(lambda x: getattr(tr_kernel, x).coherence.last, dom)) / float(self.nb_topics)) < 0.001
     #
         for kernel, kernel_def in zip(exp1.final.kernels, exp1.final.kernel_defs):
@@ -225,7 +228,6 @@ class TestExperimentalResults(unittest.TestCase):
     #             print dir(getattr(exp1.final, top))
     #             # print experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[kernel_def]].tokens[-1]
     #             assert getattr(getattr(exp1.final, top), topic_name).tokens == experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[top_def]].tokens[-1][topic_name]
-
 
     def _assert_experimental_results_creation(self):
         assert self.exp1.scalars.nb_topics == 5
@@ -266,6 +268,8 @@ class TestExperimentalResults(unittest.TestCase):
         assert self.exp1.final.kernels == ['kernel6', 'kernel8']
         assert self.exp1.final.background_tokens == ['l1', 'm1', 'n1']
 
+        assert self.exp1.tracked.background_tokens_ratio_3.all ==  [0.4, 0.3, 0.2]
+        assert self.exp1.tracked.background_tokens_ratio_3.last == 0.2
 
 if __name__.__contains__("__main__"):
 

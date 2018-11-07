@@ -116,6 +116,7 @@ class Tuner(object):
             self.experiment.init_empty_trackables(tm)
             self.trainer.train(tm, specs)
             self.experiment.save_experiment(save_phi=True)
+            tqdm.write(self._cur_label)
             del tm
 
     def _initialize0(self, tuner_definition, verbose=False):
@@ -169,7 +170,6 @@ class Tuner(object):
             self.static_regularization_specs = self._get_default_parameters()
 
         self._build_required_labels()  # depends on self.parameter_grid_searcher and self._labeling_params
-        print 'REQ', self._required_labels
         _ = self._get_overlapping_indices()
         result_inds, model_inds = IndicesList(_[0], 'train results'), IndicesList(_[1], 'phi matrix')
         common = result_inds + model_inds  # finds intersection of indices
@@ -182,10 +182,7 @@ class Tuner(object):
             self._parameter_grid_searcher.ommited_indices = common.indices
             self._required_labels = [x for i, x in enumerate(self._required_labels) if i not in common.indices]
             print 'REQ', self._required_labels
-        print 'Actual GRID LENGTH:', len(self._parameter_grid_searcher)
-        # '\nvectors', [_ for _ in self._parameter_grid_searcher._get_filtered_generator()]
-        # import sys
-        # sys.exit()
+        print 'Number of parameter vectors:', len(self._parameter_grid_searcher)
 
     def _get_overlapping_indices(self):
         _ = map(lambda x: self._expr((x[1] in self.experiment.train_results_handler.list, x[1] in self.experiment.phi_matrix_handler.list), x[0]), enumerate(self._required_labels))

@@ -1,11 +1,12 @@
 import sys
+from math import ceil
 import json
 from abc import ABCMeta, abstractproperty
 
 
 class ExperimentalResults(object):
     def __init__(self, root_dir, model_label, nb_topics, document_passes, background_topics, domain_topics, modalities,
-                 tracked, kernel_tokens, top_tokens_defs, background_tokens):
+                 tracked, kernel_tokens, top_tokens_defs, background_tokens, regularizers_labels):
         """
         Examples:
             4 elements: kernel_data = [[1,2], [3,4], [5,6], {'t01': {'coherence': [1,2,3],
@@ -49,14 +50,25 @@ class ExperimentalResults(object):
             for each token and counts the part of tokens that have this value greater than a given (non-negative) delta_threshold.
         """
         assert len(background_topics) + len(domain_topics) == nb_topics
-        self._steady_container = SteadyTrackedItems(root_dir, model_label, nb_topics, document_passes,
-                                                    background_topics, domain_topics, modalities)
+        assert sum(tracked['collection_passes']) == len(tracked['perplexity'])
+        background_tokens_threshold = 0 # no distinction between background and "domain" tokens
+        for eval_def in tracked:
+            if eval_def.startswith('background-tokens-ratio'):
+                background_tokens_threshold = float(eval_def.split('-')[-1])
+        self._steady_container = SteadyTrackedItems(root_dir, model_label, sum(tracked['collection_passes']), nb_topics, document_passes,
+                                                    background_topics, domain_topics, background_tokens_threshold, modalities)
         self._tracker = ValueTracker(tracked)
-        self._final_state_items = FinalStateEntities(kernel_tokens, top_tokens_defs, background_tokens)
+        self._final_state_items = FinalStateEntities(dict(map(lambda x: (x[0], dict(map(lambda y: (y[0], list(y[1])), x[1].items()))), kernel_tokens.items())),
+                                                     dict(map(lambda x: (x[0], dict(map(lambda y: (y[0], list(y[1])), x[1].items()))), top_tokens_defs.items())),
+                                                     background_tokens)
+        self._regularizers = regularizers_labels
+
+    def __str__(self):
+        return 'Scalars:\n{}\nTracked:\n{}\nFinal:\n{}\nRegularizers: {}'.format(self._steady_container, self._tracker, self._final_state_items, ', '.join(self._regularizers))
 
     @property
-    def degeneration_info(self):
-        return self._degen_info
+    def regularizers(self):
+        return sorted(self._regularizers)
 
     @property
     def scalars(self):
@@ -69,6 +81,18 @@ class ExperimentalResults(object):
     @property
     def final(self):
         return self._final_state_items
+
+    @property
+    def tracked_kernels(self):
+        return map(lambda x: getattr(self._tracker, 'kernel'+str(x)[2:]), self._tracker.kernel_thresholds)
+
+    @property
+    def tracked_top_tokens(self):
+        return map(lambda x: getattr(self._tracker, 'top{}'.format(x)), self._tracker.top_tokens_cardinalities)
+
+    @property
+    def phi_sparsities(self):
+        return map(lambda x: getattr(self._tracker, 'sparsity_phi_'+x), self._tracker.modalities_initials)
 
     def to_json(self, human_redable=True):
         if human_redable:
@@ -94,7 +118,9 @@ class ExperimentalResultsFactory(object):
         with open(file_path, 'r') as fp:
             res = json.load(fp, cls=RoundTripDecoder)
         self._data =[{'perplexity': res['tracked']['perplexity'],
-                      'sparsity-theta': res['tracked']['sparsity-theta']}]
+                      'sparsity-theta': res['tracked']['sparsity-theta'],
+                      'collection_passes': res['tracked']['collection-passes']}]
+        self._data.append({key: v for key, v in res['tracked'].items() if key.startswith('background-tokens-ratio')})
         self._data.append({'tau-trajectories': res['tracked']['tau-trajectories']})
         self._data.append({'topic-kernel-' + key: [value['avg_coh'], value['avg_con'], value['avg_pur'],
                                                                   {t_name: t_data for t_name, t_data in
@@ -112,25 +138,20 @@ class ExperimentalResultsFactory(object):
                                    reduce(lambda x, y: dict(x, **y), self._data),
                                    {'topic-kernel-'+threshold: tokens_hash for threshold, tokens_hash in res['final']['topic-kernel'].items()},
                                    {'top-tokens-'+nb_tokens: tokens_hash for nb_tokens, tokens_hash in res['final']['top-tokens'].items()},
-                                   res['final']['background-tokens'])
+                                   res['final']['background-tokens'],
+                                   res['regularizers'])
 
     def create_from_experiment(self, experiment):
         self._data = [{'perplexity': experiment.trackables['perplexity'],
-                       'sparsity-theta': experiment.trackables['sparsity-theta']}]
+                       'sparsity-theta': experiment.trackables['sparsity-theta'],
+                       'collection_passes': experiment.collection_passes}]
         self._data.append({kernel_definition: [value[0], value[1], value[2], value[3]] for kernel_definition, value in experiment.trackables.items() if kernel_definition.startswith('topic-kernel')})
         self._data.append({top_tokens_definition: [value[0], value[1]] for top_tokens_definition, value in experiment.trackables.items() if top_tokens_definition.startswith('top-tokens-')})
         self._data.append({'tau-trajectories': {matrix_name: experiment.reg_params['sparse-'+matrix_name]['tau']} for matrix_name in ['phi', 'theta']})
         self._data.append({key: v for key, v in experiment.trackables.items() if key.startswith('sparsity-phi-@')})
+        self._data.append({key: v for key, v in experiment.trackables.items() if key.startswith('background-tokens-ratio')})
         final_kernel_tokens = {eval_def: self._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('topic-kernel-')}
         final_top_tokens = {eval_def: self._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('top-tokens-')}
-        # print 'FACTORY', experiment.topic_model.definition2evaluator_name
-        # for eval_def in (_ for _ in experiment.topic_model.evaluator_definitions if _.startswith('top-tokens-')):
-        #     eval_name = experiment.topic_model.definition2evaluator_name[eval_def]
-        #     tr = experiment.topic_model.artm_model.score_tracker[eval_name]
-        #     print 'DEF', eval_def
-        #     print len(tr.tokens)
-        #     print map(lambda x: type(x), tr.tokens)
-        #     print map(lambda x: map(lambda y: len(x[y]), sorted(x.keys())), tr.tokens)
         return ExperimentalResults(experiment.current_root_dir,
                                    experiment.topic_model.label,
                                    experiment.topic_model.nb_topics,
@@ -141,7 +162,8 @@ class ExperimentalResultsFactory(object):
                                    reduce(lambda x, y: dict(x, **y), self._data),
                                    final_kernel_tokens,
                                    final_top_tokens,
-                                   experiment.topic_model.background_tokens)
+                                   experiment.topic_model.background_tokens,
+                                   map(lambda x: x.label, experiment.topic_model.regularizer_wrappers))
 
     def _get_final_tokens(self, experiment, evaluation_definition):
         return experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[evaluation_definition]].tokens[-1]
@@ -162,8 +184,19 @@ experimental_results_factory = ExperimentalResultsFactory()
 class AbstractValueTracker(object):
     __metaclass__ = ABCMeta
 
+    def __dir__(self):
+        return filter(None ,[self._trans('perplexity'), self._trans('sparsity_theta')] + map(lambda x: 'sparsity_phi_' + x, self.modalities_initials) + \
+               map(lambda x: 'kernel'+str(x)[2:], self.kernel_thresholds) + \
+               map(lambda x: 'top' + str(x), self.top_tokens_cardinalities) + ['tau_trajectories'] + \
+               map(lambda x: 'background_tokens_ratio_'+str(x)[2:], self.background_tokens_thresholds) + [self._trans('collection_passes')])
+
+    def _trans(self, dash_splitable):
+        if dash_splitable not in self._flat: return None
+        return dash_splitable.replace('-', '_')
+    def __repr__(self):
+        return '[{}]'.format(', '.join(dir(self)))
     def __str__(self):
-        return '[{}]'.format(', '.join(list(self._flat.keys()) + list(self._groups)))
+        return '[{}]'.format(', '.join(sorted(self._flat.keys()) + sorted(self._groups.keys())))
 
     def __init__(self, tracked):
         self._flat = {}
@@ -188,8 +221,16 @@ class AbstractValueTracker(object):
         return sorted(float(_.split('-')[-1]) for _ in self._groups.keys() if _.startswith('topic-kernel'))
 
     @property
+    def modalities_initials(self):
+        return sorted(_.split('-')[-1][1] for _ in self._flat.keys() if _.startswith('sparsity-phi'))
+
+    @property
     def tracked_entity_names(self):
         return sorted(self._flat.keys() + self._groups.keys())
+
+    @property
+    def background_tokens_thresholds(self):
+        return sorted(float(_.split('-')[-1]) for _ in self._groups.keys() if _.startswith('background-tokens-ratio-0.'))
 
     def _query_metrics(self):
         _ = self._decode(sys._getframe(1).f_code.co_name).replace('_', '-')
@@ -205,6 +246,9 @@ class AbstractValueTracker(object):
         return method_name
 
     @abstractproperty
+    def collection_passes(self):
+        raise NotImplemented
+    @abstractproperty
     def perplexity(self):
         raise NotImplemented
     @abstractproperty
@@ -214,7 +258,7 @@ class AbstractValueTracker(object):
     def sparsity_theta(self):
         raise NotImplemented
     @abstractproperty
-    def background_token_ratio(self):
+    def background_tokens_ratio(self):
         raise NotImplemented
     @abstractproperty
     def kernel(self):
@@ -247,9 +291,6 @@ class ValueTracker(AbstractValueTracker):
         super(ValueTracker, self).__init__(tracked)
         self._index = None
 
-    def __iter__(self):
-        return iter(self._metrics.keys())
-
     def __getattr__(self, item):
         if item.startswith('kernel'):
             return self._groups['topic-kernel-0.' + item[6:]]
@@ -259,8 +300,13 @@ class ValueTracker(AbstractValueTracker):
             except KeyError:
                 raise KeyError('{} not in {}. Maybe in [{}] ??'.format(item, self._flat.keys(), self._groups.keys()))
             return self._flat['sparsity-phi-@{}c'.format(item[13:])]
+        if item.startswith('background_tokens_ratio_'):
+            return self._flat['background-tokens-ratio-0.' + item.split('_')[-1]]
         return None
 
+    @property
+    def collection_passes(self):
+        return super(ValueTracker, self)._query_metrics()
     @property
     def top100(self):
         return super(ValueTracker, self)._query_metrics()
@@ -274,7 +320,7 @@ class ValueTracker(AbstractValueTracker):
         return super(ValueTracker, self)._query_metrics()
 
     @property
-    def background_token_ratio(self):
+    def background_tokens_ratio(self):
         return super(ValueTracker, self)._query_metrics()
 
     @property
@@ -297,6 +343,7 @@ class ValueTracker(AbstractValueTracker):
     def tau_trajectory_matrices_names(self):
         return self._groups['tau-trajectories'].matrices_names
 
+
 class KernelSubGroup(object):
     def __init__(self, coherence_list, contrast_list, purity_list):
         self.ll = [TrackedCoherence(coherence_list), TrackedContrast(contrast_list), TrackedPurity(purity_list)]
@@ -313,7 +360,6 @@ class KernelSubGroup(object):
     @property
     def purity(self):
         return self.ll[2]
-
 
 class SingleTopicGroup(KernelSubGroup):
     def __init__(self, topic_name, coherence_list, contrast_list, purity_list):
@@ -353,7 +399,6 @@ class TrackedKernel(TrackedTopics):
     @property
     def average(self):
         return self._avgs_group
-
 
 class TrackedTopTokens(TrackedTopics):
     def __init__(self, avg_coherence, topic_name2coherence):
@@ -396,6 +441,7 @@ class TrackedTrajectories(object):
     def __str__(self):
         return str(self.matrices_names)
 
+
 class TrackedEntity(object):
     def __init__(self, name, elements_list):
         self._name = name
@@ -428,23 +474,32 @@ class TrackedPurity(TrackedEntity):
     def __init__(self, elements_list):
         super(TrackedPurity, self).__init__('purity', elements_list)
 
+
 class SteadyTrackedItems(object):
 
-    def __init__(self, root_dir, model_label, nb_topics, document_passes, background_topics, domain_topics, modalities):
+    def __init__(self, root_dir, model_label, dataset_iterations, nb_topics, document_passes, background_topics, domain_topics, background_tokens_threshold, modalities):
         self._root_dir = root_dir
         self._model_label = model_label
+        self._total_collection_passes = dataset_iterations
         self._nb_topics = nb_topics
         self._nb_doc_passes = document_passes
         self._bg_topics = background_topics
         self._dm_topics = domain_topics
+        self._bg_tokens_threshold = background_tokens_threshold
         self._modalities = modalities
-
+    def __dir__(self):
+        return ['dir', 'model_label', 'dataset_iterations', 'nb_topics', 'document_passes', 'background_topics', 'domain_topics', 'background_tokens_threshold', 'modalities']
+    def __str__(self):
+        return '\n'.join(map(lambda x: '{}: {}'.format(x, getattr(self, x)), dir(self)))
     @property
     def dir(self):
         return self._root_dir
     @property
     def model_label(self):
         return self._model_label
+    @property
+    def dataset_iterations(self):
+        return self._total_collection_passes
 
     @property
     def nb_topics(self):
@@ -461,7 +516,9 @@ class SteadyTrackedItems(object):
     @property
     def domain_topics(self):
         return self._dm_topics
-
+    @property
+    def background_tokens_threshold(self):
+        return self._bg_tokens_threshold
     @property
     def modalities(self):
         return self._modalities
@@ -483,6 +540,9 @@ class FinalStateEntities(object):
             setattr(self, kernel_def2_kernel(kernel_def), TopicsTokens(topic_name2tokens))
         for top_def, topic_name2tokens in top_def_2_tokens_hash.items():
             setattr(self, top_tokens_def2_top(top_def), TopicsTokens(topic_name2tokens))
+
+    def __str__(self):
+        return 'bg-tokens: {}\n'.format(len(self._bg_tokens)) + '\n'.join(map(lambda y: 'final state: {}\n{}'.format(y, getattr(self, y)), self.top + self.kernels))
 
     @property
     def top(self):
@@ -507,9 +567,50 @@ class FinalStateEntities(object):
 
 class TopicsTokens(object):
     def __init__(self, topic_name2tokens_hash):
+        self._nb_columns = 10
         self._tokens = {topic_name: TokensList(tokens_list) for topic_name, tokens_list in topic_name2tokens_hash.items()}
+        self._nb_topics = len(topic_name2tokens_hash)
+        self._nb_rows = int(ceil((float(self._nb_topics) / self._nb_columns)))
+        self.__lens = {}
         for k, v in self._tokens.items():
             setattr(self, k, v)
+            self.__lens[k] = {'string': len(k), 'list': len(str(len(v)))}
+
+    def __str__(self):
+        return '\n'.join(map(lambda x: self._get_row_string(x), self._gen_rows()))
+
+    def _get_row_string(self, row_topic_names):
+        return '  '.join(map(lambda x: '{}{}: {}{}'.format(
+            x[1], (self._max(x[0], 'string')-len(x[1]))*' ', (self._max(x[0], 'list')-self.__lens[x[1]]['list'])*' ', len(self._tokens[x[1]])), enumerate(row_topic_names)))
+
+    def _gen_rows(self):
+        i, j = 0, 0
+        while i<len(self._tokens):
+            _ = self._index(j)
+            j += 1
+            i += len(_)
+            yield _
+
+    def _max(self, column_index, entity):
+        assert entity in ['string', 'list']
+        return max(map(lambda x: self.__lens[self.topics[x]][entity], self._range(column_index)))
+
+    def _range(self, column_index):
+        # print 'RANGE', column_index, self._get_last_index_in_column(column_index), self._nb_columns
+        return range(column_index, self._get_last_index_in_column(column_index), self._nb_columns)
+
+    def _index(self, row_nb):
+        return filter(None, map(lambda x: self.topics[x] if x<len(self._tokens) else None, range(self._nb_columns * row_nb, self._nb_columns * row_nb + self._nb_columns)))
+
+    def _index_by_column(self, column_index):
+        return map(lambda x: self.topics[x], self._range(column_index))
+
+    def _get_last_index_in_column(self, column_index):
+        assert column_index < self._nb_columns
+        index = self._nb_rows * self._nb_columns - self._nb_columns + column_index
+        if index < self._nb_topics <= index:
+            index -= self._nb_columns
+        return index
 
     @property
     def topics(self):
@@ -517,6 +618,7 @@ class TopicsTokens(object):
 
 class TokensList(object):
     def __init__(self, tokens_list):
+        assert type(tokens_list) == list
         self._tokens = tokens_list
     def __len__(self):
         return len(self._tokens)
@@ -528,7 +630,7 @@ class TokensList(object):
     def __str__(self):
         return str(self._tokens)
     def __repr__(self):
-        return str(self._tokens)
+        return str(len(self._tokens))
     def __iter__(self):
         return iter(self._tokens)
     def __contains__(self, item):
@@ -541,7 +643,7 @@ class RoundTripEncoder(json.JSONEncoder):
         if isinstance(obj, TokensList):
             return obj.tokens
         if isinstance(obj, TopicsTokens):
-            return {topic_name: getattr(obj, topic_name) for topic_name in obj.topics}
+            return {topic_name: list(getattr(obj, topic_name)) for topic_name in obj.topics}
         if isinstance(obj, FinalStateEntities):
             return {'topic-kernel': {kernel_def.split('-')[-1]: getattr(obj, kernel_def2_kernel(kernel_def)) for kernel_def in obj.kernel_defs},
                     'top-tokens': {top_def.split('-')[-1]: getattr(obj, top_tokens_def2_top(top_def)) for top_def in obj.top_defs},
@@ -549,6 +651,7 @@ class RoundTripEncoder(json.JSONEncoder):
         if isinstance(obj, SteadyTrackedItems):
             return {'dir': obj.dir,
                     'label': obj.model_label,
+                    'dataset_iterations': obj.dataset_iterations,
                     'nb_topics': obj.nb_topics,
                     'document_passes': obj.document_passes,
                     'background_topics': obj.background_topics,
@@ -577,7 +680,8 @@ class RoundTripEncoder(json.JSONEncoder):
         if isinstance(obj, ExperimentalResults):
             return {'scalars': obj.scalars,
                     'tracked': obj.tracked,
-                    'final': obj.final}
+                    'final': obj.final,
+                    'regularizers': obj.regularizers}
         return super(RoundTripEncoder, self).default(obj)
 
 

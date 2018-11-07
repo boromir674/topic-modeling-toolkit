@@ -43,7 +43,6 @@ class Experiment:
         self._topic_model = None
         self.collection_passes = []
         self.trackables = None
-        self.model_params = {'nb_topics': [], 'document_passes': []}
         self.train_results_handler = ResultsWL(self, None)
         self.phi_matrix_handler = ModelWL(self, None)
         self.failed_top_tokens_coherence = {}
@@ -65,7 +64,10 @@ class Experiment:
                 self.failed_top_tokens_coherence[evaluator_definition] = {t_name: [] for t_name in model.domain_topics}
         self.collection_passes = []
         self.reg_params = {reg_type: {attr: [] for attr in dyn_coefs[reg_type]} for reg_type in model.regularizer_types}
-        self.model_params = {'nb_topics': [], 'document_passes': []}
+
+    @property
+    def dataset_iterations(self):
+        return sum(self.collection_passes)
 
     @property
     def model_factory(self):
@@ -137,8 +139,8 @@ class Experiment:
     def current_root_dir(self):
         return self._dir
 
-    def get_results(self):
-        return experimental_results_factory.create_from_experiment(self)
+    # def get_results(self):
+    #     return experimental_results_factory.create_from_experiment(self)
 
     def save_experiment(self, save_phi=True):
         """
@@ -149,12 +151,13 @@ class Experiment:
         # asserts that the number of observations recorded per tracked metric variables is equal to the number of "collections pass"; training iterations over the document dataset
         # artm.ARTM.scores satisfy this
         # print 'Saving model \'{}\', train set iterations: {}'.format(self.topic_model.label, self.collection_passes)
-        assert all(map(lambda x: len(x) == sum(self.collection_passes), [values_list for eval2scoresdict in self.trackables.values() for values_list in eval2scoresdict.values()]))
+        # assert all(map(lambda x: len(x) == sum(self.collection_passes), [values_list for eval2scoresdict in self.trackables.values() for values_list in eval2scoresdict.values()]))
         # the above will fail when metrics outside the artm library start to get tracked, because these will be able to only capture the last state of the metric trajectory due to fitting by "chunks"
         self.train_results_handler.save(self._topic_model.label)
         if save_phi:
             self.phi_matrix_handler.save(self._topic_model.label)
 
+    # TODO fix logic
     def load_experiment(self, model_label):
         """
         Given a unigue model label, restores the state of the experiment from disk. Loads all tracked values of the experimental results
@@ -169,13 +172,10 @@ class Experiment:
         :rtype: patm.modeling.topic_model.TrainSpecs
         """
         results = self.train_results_handler.load(model_label)
-        assert model_label == results['model_label']
-        assert len(results['trackables']['perplexity']['value']) == sum(results['collection_passes'])
-        self.collection_passes = results['collection_passes']
-        self._total_passes = sum(self.collection_passes)
-        self.trackables = results['trackables']
+        self.collection_passes = results.tracked.collection_passes
+        self._total_passes = sum(results.tracked.collection_passes)
+        self.trackables = results.tracked
         self.reg_params = results['reg_parameters']
-        self.model_params = results['model_parameters']
         self._topic_model = self.phi_matrix_handler.load(model_label, results)
         return self._topic_model
 

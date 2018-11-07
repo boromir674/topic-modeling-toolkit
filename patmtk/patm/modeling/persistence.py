@@ -4,6 +4,7 @@ import glob
 import json
 from patm.utils import load_results
 from patm.modeling.experimental_results import experimental_results_factory
+from patm.definitions import MODELS_DIR_NAME, RESULTS_DIR_NAME
 
 
 class WriterLoader(object):
@@ -84,25 +85,23 @@ class ExperimentWL(BaseWriterLoader):
 
 class ResultsWL(ExperimentWL):
     def __init__(self, experiment, split_label):
-        self._my_root = 'results'
+        self._my_root = RESULTS_DIR_NAME
         self._ext = '.json'
         super(ResultsWL, self).__init__(experiment, os.path.join(experiment.current_root_dir, self._my_root), split_label, self._ext)
 
     def save(self, name):
-        # results = _stringify_trackable_dicts(self._exp.get_results())
+        results_file_path = self.get_full_path(name)
         results = experimental_results_factory.create_from_experiment(self._exp)
-        results.save_as_json()
-        with open(self.get_full_path(name), 'w') as f:
-            json.dump(results, f)
-        self._saved.append(self.get_full_path(name))
+        results.save_as_json(results_file_path, human_redable=True)
+        self._saved.append(results_file_path)
 
     def load(self, name, *args):
-        return load_results(self.get_full_path(name))
+        return experimental_results_factory.create_from_json_file(self.get_full_path(name))
 
 
 class ModelWL(ExperimentWL):
     def __init__(self, experiment, split_label):
-        self._my_root = 'models'
+        self._my_root = MODELS_DIR_NAME
         self._extension = '.phi'
         self._phi_matrix_label = 'p_wt'
         super(ModelWL, self).__init__(experiment, os.path.join(experiment.current_root_dir, self._my_root), split_label, self._extension)
@@ -121,14 +120,14 @@ class ModelWL(ExperimentWL):
         """
         return self._exp.model_factory.create_model_with_phi_from_disk(self.get_full_path(name), args[0])
 
-
-def _stringify_trackable_dicts(results):
-    tr = results['trackables']
-    for k, v in tr.items():
-        if type(v) == list:
-            tr[k] = map(lambda x: str(x), tr[k])
-        elif type(v) == dict:
-            for in_k, in_v in v.items():
-                if type(in_v) == list:
-                    v[in_k] = map(lambda x: str(x), v[in_k])
-    return results
+#
+# def _stringify_trackable_dicts(results):
+#     tr = results['trackables']
+#     for k, v in tr.items():
+#         if type(v) == list:
+#             tr[k] = map(lambda x: str(x), tr[k])
+#         elif type(v) == dict:
+#             for in_k, in_v in v.items():
+#                 if type(in_v) == list:
+#                     v[in_k] = map(lambda x: str(x), v[in_k])
+#     return results

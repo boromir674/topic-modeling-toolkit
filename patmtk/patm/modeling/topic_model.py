@@ -109,8 +109,7 @@ class TopicModel(object):
                 background_tokens_eval_name = eval_name
         if background_tokens_eval_name:
             res = self.artm_model.score_tracker[background_tokens_eval_name].tokens
-            return res[-1]
-        return None
+            return list(res[-1])
 
     @property
     def background_topics(self):

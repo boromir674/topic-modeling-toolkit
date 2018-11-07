@@ -7,8 +7,8 @@ from processors.disk_writer_processors import UciFormatWriter, VowpalFormatWrite
 
 my_dir = os.path.dirname(os.path.realpath(__file__))
 
-results_root = 'results'
-models_root = 'models'
+RESULTS_DIR_NAME = 'results'
+MODELS_DIR_NAME = 'models'
 
 REGULARIZERS_CFG = os.path.join(my_dir, '../regularizers.cfg')
 TRAIN_CFG = os.path.join(my_dir, '../train.cfg')
@@ -41,10 +41,8 @@ COOCURENCE_DICT_FILE_NAMES = ['cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
 ###### CONSTANTS #####
 BINARY_DICTIONARY_NAME = 'mydic.dict'
 
-# def get_generic_topic_names(nb_topics, skip_first_pct=0.0):
-#     return ['top_' + index for index in map(lambda x: str(x) if len(str(x)) > 1 else '0'+str(x), range(nb_topics))][int(skip_first_pct * nb_topics):]
-###### ###### ###### ###### ###### ######
 
+###### ###### ###### ###### ###### ######
 
 encode_pipeline_cfg = {
     'lowercase': lambda x: bool(eval(x)),
