@@ -47,11 +47,14 @@ class Tuner(object):
         :param bool enable_ideology_labels: Enable using the 'vowpal_wabbit' format to exploit extra modalities modalities. A modalitity is a disctreet space of values (tokens, class_labels, ..)
 
         """
+        self._required_parameters = ('nb_topics', 'document_passes', 'collection_passes')
         self._dir = os.path.join(COLLECTIONS_DIR, collection)
         if evaluation_definitions:
             self._score_defs = evaluation_definitions
         else:
             self._score_defs = get_standard_evaluation_definitions()
+        self._label_groups = None
+        self._cur_label = None
         self._required_labels = []
         self._active_regs = {}
         self._reg_specs = {}
@@ -75,10 +78,16 @@ class Tuner(object):
         :rtype: OrderedDict
         """
         return OrderedDict(map(lambda y: ('-'.join(y), ''.join(map(lambda z: z[0] if len(y) > 2 else z[:2], y))), map(lambda x: x.split('-'), sorted(reg_types_list))))
+    @property
+    def constants(self):
+        return sorted(self._static_params_hash.keys())
+    @property
+    def explorables(self):
+        return sorted(self._expl_params_hash.keys())
 
     @property
-    def explorable_parameters_names(self):
-        return map(lambda x: x[0], self._expl_params_hash)
+    def allowed_labeling_params(self):
+        return self._allowed_labeling_params
 
     @property
     def activate_regularizers(self):
@@ -112,38 +121,41 @@ class Tuner(object):
     def static_regularization_specs(self, regularizers_specs):
         self._reg_specs = regularizers_specs
 
-    def tune(self, parameters_mixture, prefix_label='', append_explorables='all', append_static=True, static_regularizers_specs=None, force_overwrite=False, verbose=0):
+    def _set_verbosity_level(self, input_verbose):
+        try:
+            self._vb = int(input_verbose)
+            if self._vb < 0:
+                self._vb = 0
+            elif 4 < self._vb:
+                self._vb = 4
+        except ValueError:
+            self._vb = 3
+
+    def tune(self, parameters_mixture, prefix_label='', append_explorables='all', append_static=True, static_regularizers_specs=None, force_overwrite=False, verbose=3):
         """
         :param patm.tuning.building.TunerDefinition parameters_mixture:
         :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix used for the naming files (models, results) saved on disk
         :param list or str append_explorables: if list is given will use these exact parameters' names as part of unique names used for files saved on disk. If 'all' is given then all possible parameter names will be used
         :param bool append_static: indicates whether to use the values of the parameters remaining constant during space exploration, as part of the unique names used for files saved on disk
+        :param static_regularizers_specs:
+        :param force_overwrite:
+        :param verbose:
         :return:
         """
-        try:
-            vb = int(verbose)
-            if verbose < 0:
-                verbose = 0
-            elif 4 < verbose:
-                verbose = 4
-        except ValueError:
-            vb = bool(verbose)
-
-        self._initialize0(parameters_mixture, verbose=vb)
+        self._set_verbosity_level(verbose)
+        self._initialize0(parameters_mixture)
         self._initialize1(prefix_label=prefix_label, append_explorables=append_explorables, append_static=append_static,
-                          static_regularizers_specs=static_regularizers_specs, overwrite=force_overwrite, verbose=vb)
-        expected_iters = len(self._parameter_grid_searcher)
-        if vb:
+                          static_regularizers_specs=static_regularizers_specs, overwrite=force_overwrite)
+        if self._vb:
             print 'Tuning..'
-            generator = tqdm(self._parameter_grid_searcher, total=expected_iters, unit='model')
+            generator = tqdm(self._parameter_grid_searcher, total=len(self._parameter_grid_searcher), unit='model')
         else:
             generator = iter(self._parameter_grid_searcher)
-        if 1 < vb:
-            print 'Taking {} samples for grid-search'.format(expected_iters)
+        if 1 < self._vb:
+            print 'Taking {} samples for grid-search'.format(len(self._parameter_grid_searcher))
 
         self._label_groups = Counter()
         for i, self.parameter_vector in enumerate(generator):
-            # print 'TUNE on vector:', self.parameter_vector
             self._cur_label = self._build_label(self.parameter_vector)
             assert self._cur_label == self._required_labels[i]
             if 4 == vb:
@@ -152,32 +164,45 @@ class Tuner(object):
             self.experiment.init_empty_trackables(tm)
             self.trainer.train(tm, specs)
             self.experiment.save_experiment(save_phi=True)
-            if 2 < vb:
+            if 2 < self._vb:
                 tqdm.write(self._cur_label)
             del tm
 
-    def _initialize0(self, tuner_definition, verbose=False):
+    def _initialize0(self, tuner_definition):
         """
         :param patm.tuning.building.TunerDefinition tuner_definition:
         """
-        if verbose:
+        if self._vb:
             print 'Initializing Tuner..'
         self._static_params_hash = tuner_definition.static_parameters
         self._expl_params_hash = tuner_definition.explorable_parameters
         self._check_parameters()
         self._tau_traj_to_build = tuner_definition.valid_trajectory_defs()
         self._parameter_grid_searcher = ParameterGrid(tuner_definition.parameter_spans)
-        if verbose == 2:
-            print 'STATIC:', self._static_params_hash.keys(), '\nEXPL:', self._expl_params_hash.keys()
-            print 'Tau trajectories for:', self._tau_traj_to_build.keys()
+        if 1 < self._vb :
+            print 'Constants: [{}]\nExplorables: [{}]'.format(', '.join(self.constants), ', '.join(self.explorables))
+            # print 'Tau trajectories for:', self._tau_traj_to_build.keys()
             print 'Search space', tuner_definition.parameter_spans
-            print 'Potential GRID LENGTH:', len(self._parameter_grid_searcher)
+            print 'Potentially producing {} parameter vectors'.format(len(self._parameter_grid_searcher))
 
-    def _get_labeling_mask(self, expl_list, static_flag):
-        return self._get_mask(self._allowed_labeling_params, expl_list)
+    def _define_labeling_scheme(self, explorables, constants):
+        """Call this method to define the values to use for labeling the artifacts of tuning from the mixture of explorable and constant parameters.
+            This method also determines if versioning is needed; whether to append strings like v001, v002 to the labels because
+            of naming collisions
+        """
+        assert all(map(lambda x: type(x) == list or x == 'all', [constants, explorables]))
+        explorables_labels = self._get_labels_extractor('explorables')(explorables)
+        constants_labels = self._get_labels_extractor('constants')(constants)
+        self._versioning_needed = not explorables_labels == self.explorables
+        self._labeling_params = explorables_labels + constants_labels
+
+    def _get_labels_extractor(self, parameters_type):
+        extractors_hash = {list: lambda x: [_ for _ in x if _ in self._allowed_labeling_params],
+                           str: lambda x: [_ for _ in getattr(self, parameters_type) if _ in self._allowed_labeling_params]}
+        return lambda y: sorted(extractors_hash[type(y)](y))
 
 
-    def _initialize1(self, prefix_label='', append_explorables='all', append_static=True, static_regularizers_specs=None, overwrite=False, verbose=1):
+    def _initialize1(self, prefix_label='', append_explorables='all', append_static=None, static_regularizers_specs=None, overwrite=False):
         """
         :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix used for the naming files (models, results) saved on disk
         :param bool enable_ideology_labels: Enable using the 'vowpal_wabbit' format to exploit extra modalities modalities. A modalitity is a disctreet space of values (tokens, class_labels, ..)
@@ -189,28 +214,13 @@ class Tuner(object):
         self._prefix = prefix_label
         self._experiments_saved = []
         self._label_groups = Counter()
-        self._labeling_params = []
         self._overwrite = overwrite
-        # TODO fix below
-        mask = self._get_mask(self._allowed_labeling_params, self._expl_params_hash.keys())
-        if append_static:
-            mask = map(lambda x: x[0] or x[1], zip(mask, self._get_mask(self._allowed_labeling_params, self._static_params_hash.keys())))
+        print append_explorables, (lambda y: [] if y is None else y)(append_explorables)
+        print append_static, (lambda y: [] if y is None else y)(append_static)
+        self._define_labeling_scheme((lambda y: [] if y is None else y)(append_explorables), (lambda y: [] if y is None else y)(append_static))
 
-            # self._labeling_params = map(lambda x: self._static_params_hash)
-            # [param_name for param_name in self._static_params_hash.keys() if param_name in self._allowed_labeling_params]
-        self._versioning_needed = False
-
-        expl_labeling_params = []
-        if append_explorables == 'all':
-            expl_labeling_params = [i for i in self._expl_params_hash.keys() if i in self._allowed_labeling_params]
-        elif append_explorables:
-            expl_labeling_params = [i for i in append_explorables if i in self._allowed_labeling_params]
-        if len(expl_labeling_params) != len(self._expl_params_hash):
-            self._versioning_needed = True
-
-        self._labeling_params.extend(expl_labeling_params)
-        if verbose:
-            print 'Automatically labeling files using:', self._labeling_params, 'values'
+        if 1 < self._vb:
+            print 'Automatically labeling files using parameter values: {[]}'.format(', '.join(self._labeling_params))
 
         if static_regularizers_specs:
             # for which ever of the activated regularizers there is a missing setting, then use a default value
@@ -228,16 +238,13 @@ class Tuner(object):
             only_mods = model_inds - common
             self._parameter_grid_searcher.ommited_indices = common.indices
             self._required_labels = [x for i, x in enumerate(self._required_labels) if i not in common.indices]
-            if 2 < verbose:
+            if 2 < self._vb:
                 for obj in (_ for _ in (common, only_mods, only_res) if _):
                     print obj.msg(self._required_labels)
-            if 3 < verbose:
+            if 3 < self._vb:
                 print 'Required labels:', '[{}]'.format(', '.join(self._required_labels))
-            if 1 < verbose:
+            if 1 < self._vb:
                 print 'Ommiting creating a total of {} files'.format(len(common)+len(only_res)+len(only_mods))
-
-    def _get_mask(self, reference, subset):
-        return map(lambda x: x in subset, reference)
 
     def _create_reg_specs(self, reg_settings, active_regularizers):
         """Call this method to use default values when missing, according to given activated regularizers"""
@@ -327,17 +334,11 @@ class Tuner(object):
 
     def _check_parameters(self):
         for i in self._static_params_hash.keys():
-            if i in self.explorable_parameters_names:
+            if i in self._expl_params_hash:
                 raise ParameterFoundInStaticAndExplorablesException("Parameter '{}' defined both as static and explorable".format(i))
-        missing = []
-        for i in ('nb_topics', 'document_passes', 'collection_passes'):
-            l = self._static_params_hash.keys() + self._expl_params_hash.keys()
-            if i not in l:
-                missing.append(i)
-        if missing:
-            print self._static_params_hash.keys()
-            print self._expl_params_hash.keys()
-            raise MissingRequiredParametersException("Missing <{}> required model parameters".format(', '.join(missing)))
+        missing_required_parameters = filter(None, map(lambda x: None if x in self.constants + self.explorables else x, self._required_parameters))
+        if missing_required_parameters:
+            raise MissingRequiredParametersException("[{}] were not found in [{}]".format(', '.join(missing_required_parameters), ', '.join(self.constants + self.explorables)))
 
 
 class IndicesList(object):

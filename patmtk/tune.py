@@ -61,10 +61,11 @@ if __name__ == '__main__':
     #                                      'smooth-theta': {'tau': 1.0},
     #                                      'sparse-theta': {'alpha_iter': 1}}
     # 'sparse-theta': {'alpha_iter': 'linear_1_4'}}
+    print 'TUNE', (lambda x: 'all' if x == True else [])(args.append_explorables)
     tuner.tune(tuning_definition,
                prefix_label=args.prefix,
                append_explorables=(lambda x: 'all' if x == True else [])(args.append_explorables),
-               append_static=args.append_static,
+               append_static=(lambda x: 'all' if x == True else [])(args.append_static),
                force_overwrite=args.overwrite,
                verbose=args.verbose)
 
