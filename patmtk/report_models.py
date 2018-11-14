@@ -1,3 +1,5 @@
+#!/home/kostas/software_and_libs/anaconda2/bin/python2.7
+
 import os
 import re
 import sys
@@ -6,57 +8,89 @@ import glob
 import time
 import argparse
 import threading
-from functools import reduce
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, Iterable
 from patm.definitions import COLLECTIONS_DIR, RESULTS_DIR_NAME
 
 import numpy as np
 from patm.modeling.experimental_results import experimental_results_factory
 
 
-columns = ['nb-topics', 'collection-passes', 'document-passes', 'total-phi-updates', 'perplexity',
+COLUMNS = ['nb-topics', 'collection-passes', 'document-passes', 'total-phi-updates', 'perplexity',
            'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi', 'sparsity-theta',
            'background-tokens-ratio', 'regularizers']
 
+KERNEL_SUB_ENTITIES = ('coherence', 'contrast', 'purity')
 
 def get_kernel_sub_hash(entity):
-    assert entity in ('coherence', 'contrast', 'purity')
-    return {'kernel-'+entity: {'extractor': lambda x: map(lambda y: getattr(y.average, entity).last, x.tracked_kernels),
-                               'column-title': lambda x: map(lambda y: 'k'+str(x)[2:]+'.'+entity[:3], x.tracked.kernel_thresholds),
-                               'to-string': '{:.4f}'}}
+    assert entity in KERNEL_SUB_ENTITIES
+    return {'kernel-'+entity: {'extractor': lambda x,y: getattr(x.tracked, 'kernel'+y[2:]).average.last if hasattr(x.tracked, 'kernel'+y[2:]) else None,
+                               'column-title': lambda x: 'k'+entity[:3:2]+'.'+str(x)[2:],
+                               'to-string': '{:.4f}',
+                               'definitions': lambda x: map(lambda z: 'kernel-{}-{:.2f}'.format(entity, z), x.tracked.kernel_thresholds)}}
 
-
-columns_hash = {
+COLUMNS_HASH = {
     # 'fitness-function': {},
-    'nb-topics': {'extractor': lambda x: [x.scalars.nb_topics],
-                  'column-title': lambda x: ['tpcs']},
-    'collection-passes': {'extractor': lambda x: [x.scalars.dataset_iterations],
-                          'column-title': lambda x: ['col-i']},
-    'document-passes': {'extractor': lambda x: [x.scalars.document_passes],
-                        'column-title': lambda x: ['doc-i']},
-    'total-phi-updates': {'extractor': lambda x: [x.scalars.dataset_iterations * x.scalars.document_passes],
-                          'column-title': lambda x: ['phi-u']},
-    'perplexity': {'extractor': lambda x: [x.tracked.perplexity.last],
-                  'column-title': lambda x: ['prpl'],
-                  'to-string': lambda x: ['{:.1f}']},
-    'top-tokens-coherence': {'extractor': lambda x: map(lambda y: y.average_coherence.last, x.tracked_top_tokens),
-                             'column-title': lambda x: map(lambda y: 'top'+str(y)+'c', x.tracked.top_tokens_cardinalities),
-                             'to-string': '{:.4f}'},
-    'sparsity-phi': {'extractor': lambda x: map(lambda y: y.last, x.phi_sparsities),
-                     'column-title': lambda x: map(lambda y: 'spp@'+y, x.tracked.modalities_initials),
-                     'to-string': '{:.2f}'},
-    'sparsity-theta': {'extractor': lambda x: [x.tracked.sparsity_theta.last],
-                       'column-title': lambda x: ['spt'],
+    'nb-topics': {'extractor': lambda x: x.scalars.nb_topics,
+                  'column-title': lambda: 'tpcs'},
+    'collection-passes': {'extractor': lambda x: x.scalars.dataset_iterations,
+                          'column-title': lambda: 'col-i'},
+    'document-passes': {'extractor': lambda x: x.scalars.document_passes,
+                        'column-title': lambda: 'doc-i'},
+    'total-phi-updates': {'extractor': lambda x: x.scalars.dataset_iterations * x.scalars.document_passes,
+                          'column-title': lambda: 'phi-u'},
+    'perplexity': {'extractor': lambda x: x.tracked.perplexity.last,
+                  'column-title': lambda: 'prpl',
+                  'to-string': '{:.1f}'},
+    'top-tokens-coherence': {'extractor': lambda x,y: getattr(x.tracked, 'top'+str(y)).average_coherence.last if hasattr(x.tracked, 'top'+str(y)) else None,
+                             'column-title': lambda x: 'top'+str(x)+'ch',
+                             'to-string': '{:.4f}',
+                             'definitions': lambda x: map(lambda y: 'top-tokens-coherence-'+str(y), x.tracked.top_tokens_cardinalities)},
+    'sparsity-phi': {'extractor': lambda x,y: getattr(x.tracked, 'sparsity_phi_'+y).last if hasattr(x.tracked, 'sparsity_phi_'+y) else None,
+                     'column-title': lambda y: 'spp@'+y,
+                     'to-string': '{:.2f}',
+                     'definitions': lambda x: map(lambda z: 'sparsity-phi-{}'.format(z), x.tracked.modalities_initials)},
+    'sparsity-theta': {'extractor': lambda x: x.tracked.sparsity_theta.last,
+                       'column-title': lambda: 'spt',
                        'to-string': '{:.2f}'},
-    'background-tokens-ratio': {'extractor': lambda x: [getattr(x.tracked, 'background_tokens_ratio_'+str(x.scalars.background_tokens_threshold)[2:]).last],
-                                'column-title': lambda x: ['btr'+str(x.scalars.background_tokens_threshold)[2:]],
-                                'to-string': '{:.2f}'},
-    'regularizers': {'extractor': lambda x: ['[{}]'.format(', '.join(x.regularizers))],
-                     'column-title': lambda x: ['regs']}
+    'background-tokens-ratio': {'extractor': lambda x,y: getattr(x.tracked, 'background_tokens_ratio_'+str(y)[2:]).last if hasattr(x.tracked, 'background_tokens_ratio_'+str(y)[2:]) else None,
+                                'column-title': lambda x: 'btr.'+str(x)[2:],
+                                'to-string': '{:.2f}',
+                                'definitions': lambda x: map(lambda y: 'background-tokens-ratio-{:.2f}'.format(y), x.tracked.background_tokens_thresholds)},
+    'regularizers': {'extractor': lambda x: '[{}]'.format(', '.join(x.regularizers)),
+                     'column-title': lambda: 'regs'}
 }
 
-columns_hash = reduce(lambda x,y: dict(y, **x), [columns_hash] + map(lambda z: get_kernel_sub_hash(z), ['coherence', 'contrast', 'purity']))
+COLUMNS_HASH = reduce(lambda x, y: dict(y, **x), [COLUMNS_HASH] + map(lambda z: get_kernel_sub_hash(z), KERNEL_SUB_ENTITIES))
 
+
+def _parse_column_definition(definition):
+    return map(lambda y: list(filter(None, y)), zip(*map(lambda x: (x, None) if _is_token(x) else (None, x), definition.split('-'))))
+
+
+def _is_token(definition_element):
+    try:
+        _ = float(definition_element)
+        return False
+    except ValueError:
+        if definition_element[0] == '@' or len(definition_element) == 1:
+            return False
+        return True
+
+
+class ResultsExtractor(object):
+    def __init__(self, extractable_entities):
+        self._columns = extractable_entities
+
+    @property
+    def columns(self):
+        return self._columns
+
+    @columns.setter
+    def columns(self, columns):
+        self._columns = columns
+
+    def __call__(self, *args):
+        return self.extract_all(args[0])
 
 # LEGACY
 # def get_extractor(column):
@@ -93,7 +127,6 @@ columns_hash = reduce(lambda x,y: dict(y, **x), [columns_hash] + map(lambda z: g
 #     assert all(map(lambda x: _[x] not in (None, ''), _.keys()))
 #     return _
 
-
 class ModelReporter(object):
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
@@ -101,22 +134,23 @@ class ModelReporter(object):
     lb = len(r'\033[1m')
     lu = len(r'\033[4m')
     le = len(r'\033[0m')
+    DYNAMIC_COLUMNS = ['kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi', 'background-tokens-ratio']
 
-    def __init__(self, collection_name):
-        results_dir = os.path.join(COLLECTIONS_DIR, collection_name, RESULTS_DIR_NAME)
+    def __init__(self):
         self._label_separator = ':'
-        self._columns_to_render = {column: [] for column in columns}
-        self._columns_to_render_sets = {column: set() for column in columns}
-        self.result_paths = glob.glob('{}/*.json'.format(results_dir))
-        print 'results-list', self.result_paths
-        self._transf = {'fit-func':'fitness_value', 'tpcs':'nb_topics', 'col-i':'collection_passes', 'doc-i':'document_passes',
-                        'total':'total', 'prplx':'perplexity', 'coher':'kernel-coherence', 'contr':'kernel-contrast',
-                        'purity':'kernel-purity', '10coher':'top-10-coherence', '100coher':'top-100-coherence',
-                        'sprst-p':'sparsity-phi', 'sprst-t':'sparsity-theta', 'regs':'reg_names'}
-        self._to_string_defs = {'fitness_value':'', 'nb_topics':'{}', 'collection_passes':'{}', 'document_passes':'{}',
-                                'total':'{}', 'perplexity': '{:.1f}', 'kernel-coherence': '{:.4f}', 'kernel-contrast': '{:.4f}',
-                                'kernel-purity': '{:.4f}', 'top-10-coherence': '{:.4f}', 'top-100-coherence': '{:.4f}',
-                                'sparsity-phi': '{:.2f}', 'sparsity-theta': '{:.2f}', 'reg_names':'[{}]'}
+        self._columns_to_render = []
+        self.result_paths = []
+        self._strings_lists = []
+        self.extractor = ResultsExtractor(self._columns_to_render)
+        #
+        # self._transf = {'fit-func':'fitness_value', 'tpcs':'nb_topics', 'col-i':'collection_passes', 'doc-i':'document_passes',
+        #                 'total':'total', 'prplx':'perplexity', 'coher':'kernel-coherence', 'contr':'kernel-contrast',
+        #                 'purity':'kernel-purity', '10coher':'top-10-coherence', '100coher':'top-100-coherence',
+        #                 'sprst-p':'sparsity-phi', 'sprst-t':'sparsity-theta', 'regs':'reg_names'}
+        # self._to_string_defs = {'fitness_value':'', 'nb_topics':'{}', 'collection_passes':'{}', 'document_passes':'{}',
+        #                         'total':'{}', 'perplexity': '{:.1f}', 'kernel-coherence': '{:.4f}', 'kernel-contrast': '{:.4f}',
+        #                         'kernel-purity': '{:.4f}', 'top-10-coherence': '{:.4f}', 'top-100-coherence': '{:.4f}',
+        #                         'sparsity-phi': '{:.2f}', 'sparsity-theta': '{:.2f}', 'reg_names':'[{}]'}
 
         # self._biggest_len = max(map(lambda x: len(os.path.basename(x).replace('-train.json', '')), self.result_paths))
         # self._detail_switch = {False: lambda x: x['model_label'], True: self.to_string}
@@ -124,114 +158,77 @@ class ModelReporter(object):
         self.fitness_computer = None
         self._infos = []
         self._insertions = []
-        self._columns_titles = ['fit-func', 'tpcs', 'col-i', 'doc-i', 'total', 'prplx', 'coher', 'contr', 'purity', '10coher', '100coher', 'sprst-p', 'sprst-t', 'regs'] # 14
-        # self._header_space_offsets = map(lambda x: 0 if len(x) >= self._to_string_defs[self._transf[x]], self._columns_titles)
-        self._header_space_offsets = [0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0] # fitted design of column headers detailed string output
-        # assert len(self._columns_titles) == len(self._header_space_offsets)
         self._header = ' '.join(map(lambda x: x[1] + ' '*self._header_space_offsets[x[0]], enumerate(self._columns_titles)))
+        self._max_label_len = 0
         self._max_col_lens = []
-        # stripped_phi_names = [os.path.basename(phi_path).replace('.phi', '') for phi_path in glob.glob('{}/*-train.phi'.format(models_dir))]
-        # if stripped_phi_names != stripped_result_names:
-        #     print '{} phi matrices do not correspond to resuls jsons'.format([_ for _ in stripped_phi_names if _ not in stripped_result_names], )
-        #     print '{} results jsons do not correspond to phi matrices'.format([_ for _ in stripped_result_names if _ not in stripped_phi_names])
 
-    # def get_value(self, column, experimental_results):
-    #
-    #     if column == 'fitness-function':
-    #         return [None]
-    #     if column in extractors_hash:
-    #         return [extractors_hash[column](experimental_results)]
-    #     if hasattr(experimental_results.scalars, column.replace('-', '_')):
-    #         return [getattr(experimental_results.scalars, column.replace('-', '_'))]
-    #     if column.startswith('kernel'):
-    #         return map(lambda x: getattr(x.average, column.split('-')[-1]).last, experimental_results.tracked_kernels)
-    #     if column.startswith('top-tokens'):
-    #         return map(lambda x: x.average_coherence.last, experimental_results.tracked_top_tokens)
-    #     if column.startswith('sparsity-phi'):
-    #         return map(lambda x: x.last, experimental_results.phi_sparsities)
-    #     if column.startswith('background-tokens-ratio-'):
-    #         return [getattr(experimental_results.tracked, 'background_tokens_ratio_' + column.split('-')[-1][2:]).last]
-    #     return [getattr(experimental_results.tracked, column.replace('-', '_')).last]
-    # def get_column_title(self, column, experimental_results):
-    #     if column == 'fitness-function':
-    #         return [None]
-    #     if column.
-    #     if hasattr(experimental_results.scalars, column.replace('-', '_')):
-    #         return [getattr(experimental_results.scalars, column.replace('-', '_'))]
-    #     if column.startswith('kernel'):
-    #         eval_defs = map(lambda x: getattr(x.average, column.split('-')[-1]), experimental_results.tracked_kernels)
-    #         return map(lambda x: getattr(getattr(experimental_results.tracked, 'kernel'+str(x[2:])).average, column.split('-')[1]).last, experimental_results.kernel_thresholds)
-    #     if column.startswith('top-tokens'):
-    #         return map(lambda x: getattr(getattr(experimental_results.tracked, 'top' + str(x)),
-    #                                      'average_' + column.split('-')[1]).last, experimental_results.top_tokens_cardinalities)
-    #     if column.startswith('sparsity-phi-@'):
-    #         return [getattr(experimental_results.tracked, 'sparsity_phi_' + column.split('@')[-1][0]).last]
-    #     if column.startswith('background-tokens-ratio-'):
-    #         return [getattr(experimental_results.tracked, 'background_tokens_ratio_' + column.split('-')[-1][2:]).last]
-    #     return [getattr(experimental_results.tracked, column.replace('-', '_')).last]
+    def _initialize(self, collection_name, custom_columns=None):
+        results_dir = os.path.join(COLLECTIONS_DIR, collection_name, RESULTS_DIR_NAME)
+        self.result_paths = glob.glob('{}/*.json'.format(results_dir))
+        self._max_label_len = max(map(lambda x: ModelReporter._get_label(x), self.result_paths), key=lambda x: len(x))
+        if not custom_columns:
+            self.columns_to_render = self._sort(self._determine_maximal_column_for_rendering(self.result_paths))
+        else:
+            try:
+                self.columns_to_render = custom_columns
+            except InvalidColumnsException as e:
+                print e
+                print 'Automatically using all possible columns inferred from the experimental results to report'
+                self.columns_to_render = self._sort(self._determine_maximal_column_for_rendering(self.result_paths))
+        self._columns_titles = map(lambda z: COLUMNS_HASH['-'.join(z[0])]['column-title'](*z[1]), map(lambda x: _parse_column_definition(x), self.columns_to_render))
+        self._max_col_lens = map(lambda x: len(x), self._columns_titles)
 
-    def get_values(self, column, experimental_results):
-        return columns_hash[column]['extractor'](experimental_results)
+    @property
+    def columns_to_render(self):
+        return self._columns_to_render
 
-    def get_columns_abbrvs(self, column, experimental_results):
-        return columns_hash[column]['column-title'](experimental_results)
+    @columns_to_render.setter
+    def columns_to_render(self, custom_columns):
+        if not isinstance(custom_columns, Iterable):
+            raise InvalidColumnsException(
+                "Input columns are of type '{}' instead of iterable".format(type(custom_columns)))
+        invalid_columns = ModelReporter._get_invalid_columns(custom_columns)
+        if invalid_columns:
+            raise InvalidColumnsException("Input columns [{}] are not valid".format(', '.join(invalid_columns)))
+        self._columns_to_render = custom_columns
+        self.extractor.columns = custom_columns
 
-    def get_values_n_columns(self, column, experimental_results):
-        return [columns_hash[column]['extractor'](experimental_results),
-                columns_hash[column]['column-title'](experimental_results)]
+    def report(self, collection_name, details=None, sort=None, columns=None):
+        self._initialize(collection_name, custom_columns=columns)
+        self._strings_lists = self._get_strings_lists()
 
-    def result_path2info_element(self, result_path):
-        return experimental_results_factory.create_from_json_file(result_path)
+        print 'To render:'
+        print '[{}]'.format(', '.join(self.columns_to_render))
+        print '[{}]'.format(', '.join(self._columns_titles))
+        print '[{}]'.format(', '.join(map(lambda x: str(x), self._max_col_lens)))
+        st = '\n'.join(map(lambda x: ' '.join(self._exp_result2_elements_list(x)), self.result_paths))
+        print st
 
-    def info_element2string(self, info_element):
-        st = '{}{}{}'.format(info_element.scalars.model_label, self._max_label_len, self._label_separator)
-        self.get_values_n_columns()
-        st += ' '.join(map(lambda x: self.get_values_n_columns(), columns))
+    def _exp_result2_elements_list(self, json_path):
+        return [str(ModelReporter._get_label(json_path))] + map(lambda x: self._to_string(self._extract(x, experimental_results_factory.create_from_json_file(json_path))), self.columns_to_render)
 
-    def _exp_res(self, result_path):
-        print 'MODEL_REPORTER._exp_res.results_path', result_path
-        return experimental_results_factory.create_from_json_file(result_path)
-
-    def _get_columns_to_render(self, result_path_list):
-        # return dict(map(lambda z: (z, reduce(lambda x,y: x+y, map(lambda t: self._build_column_to_render(t, z), columns))), result_path_list))
-        return dict(map(lambda z: (z, reduce(lambda x,y: x+y, map(lambda t: self._build_column_to_render(z, self._exp_res(t)), result_path_list))), columns))
-        # {column: reduce(lambda x,y: x+y, )}
-
-    def _build_column_to_render(self, column, experimental_results):
-        print 'exp type:', type(experimental_results), experimental_results
-        print 'c', column
-        print 'keys', columns_hash[column].keys()
-        _ = columns_hash[column]['column-title'](experimental_results)
-        print 'sub-cols:', _
-        # self._columns_to_render[column].extend(filter(None, map(lambda x: self._filter_to_add(column, x), _)))
-        _ = filter(None, map(lambda x: self._filter_to_add(column, x), _))
-        # self._columns_to_render_sets[col
+    def _extract(self, column_definition, exp_results):
+        tokens, parameters = _parse_column_definition(column_definition)
+        self._column_key = '-'.join(tokens)
+        _ = COLUMNS_HASH[self._column_key]['extractor'](*list([exp_results] + parameters))
+        print 'key', self._column_key, type(_), _,
         return _
 
-    def _filter_to_add(self, column, column_title):
-        if column_title in self._columns_to_render_sets[column]: return None
-        return column_title
-
-    def adw(self):
-        c = self._get_columns_to_render(self.result_paths)
-        import pprint
-        print 'ADW'
-        pprint.pprint(c, indent=2)
-
-    def _build_column_value_array(self, column, expimental_results):
-        arr = np.full((len(self._columns_to_render[column])), None)
-        result_column_titles = self._adapter(columns_hash[column]['column-title'](expimental_results))
-        result_column_values = self._adapter(columns_hash[column]['extractor'](expimental_results))
-        np.put(arr, map(lambda x: self._columns_to_render[column].index(x), result_column_titles), result_column_values)
-        return arr
-
-    def _set_columns_to_render(self):
-        pass
-
-    def compute_info_list(self, sort_function=False, add_fitness_info=False):
-        if sort_function:
-            self.fitness_computer = FitnessCalculator(sort_function)
+    def _to_string(self, column_value):
+        print 'str format', COLUMNS_HASH[self._column_key].get('to-string', '{}')
+        _ = '-'
+        if column_value is not None:
+            _ = COLUMNS_HASH[self._column_key].get('to-string', '{}').format(column_value)
+        self._max_col_lens[COLUMNS.index(self._column_key)] = max(self._max_col_lens[COLUMNS.index(self._column_key)], len(_))
+        return str(_)
+    # TODO after getting strings lists, sort according to fitness function and stringify appending suitable white spaces'
+    # TODO according to elf._max_col_len which is computed when data pass through self._exp_result2_elements_list
+    def _compute_strings_lists(self, sort_by_metric=False):
+        if sort_by_metric:
+            self._fitness_function = fitness_function_factory.get_single_metric_function(sort_by_metric)
+            self.fitness_computer = FitnessCalculator(self._fitness_function)
             self._to_string_defs['fitness_value'] = self._to_string_defs[sort_function.single_metric]
+            self._strings_lists = sorted(map(lambda x: self._exp_result2_elements_list(x), self.result_paths), key=lambda x: self.fitness_computer.compute_fitness(x), reverse=True)
             self._infos = sorted(map(lambda x: load_reportables(x), self.result_paths),
                                  key=lambda x: self.fitness_computer.compute_fitness(x, add_info=add_fitness_info), reverse=True)
             self._max_col_lens = list(map(lambda col_abrv:
@@ -240,6 +237,28 @@ class ModelReporter(object):
         else:
             self._infos = map(lambda x: load_reportables(x), self.result_paths)
         self._insertions = [[] for _ in range(len(self._infos))]
+        return map(lambda x: self._exp_result2_elements_list(x), self.result_paths)
+
+    @staticmethod
+    def _get_label(json_path):
+        return re.search('/([\w\-.]+)\.json$', json_path).group(1)
+
+
+    def _sort(self, columns):
+        return reduce(lambda i,j: i+j, map(lambda x: sorted([_ for _ in columns if _.startswith(x)]), COLUMNS))
+
+    def _determine_maximal_column_for_rendering(self, results_paths):
+        return list(reduce(lambda i,j: i.union(j), map(lambda x: set(self._get_all_columns(experimental_results_factory.create_from_json_file(x))), results_paths)))
+
+    def _get_all_columns(self, exp_results):
+        return reduce(lambda i,j: i+j, map(lambda x: COLUMNS_HASH[x]['definitions'](exp_results) if x in ModelReporter.DYNAMIC_COLUMNS else [x], COLUMNS))
+
+    @staticmethod
+    def _get_invalid_columns(columns):
+        return [_ for _ in columns if _ not in reduce(lambda i,j: i+j, map(lambda x: sorted([_ for _ in columns if _.startswith(x)]), COLUMNS))]
+
+    def compute_info_list(self, sort_function=False, add_fitness_info=False):
+
 
     def get_model_labels_string(self, sorting_function):
         self.compute_info_list(sort_function=sorting_function, add_fitness_info=False)
@@ -296,23 +315,26 @@ class FitnessFunction:
     def __str__(self):
         return ' + '.join(map(lambda x: '{}*{}'.format(x[0], x[1]), zip(self._names, self._coeff)))
 
-def create_key_extractor(key): # demek
-    return lambda x: x[key]
-
 class FitnessFunctionBuilder:
     def __init__(self):
+        self._column_definitions = []
         self._extractors = []
         self._coeff_values = []
         self._order = ''
         self._names = []
-    def new(self, ordering='natural'):
+
+    def _create_key_extractor(self, key):  # demek
+        return lambda x: x[self._column_definitions.index(key)]
+
+    def new(self, column_definitions, ordering='natural'):
+        self._column_definitions = column_definitions
         self._extractors = []
         self._coeff_values = []
         self._order = ordering
         self._names = []
         return self
     def coefficient(self, name, value):
-        self._extractors.append(create_key_extractor(name))
+        self._extractors.append(self._create_key_extractor(name))
         self._coeff_values.append(value)
         self._names.append(name)
         return self
@@ -422,40 +444,10 @@ class Spinner:
         self.busy = False
         time.sleep(self.delay)
 
-def _column_title2abrv(eval_definition):
-    return _eval_def2abbrv_hash.get(eval_definition, _get_label(eval_definition))
 
-_eval_def2abbrv_hash = {'perplexity': 'prpl',
-                        'collection-passes': 'col-i'}
-
-
-def _get_label(eval_definition):
-    tokens = []
-    for el in eval_definition.split('-'):
-        try:
-            _ = float(el)
-            if int(_) == _:
-                tokens.append(str(int(_)))
-            else:
-                tokens.append(str(_))
-        except ValueError:
-            if el[0] == '@':
-                tokens.append(el[:2])
-            else:
-                tokens.append(el[0])
-    return ''.join(tokens)
-
-
-def _get_eval_type(eval_definition):
-    tokens = []
-    for el in eval_definition.split('-'):
-        try:
-            _ = float(el)
-        except ValueError:
-            if el[0] != '@':
-                tokens.append(el)
-    return '-'.join(tokens)
-
+class InvalidColumnsException(Exception):
+    def __init__(self, msg):
+        super(InvalidColumnsException, self).__init__(msg)
 
 def get_cli_arguments():
     parser = argparse.ArgumentParser(description='Reports on existing saved model topic model instances developed on the specified dataset', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -467,16 +459,23 @@ def get_cli_arguments():
 if __name__ == '__main__':
 
     cli_args = get_cli_arguments()
-    print _get_label('sparsity-phi')
-    print _get_label('sparsity-theta-@ic')
-    print _get_label('sparsity-theta-@dc')
-    print _get_label('topic-kernel-0.6')
-    print _get_label('top-tokens-10')
 
-    # exp_results = experimental_results_factory.create_from_json_file(os.path.join(COLLECTIONS_DIR, cli_args.dataset, RESULTS_DIR_NAME))
-    reporter = ModelReporter(cli_args.dataset)
+    res_ext = ResultsExtractor(['nb-topics', 'collection-passes', 'document-passes', 'total-phi-updates', 'perplexity'])
 
-    reporter.adw()
+    res_dir = os.path.join(COLLECTIONS_DIR, cli_args.dataset, RESULTS_DIR_NAME)
+    # _columns_to_render = {column: [] for column in COLUMNS}
+    # result_paths = glob.glob('{}/*.json'.format(res_dir))
+    # exp_res = experimental_results_factory.create_from_json_file(result_paths[0])
+    # out = res_ext.extract_all(exp_res)
+    # print 'OUT', out
+
+    reporter = ModelReporter()
+    reporter.report(cli_args.dataset, details=None, sort=None, columns=None)
+
+
+    # reporter = ModelReporter(cli_args.dataset)
+    #
+    # reporter.adw()
 
     # if cli_args.sort:
     #     fitness_function = fitness_function_factory.get_single_metric_function(cli_args.sort)
