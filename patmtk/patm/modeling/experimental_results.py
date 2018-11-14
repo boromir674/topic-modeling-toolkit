@@ -230,7 +230,7 @@ class AbstractValueTracker(object):
 
     @property
     def background_tokens_thresholds(self):
-        return sorted(float(_.split('-')[-1]) for _ in self._groups.keys() if _.startswith('background-tokens-ratio-0.'))
+        return sorted(float(_.split('-')[-1]) for _ in self._flat.keys() if _.startswith('background-tokens-ratio-0.'))
 
     def _query_metrics(self):
         _ = self._decode(sys._getframe(1).f_code.co_name).replace('_', '-')
@@ -307,6 +307,7 @@ class ValueTracker(AbstractValueTracker):
     @property
     def collection_passes(self):
         return super(ValueTracker, self)._query_metrics()
+
     @property
     def top100(self):
         return super(ValueTracker, self)._query_metrics()

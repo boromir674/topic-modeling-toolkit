@@ -78,6 +78,7 @@ class Tuner(object):
         :rtype: OrderedDict
         """
         return OrderedDict(map(lambda y: ('-'.join(y), ''.join(map(lambda z: z[0] if len(y) > 2 else z[:2], y))), map(lambda x: x.split('-'), sorted(reg_types_list))))
+
     @property
     def constants(self):
         return sorted(self._static_params_hash.keys())
