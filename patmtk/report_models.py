@@ -40,7 +40,8 @@ COLUMNS_HASH = {
                           'column-title': lambda: 'phi-u'},
     'perplexity': {'extractor': lambda x: x.tracked.perplexity.last,
                   'column-title': lambda: 'prpl',
-                  'to-string': '{:.1f}'},
+                  'to-string': '{:.1f}',
+                   'min-value': float('inf')},
     'top-tokens-coherence': {'extractor': lambda x,y: getattr(x.tracked, 'top'+str(y)).average_coherence.last if hasattr(x.tracked, 'top'+str(y)) else None,
                              'column-title': lambda x: 'top'+str(x)+'ch',
                              'to-string': '{:.4f}',
@@ -76,21 +77,6 @@ def _is_token(definition_element):
             return False
         return True
 
-
-class ResultsExtractor(object):
-    def __init__(self, extractable_entities):
-        self._columns = extractable_entities
-
-    @property
-    def columns(self):
-        return self._columns
-
-    @columns.setter
-    def columns(self, columns):
-        self._columns = columns
-
-    def __call__(self, *args):
-        return self.extract_all(args[0])
 
 # LEGACY
 # def get_extractor(column):
@@ -143,7 +129,7 @@ class ModelReporter(object):
         self._strings_lists = []
         self.extractor = ResultsExtractor(self._columns_to_render)
         #
-        # self._transf = {'fit-func':'fitness_value', 'tpcs':'nb_topics', 'col-i':'collection_passes', 'doc-i':'document_passes',
+        # self._transf = {'fit-_func':'fitness_value', 'tpcs':'nb_topics', 'col-i':'collection_passes', 'doc-i':'document_passes',
         #                 'total':'total', 'prplx':'perplexity', 'coher':'kernel-coherence', 'contr':'kernel-contrast',
         #                 'purity':'kernel-purity', '10coher':'top-10-coherence', '100coher':'top-100-coherence',
         #                 'sprst-p':'sparsity-phi', 'sprst-t':'sparsity-theta', 'regs':'reg_names'}
@@ -161,6 +147,7 @@ class ModelReporter(object):
         self._header = ' '.join(map(lambda x: x[1] + ' '*self._header_space_offsets[x[0]], enumerate(self._columns_titles)))
         self._max_label_len = 0
         self._max_col_lens = []
+        self.fitness_computer = FitnessCalculator()
 
     def _initialize(self, collection_name, custom_columns=None):
         results_dir = os.path.join(COLLECTIONS_DIR, collection_name, RESULTS_DIR_NAME)
@@ -201,11 +188,17 @@ class ModelReporter(object):
         print '[{}]'.format(', '.join(self.columns_to_render))
         print '[{}]'.format(', '.join(self._columns_titles))
         print '[{}]'.format(', '.join(map(lambda x: str(x), self._max_col_lens)))
-        st = '\n'.join(map(lambda x: ' '.join(self._exp_result2_elements_list(x)), self.result_paths))
+        st = '\n'.join(map(lambda x: ' '.join(self._exp_result2_strings_list(x)), self.result_paths))
         print st
 
-    def _exp_result2_elements_list(self, json_path):
-        return [str(ModelReporter._get_label(json_path))] + map(lambda x: self._to_string(self._extract(x, experimental_results_factory.create_from_json_file(json_path))), self.columns_to_render)
+    def _load_exp_results(self, json_path):
+        return experimental_results_factory.create_from_json_file(json_path)
+
+    def _extract_all(self, exp_results):
+        return map(lambda x: self._extract(x, exp_results), self.columns_to_render)
+
+    def _get_values_lists(self):
+        return map(lambda x: self._extract_all(self._load_exp_results(x)), self.result_paths)
 
     def _extract(self, column_definition, exp_results):
         tokens, parameters = _parse_column_definition(column_definition)
@@ -214,6 +207,11 @@ class ModelReporter(object):
         print 'key', self._column_key, type(_), _,
         return _
 
+    def _get_sorted_values_lists(self, value_lists, sort_by=False):
+        if sort_by:
+            self._fitness_function = fitness_function_factory.get_single_metric_function(sort_by)
+            self.fitness_computer = FitnessCalculator(self._fitness_function)
+
     def _to_string(self, column_value):
         print 'str format', COLUMNS_HASH[self._column_key].get('to-string', '{}')
         _ = '-'
@@ -221,28 +219,33 @@ class ModelReporter(object):
             _ = COLUMNS_HASH[self._column_key].get('to-string', '{}').format(column_value)
         self._max_col_lens[COLUMNS.index(self._column_key)] = max(self._max_col_lens[COLUMNS.index(self._column_key)], len(_))
         return str(_)
+
     # TODO after getting strings lists, sort according to fitness function and stringify appending suitable white spaces'
-    # TODO according to elf._max_col_len which is computed when data pass through self._exp_result2_elements_list
+    # TODO according to elf._max_col_len which is computed when data pass through self._exp_result2_strings_list
     def _compute_strings_lists(self, sort_by_metric=False):
         if sort_by_metric:
             self._fitness_function = fitness_function_factory.get_single_metric_function(sort_by_metric)
             self.fitness_computer = FitnessCalculator(self._fitness_function)
             self._to_string_defs['fitness_value'] = self._to_string_defs[sort_function.single_metric]
-            self._strings_lists = sorted(map(lambda x: self._exp_result2_elements_list(x), self.result_paths), key=lambda x: self.fitness_computer.compute_fitness(x), reverse=True)
-            self._infos = sorted(map(lambda x: load_reportables(x), self.result_paths),
-                                 key=lambda x: self.fitness_computer.compute_fitness(x, add_info=add_fitness_info), reverse=True)
-            self._max_col_lens = list(map(lambda col_abrv:
-                                          max(map(lambda reportable:
-                                                  len(self._stringnify(reportable[self._transf[col_abrv]], col_abrv)), self._infos)), self._columns_titles))
+            self._strings_lists = sorted(self._get_strings_lists(), key=lambda x: self.fitness_computer.compute_fitness(x), reverse=True)
+            # self._infos = sorted(map(lambda x: load_reportables(x), self.result_paths),
+            #                      key=lambda x: self.fitness_computer.compute_fitness(x, add_info=add_fitness_info), reverse=True)
         else:
-            self._infos = map(lambda x: load_reportables(x), self.result_paths)
-        self._insertions = [[] for _ in range(len(self._infos))]
-        return map(lambda x: self._exp_result2_elements_list(x), self.result_paths)
+            self._strings_lists = self._get_strings_lists()
+        return map(lambda x: self._exp_result2_strings_list(x), self.result_paths)
+
+    def _list_to_string(self, strings_list):
+        return ' '.join(map(lambda x: x[1] + ' '*(self._max_col_lens[x[0]] - len(x[1])), enumerate(strings_list)))
+
+    def _get_strings_lists(self):
+        return map(lambda x: self._exp_result2_strings_list(x), self.result_paths)
+
+    def _exp_result2_strings_list(self, json_path):
+        return [str(ModelReporter._get_label(json_path))] + map(lambda x: self._to_string(self._extract(x, experimental_results_factory.create_from_json_file(json_path))), self.columns_to_render)
 
     @staticmethod
     def _get_label(json_path):
         return re.search('/([\w\-.]+)\.json$', json_path).group(1)
-
 
     def _sort(self, columns):
         return reduce(lambda i,j: i+j, map(lambda x: sorted([_ for _ in columns if _.startswith(x)]), COLUMNS))
@@ -299,10 +302,14 @@ class FitnessFunction:
         self._coeff = coefficients
         self._names = names
         assert ordering in ('natural', 'reversed')
-        self.order = ordering
+        self._order = ordering
         if len(self._names) == 1:
             self.single_metric = self._names[0]
         assert sum(map(lambda x: abs(x), self._coeff)) - 1 < abs(1e-6)
+
+    @property
+    def ordering(self):
+        return self._order
 
     def compute(self, individual):
         c = map(lambda x: x, self._extr)
@@ -359,30 +366,48 @@ class FitnessFunctionFactory:
 fitness_function_factory = FitnessFunctionFactory()
 
 class FitnessCalculator(object):
-    def __init__(self, calculating_function):
-        self.func = calculating_function
-        self._best = {'perplexity': float('inf'), 'kernel-coherence': 0, 'kernel-purity': 0, 'kernel-contrast': 0,
-                      'top-10-coherence': 0, 'top-100-coherence': 0, 'sparsity-phi': 0, 'sparsity-theta': 0}
+    def __init__(self):
+        self._func = None
+        self._column_defs, self._best = [], []
+        self._values_to_highlight = ['perplexity', 'kernel-coherence', 'kernel-purity', 'kernel-contrast', 'top-tokens-coherence',
+                                     'sparsity-phi', 'sparsity-theta', 'background-tokens-ratio']
 
-    def set_function(self, calc_function):
-        self.func = calc_function
+    def initialize(self, fitness_function, column_definitions):
+        """
+        :param FitnessFunction fitness_function:
+        :param list column_definitions: i.e. ['perplexity', 'kernel-coherence-0.8', 'kernel-contrast-0.8', 'top-tokens-coherence-10', 'top-tokens-coherence-100']
+        """
+        self.function = fitness_function
+        self._column_defs = column_definitions
+        self._best = dict(map(lambda x: (x, COLUMNS_HASH[_get_column_key(x)].get('min-value', 0)), column_definitions))
 
-    def compute_fitness(self, model_reportable, add_info=False):
-        value = self.func(model_reportable)
-        for k, v in self._best.items():
-            el1 = fitness_value_ordering2constructor[_orders[k]](model_reportable[k])
-            el2 = fitness_value_ordering2constructor[_orders[k]](v)
+    @property
+    def function(self):
+        return self._func
+    @function.setter
+    def function(self, a_fitness_function):
+        self._func = a_fitness_function
+
+    def compute_fitness(self, values_vector):
+        value = self._func(values_vector)
+        for column_key, column_def, value in map(lambda x: (_get_column_key[0], x[0], x[1]), self._best.items()):
+            el1 = fitness_value_constructors_hash[_orders[column_key]](values_vector[self._column_defs.index(column_def)])
+            el2 = fitness_value_constructors_hash[_orders[column_key]](value)
             # print k, _orders[k], el1.value, el2.value
             if el1 > el2:
-                self._best[k] = model_reportable[k]
-        if add_info:
-            model_reportable['fitness_function'] = str(self.func)
-            model_reportable['fitness_value'] = value
-        return fitness_value_ordering2constructor[self.func.order](value)
+                self._min_values[k] = values_vector[k]
+        # if add_info:
+        #     values_vector['fitness_function'] = str(self._func)
+        #     values_vector['fitness_value'] = value
+        return fitness_value_constructors_hash[self._func.ordering](value)
+
+    def _query_vector(self, values_vector, column_key):
+        """Call this method to get a list of tuples; 1st elements are the  vactor values, 2nd elements are the corresponding column definitions"""
+        return map(lambda x: (values_vector[x[0]], x[1]), [_ for _ in enumerate(self._column_defs) if _[1].startswith(column_key)])
 
     @property
     def best(self):
-        return self._best
+        return self._min_values
 
 
 class FitnessValue(object):
@@ -418,7 +443,7 @@ class ReversedFitnessValue(FitnessValue):
     def __ge__(self, other):
         return self.value <= other.value
 
-fitness_value_ordering2constructor = {'natural': NaturalFitnessValue, 'reversed': ReversedFitnessValue}
+fitness_value_constructors_hash = {'natural': NaturalFitnessValue, 'reversed': ReversedFitnessValue}
 
 class Spinner:
     busy = False
@@ -443,6 +468,10 @@ class Spinner:
     def stop(self):
         self.busy = False
         time.sleep(self.delay)
+
+def _get_column_key(column_definition):
+    return '-'.join(_parse_column_definition(column_definition)[0])
+
 
 
 class InvalidColumnsException(Exception):
