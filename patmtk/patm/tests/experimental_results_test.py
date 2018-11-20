@@ -5,7 +5,7 @@ from random import randint
 # import patm
 from patm.modeling.experimental_results import ExperimentalResults, TrackedKernel, ExperimentalResultsFactory, RoundTripEncoder, RoundTripDecoder
 from patm.modeling import Experiment
-from patm.definitions import COLLECTIONS_DIR, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
+from patm.definitions import COLLECTIONS_DIR_PATH, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 from patm.modeling import trainer_factory
 
 # Random order for tests runs. (Original is: -1 if x<y, 0 if x==y, 1 if x>y).
@@ -19,7 +19,7 @@ my_dir = os.path.dirname(os.path.realpath(__file__))
 test_json_path = os.path.join(my_dir, 'test-file')
 test_collection = 'test-dataset'
 test_model = 'test-model'
-test_collection_root = os.path.join(COLLECTIONS_DIR, test_collection)
+test_collection_root = os.path.join(COLLECTIONS_DIR_PATH, test_collection)
 
 
 _dir = 'dir'

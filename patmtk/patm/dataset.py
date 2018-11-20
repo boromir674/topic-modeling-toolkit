@@ -1,6 +1,6 @@
 import os
 import cPickle as pickle
-from patm.definitions import COLLECTIONS_DIR
+from patm.definitions import COLLECTIONS_DIR_PATH
 
 class TextDataset(object):
     def __init__(self, name, _id, nb_docs, unique_words, nb_words, weights_file, words_file, vowpal_file):
@@ -21,7 +21,7 @@ class TextDataset(object):
         self._nb_bows = nb_words
         self.bowf = weights_file
         self.words = words_file
-        self.root_dir = os.path.join(COLLECTIONS_DIR, self.name)
+        self.root_dir = os.path.join(COLLECTIONS_DIR_PATH, self.name)
         self.vowpal = vowpal_file
         assert os.path.isdir(self.root_dir)
         assert os.path.isfile(self.bowf) and os.path.isfile(self.words)

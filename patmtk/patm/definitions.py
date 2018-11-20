@@ -18,7 +18,7 @@ data_root_dir = '/data/thesis/data'
 bows_dir = '/data/thesis/data/collections'
 words_dir = '/data/thesis/data/collections'
 
-COLLECTIONS_DIR = '/data/thesis/data/collections'
+COLLECTIONS_DIR_PATH = '/data/thesis/data/collections'
 
 pre = 'pickles'
 

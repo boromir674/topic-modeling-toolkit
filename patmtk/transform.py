@@ -11,7 +11,7 @@ from gensim.models.tfidfmodel import TfidfModel
 
 from patm.modeling import get_posts_generator
 from patm import Pipeline, TextDataset, get_pipeline
-from patm.definitions import patm_root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, COLLECTIONS_DIR, poster_id2ideology_label, IDEOLOGY_CLASS_NAME, COOCURENCE_DICT_FILE_NAMES
+from patm.definitions import patm_root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, COLLECTIONS_DIR_PATH, poster_id2ideology_label, IDEOLOGY_CLASS_NAME, COOCURENCE_DICT_FILE_NAMES
 
 
 class PipeHandler(object):
@@ -58,14 +58,14 @@ class PipeHandler(object):
     # TODO refactor in OOP style preprocess
     def preprocess(self, a_pipe, collection):
         self._collection = collection
-        self._col_dir = os.path.join(COLLECTIONS_DIR, collection)
+        self._col_dir = os.path.join(COLLECTIONS_DIR_PATH, collection)
         if not os.path.exists(self._col_dir):
             os.makedirs(self._col_dir)
             print 'Created \'{}\' as target directory for persisting'.format(self._col_dir)
         self.set_doc_gen(self.category, num_docs=self.sample)
 
-        self.uci_file = os.path.join(COLLECTIONS_DIR, self._collection, 'docword.{}.txt'.format(self._collection))
-        self.vowpal_file = os.path.join(COLLECTIONS_DIR, self._collection, 'vowpal.{}.txt'.format(self._collection))
+        self.uci_file = os.path.join(COLLECTIONS_DIR_PATH, self._collection, 'docword.{}.txt'.format(self._collection))
+        self.vowpal_file = os.path.join(COLLECTIONS_DIR_PATH, self._collection, 'vowpal.{}.txt'.format(self._collection))
         self.pipeline[-2][1].fname = self.uci_file
         self.pipeline[-1][1].fname = self.vowpal_file
 
@@ -122,7 +122,7 @@ class PipeHandler(object):
 
     def _write_vocab(self):
         # Define file and dump the vocabulary (list of unique tokens, one per line)
-        self.vocab_file = os.path.join(COLLECTIONS_DIR, self._collection, 'vocab.{}.txt'.format(self._collection))
+        self.vocab_file = os.path.join(COLLECTIONS_DIR_PATH, self._collection, 'vocab.{}.txt'.format(self._collection))
         if not os.path.isfile(self.vocab_file):
             with open(self.vocab_file, 'w') as f:
                 for gram_id, gram_string in self.dct.iteritems():

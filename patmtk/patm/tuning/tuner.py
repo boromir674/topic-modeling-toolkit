@@ -11,7 +11,7 @@ from building import RegularizersActivationDefinitionBuilder
 from patm import trainer_factory, Experiment
 from patm.modeling.parameters import ParameterGrid
 from patm.utils import get_standard_evaluation_definitions
-from patm.definitions import COLLECTIONS_DIR, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
+from patm.definitions import COLLECTIONS_DIR_PATH, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 
 
 class Tuner(object):
@@ -48,7 +48,7 @@ class Tuner(object):
 
         """
         self._required_parameters = ('nb_topics', 'document_passes', 'collection_passes')
-        self._dir = os.path.join(COLLECTIONS_DIR, collection)
+        self._dir = os.path.join(COLLECTIONS_DIR_PATH, collection)
         if evaluation_definitions:
             self._score_defs = evaluation_definitions
         else:
