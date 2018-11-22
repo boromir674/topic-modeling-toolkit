@@ -46,8 +46,11 @@ if __name__ == '__main__':
 
     reporter = ModelReporter(COLLECTIONS_DIR_PATH, results_dir_name=RESULTS_DIR_NAME)
 
-    s = reporter.get_formatted_string(cli_args.dataset, columns=COLUMNS, metric='kernel-coherence-0.80')
-    print s
+    s = reporter.get_formatted_string(cli_args.dataset, columns=COLUMNS, metric='')
+    print '\n', s
+    #
+    # from pprint import pprint
+    # print '\n', pprint(dict(zip(reporter._columns_titles, reporter._max_col_lens)))
 
     # spinner = Spinner(delay=0.2)
     # spinner.start()

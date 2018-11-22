@@ -5,6 +5,7 @@ from collections import Iterable
 
 from . import fitness_factory
 from fitness import FitnessCalculator
+from patm.modeling.experimental_results import experimental_results_factory
 
 
 KERNEL_SUB_ENTITIES = ('coherence', 'contrast', 'purity')
@@ -59,6 +60,7 @@ class ModelReporter(object):
     lu = len(r'\033[4m')
     le = len(r'\033[0m')
     DYNAMIC_COLUMNS = ['kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi', 'background-tokens-ratio']
+    DEFAULT_COLUMNS = ['nb-topics', 'collection-passes', 'document-passes', 'total-phi-updates', 'perplexity'] + DYNAMIC_COLUMNS[:-1] + ['sparsity-theta'] + [DYNAMIC_COLUMNS[-1]] + ['regularizers']
 
     def __init__(self, collections_dir_path, results_dir_name='results'):
         self._collections_dir = collections_dir_path
@@ -66,40 +68,35 @@ class ModelReporter(object):
         self._label_separator = ':'
         self._columns_to_render = []
         self._column_keys_to_highlight = ['perplexity', 'kernel-coherence', 'kernel-purity', 'kernel-contrast', 'top-tokens-coherence',
-                                     'sparsity-phi', 'sparsity-theta', 'background-tokens-ratio']
+                                          'sparsity-phi', 'sparsity-theta', 'background-tokens-ratio']
         self.highlight_pre_fix = ModelReporter.UNDERLINE
         self.highlight_post_fix = ModelReporter.ENDC
-        self._best_values = {}
         self.fitness_computer = FitnessCalculator()
         self._max_label_len = 0
         self._max_col_lens = []
 
-    def _initialize(self, collection_name, custom_columns=None, column_definitions=None, metric=''):
+    def _initialize(self, collection_name, columns=None, column_definitions=None, metric=''):
+        self._columns_to_render = []
         self._result_paths = glob('{}/*.json'.format(os.path.join(self._collections_dir, collection_name, self._results_dir_name)))
         self._model_labels = map(lambda x: ModelReporter._get_label(x), self._result_paths)
-        self._max_label_len = max(self._model_labels, key=lambda x: len(x))
-        if column_definitions:
+        self._max_label_len = max(map(lambda x: len(x), self._model_labels))
+        if column_definitions is not None:
             try:
                 self.columns_to_render = column_definitions
             except InvalidColumnsException as e:
                 print e
+        if not self.columns_to_render:
+            if columns is not None:
+                self.columns_to_render = ModelReporter._get_column_definitions(columns, self._determine_maximal_column_for_rendering(self._result_paths))
+            else:
                 print 'Automatically using all possible columns inferred from the experimental results to report'
-                self.columns_to_render = self._sort(self._determine_maximal_column_for_rendering(self._result_paths))
-
-        if not custom_columns:
-            self.columns_to_render = self._sort(self._determine_maximal_column_for_rendering(self._result_paths))
-        else:
-            try:
-                self.columns_to_render = custom_columns
-            except InvalidColumnsException as e:
-                print e
-                print 'Automatically using all possible columns inferred from the experimental results to report'
-                self.columns_to_render = self._sort(self._determine_maximal_column_for_rendering(self._result_paths))
-        if metric:
-            assert metric in self.columns_to_render
+                self.columns_to_render = ModelReporter._get_column_definitions(ModelReporter.DEFAULT_COLUMNS, self._determine_maximal_column_for_rendering(self._result_paths))
+        if metric and metric not in self.columns_to_render:
+            raise InvalidMetricException("Metric '{}' is not recognized within [{}]".format(metric, ', '.join(self.columns_to_render)))
         self._metric = metric
-        self._columns_titles = map(lambda z: COLUMNS_HASH['-'.join(z[0])]['column-title'](*z[1]), map(lambda x: _parse_column_definition(x), self.columns_to_render))
+        self._columns_titles = map(lambda z: COLUMNS_HASH['-'.join(z[0])]['column-title'](*z[1]), map(lambda x: ModelReporter._parse_column_definition(x), self.columns_to_render))
         self._max_col_lens = map(lambda x: len(x), self._columns_titles)
+        print 'max col lens', self._max_col_lens
         self.fitness_computer.highlightable_columns = [_ for _ in self.columns_to_render if ModelReporter._get_hash_key(_) in self._column_keys_to_highlight]
 
     @property
@@ -107,30 +104,34 @@ class ModelReporter(object):
         return self._columns_to_render
 
     @columns_to_render.setter
-    def columns_to_render(self, custom_columns):
-        if not isinstance(custom_columns, Iterable):
-            raise InvalidColumnsException("Input columns are of type '{}' instead of iterable".format(type(custom_columns)))
-        invalid_columns = ModelReporter._get_invalid_columns(custom_columns)
+    def columns_to_render(self, column_definitions):
+        if not isinstance(column_definitions, Iterable):
+            raise InvalidColumnsException("Input column definitions are of type '{}' instead of iterable".format(type(column_definitions)))
+        invalid_columns = ModelReporter._get_invalid_column_definitions(column_definitions)
         if invalid_columns:
-            raise InvalidColumnsException('Input columns [{}] are not valid'.format(', '.join(invalid_columns)))
-        self._columns_to_render = custom_columns
+            raise InvalidColumnsException('Input column definitions [{}] are not valid'.format(', '.join(invalid_columns)))
+        self._columns_to_render = column_definitions
 
     def get_formatted_string(self, collection_name, columns=None, columns_definitions=None, metric=''):
         """
-
         :param str collection_name:
         :param list columns:
+        :param list columns_definitions:
         :param str metric:
         :return:
         :rtype: str
         """
-        self._initialize(collection_name, custom_columns=columns)
+        self._initialize(collection_name, columns=columns, column_definitions=columns_definitions, metric=metric)
         print 'To render:'
         print '[{}]'.format(', '.join(self.columns_to_render))
         print '[{}]'.format(', '.join(self._columns_titles))
-        if metric not in self.columns_to_render:
-            raise InvalidMetricException("Metric '{}' is not recognized within [{}]".format(metric, ', '.join(self.columns_to_render)))
-        return '\n'.join(self._compute_rows(metric=metric))
+        print 'max col lens', self._max_col_lens
+        body = '\n'.join(self._compute_rows(metric=metric))
+        head = '{}{} {} {}'.format(' '*self._max_label_len,
+                                   ' '*len(self._label_separator),
+                                   ' '.join(map(lambda x: '{}{}'.format(x[1], ' '*(self._max_col_lens[x[0]] - len(x[1]))), enumerate(self._columns_titles[:-1]))),
+                                   self._columns_titles[-1])
+        return head + '\n' + body
 
     def _compute_rows(self, metric=''):
         self._model_labels, values_lists = self._get_labels_n_values(sort_by=metric)
@@ -150,7 +151,7 @@ class ModelReporter(object):
         return '{}{}{} {}'.format(model_label,
                                   ' '*(self._max_label_len-len(model_label)),
                                   self._label_separator,
-                                  ' '.join(map(lambda x: x[1] + ' '*(self._max_col_lens[x[0]] - len(x[1])), enumerate(strings_list))))
+                                  ' '.join(map(lambda x: '{}{}'.format(x[1], ' '*(self._max_col_lens[x[0]] - len(x[1]))), enumerate(strings_list))))
 
     def _to_list_of_strings(self, values_list):
         return map(lambda x: self._to_string(x[0], x[1]), zip(values_list, self.columns_to_render))
@@ -160,8 +161,8 @@ class ModelReporter(object):
         if value is not None:
             _ = COLUMNS_HASH[ModelReporter._get_hash_key(column_definition)].get('to-string', '{}').format(value)
             self._max_col_lens[self.columns_to_render.index(column_definition)] = max(self._max_col_lens[self.columns_to_render.index(column_definition)], len(_))
-        if value == self.fitness_computer.best[column_definition]:
-            return self.highlight_pre_fix + _ + self.highlight_post_fix
+        # if column_definition in self.fitness_computer.best and value == self.fitness_computer.best[column_definition]:
+        #     return self.highlight_pre_fix + _ + self.highlight_post_fix
         return _
 
     ########## EXTRACTION ##########
@@ -170,21 +171,30 @@ class ModelReporter(object):
     def _extract_all(self, exp_results):
         return map(lambda x: self._extract(x, exp_results), self.columns_to_render)
     def _extract(self, column_definition, exp_results):
-        tokens, parameters = _parse_column_definition(column_definition)
-        return COLUMNS_HASH[self._column_key]['extractor'](*list([exp_results] + parameters))
+        tokens, parameters = ModelReporter._parse_column_definition(column_definition)
+        return COLUMNS_HASH['-'.join(tokens)]['extractor'](*list([exp_results] + parameters))
 
     ########## COLUMNS DEFINITIONS ##########
-    def _sort(self, columns):
-        return reduce(lambda i, j: i + j, map(lambda x: sorted([_ for _ in columns if _.startswith(x)]), COLUMNS))
+    def _sort(self, column_definitions):
+        return reduce(lambda i, j: i + j, map(lambda x: sorted([_ for _ in column_definitions if _.startswith(x)]), ModelReporter.DEFAULT_COLUMNS))
     def _determine_maximal_column_for_rendering(self, results_paths):
         return list(reduce(lambda i,j: i.union(j), map(lambda x: set(self._get_all_columns(experimental_results_factory.create_from_json_file(x))), results_paths)))
     def _get_all_columns(self, exp_results):
-        return reduce(lambda i,j: i+j, map(lambda x: COLUMNS_HASH[x]['definitions'](exp_results) if x in ModelReporter.DYNAMIC_COLUMNS else [x], COLUMNS))
+        return reduce(lambda i,j: i+j, map(lambda x: COLUMNS_HASH[x]['definitions'](exp_results) if x in ModelReporter.DYNAMIC_COLUMNS else [x], ModelReporter.DEFAULT_COLUMNS))
 
     ########## STATIC ##########
     @staticmethod
-    def _get_invalid_columns(columns):
-        return [_ for _ in columns if _ not in reduce(lambda i,j: i+j, map(lambda x: sorted([_ for _ in columns if _.startswith(x)]), COLUMNS))]
+    def _get_column_definitions(columns, column_definitions):
+        if not isinstance(columns, Iterable):
+            raise InvalidColumnsException("Input columns are of type '{}' instead of iterable".format(type(columns)))
+        invalid_columns = [_ for _ in columns if _ not in ModelReporter.DEFAULT_COLUMNS]
+        if invalid_columns:
+            raise InvalidColumnsException('Input columns [{}] are not valid'.format(', '.join(invalid_columns)))
+        return reduce(lambda i,j: i+j, map(lambda x: sorted([_ for _ in column_definitions if _.startswith(x)]), columns))
+
+    @staticmethod
+    def _get_invalid_column_definitions(column_defs):
+        return [_ for _ in column_defs if _ not in ModelReporter._get_column_definitions(ModelReporter.DEFAULT_COLUMNS, column_defs)]
 
     @staticmethod
     def _get_label(json_path):
@@ -197,7 +207,7 @@ class ModelReporter(object):
     @staticmethod
     def _parse_column_definition(definition):
         return map(lambda y: list(filter(None, y)),
-                   zip(*map(lambda x: (x, None) if _is_token(x) else (None, x), definition.split('-'))))
+                   zip(*map(lambda x: (x, None) if ModelReporter._is_token(x) else (None, x), definition.split('-'))))
 
     @staticmethod
     def _is_token(definition_element):

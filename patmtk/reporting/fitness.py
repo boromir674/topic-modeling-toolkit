@@ -36,7 +36,7 @@ class ReversedFitnessValue(FitnessValue):
 
 
 _ORDERING_HASH = defaultdict(lambda: 'natural', perplexity='reversed')
-
+_INITIAL_BEST = defaultdict(lambda: 0, perplexity=float('inf'))
 _FITNESS_VALUE_CONSTRUCTORS_HASH = {'natural': NaturalFitnessValue, 'reversed': ReversedFitnessValue}
 
 
@@ -54,7 +54,12 @@ class FitnessFunction:
         return self._order
 
     def compute(self, individual):
-        return _ORDERING_HASH[self._order](reduce(lambda i, j: i + j, map(lambda x: x[0] * x[1](individual), zip(self._coeff, self._extr))))
+        return _FITNESS_VALUE_CONSTRUCTORS_HASH[self._order](reduce(lambda i, j: i + j, map(lambda x: x[0] * self._wrap(x[1](individual)), zip(self._coeff, self._extr))))
+
+    def _wrap(self, value):
+        if value is None:
+            return {'natural': 0, 'reversed': float('inf')}[self._order]
+        return value
 
     def __str__(self):
         return ' + '.join(map(lambda x: '{}*{}'.format(x[0], x[1]), zip(self._names, self._coeff)))
@@ -105,7 +110,6 @@ class FitnessCalculator(object):
     def __init__(self):
         self._func = None
         self._column_defs, self._best = [], []
-        self._initial_best = defaultdict(lambda: 0, perplexity=float('inf'))
         self._highlightable_columns = []
 
     def initialize(self, fitness_function, column_definitions):
@@ -124,7 +128,9 @@ class FitnessCalculator(object):
     @highlightable_columns.setter
     def highlightable_columns(self, column_definitions):
         self._highlightable_columns = column_definitions
-        self._best = dict(map(lambda x: (x, self._initial_best[_get_column_key(x)]), column_definitions))
+        # print 'CALCULATOR columns to find maxes:', self._highlightable_columns
+        self._best = dict(map(lambda x: (x, _INITIAL_BEST[_get_column_key(x)]), column_definitions))
+        # print 'CALCULATOR initial best-dict struct:', self._best
 
     @property
     def best(self):
@@ -149,7 +155,7 @@ class FitnessCalculator(object):
     def _update_best(self, values_vector):
         self._best.update([(column_def, value) for column_key, column_def, value in
                            map(lambda x: (_get_column_key(x[0]), x[0], x[1]), zip(self._column_defs, values_vector))
-                           if self._get_value(column_key, value) > self._get_value(column_key, self._best[column_def])])
+                           if column_def in self._best and self._get_value(column_key, value) > self._get_value(column_key, self._best[column_def])])
 
     @staticmethod
     def _get_value(column_key, value):
