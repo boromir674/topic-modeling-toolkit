@@ -124,13 +124,15 @@ class ModelReporter(object):
         self._initialize(collection_name, columns=columns, column_definitions=columns_definitions, metric=metric)
         print 'To render:'
         print '[{}]'.format(', '.join(self.columns_to_render))
-        print '[{}]'.format(', '.join(self._columns_titles))
-        print 'max col lens', self._max_col_lens
+        # print '[{}]'.format(', '.join(self._columns_titles))
+        print 'max col lens', ' '.join(map(lambda x: '{}:{}'.format(x[0], x[1]), zip(self._columns_titles, self._max_col_lens)))
         body = '\n'.join(self._compute_rows(metric=metric))
+        print 'max col lens', ' '.join(map(lambda x: '{}:{}'.format(x[0], x[1]), zip(self._columns_titles, self._max_col_lens)))
         head = '{}{} {} {}'.format(' '*self._max_label_len,
                                    ' '*len(self._label_separator),
                                    ' '.join(map(lambda x: '{}{}'.format(x[1], ' '*(self._max_col_lens[x[0]] - len(x[1]))), enumerate(self._columns_titles[:-1]))),
                                    self._columns_titles[-1])
+        print 'max col lens', ' '.join(map(lambda x: '{}:{}'.format(x[0], x[1]), zip(self._columns_titles, self._max_col_lens)))
         return head + '\n' + body
 
     def _compute_rows(self, metric=''):
@@ -151,7 +153,7 @@ class ModelReporter(object):
         return '{}{}{} {}'.format(model_label,
                                   ' '*(self._max_label_len-len(model_label)),
                                   self._label_separator,
-                                  ' '.join(map(lambda x: '{}{}'.format(x[1], ' '*(self._max_col_lens[x[0]] - len(x[1]))), enumerate(strings_list))))
+                                  ' '.join(map(lambda x: '{}{}'.format(x[1], ' '*(self._max_col_lens[x[0]] - self._length(x[1]))), enumerate(strings_list))))
 
     def _to_list_of_strings(self, values_list):
         return map(lambda x: self._to_string(x[0], x[1]), zip(values_list, self.columns_to_render))
@@ -161,9 +163,17 @@ class ModelReporter(object):
         if value is not None:
             _ = COLUMNS_HASH[ModelReporter._get_hash_key(column_definition)].get('to-string', '{}').format(value)
             self._max_col_lens[self.columns_to_render.index(column_definition)] = max(self._max_col_lens[self.columns_to_render.index(column_definition)], len(_))
-        # if column_definition in self.fitness_computer.best and value == self.fitness_computer.best[column_definition]:
-        #     return self.highlight_pre_fix + _ + self.highlight_post_fix
+        if column_definition in self.fitness_computer.best and value == self.fitness_computer.best[column_definition]:
+            return self.highlight_pre_fix + _ + self.highlight_post_fix
         return _
+
+    def _length(self, a_string):
+        _ = re.search(r'm(\d+(?:\.\d+)?)', a_string)
+        if _: # if string is wrapped arround rendering decorators
+            l = len(_.group(1))
+        else:
+            l = len(a_string)
+        return l
 
     ########## EXTRACTION ##########
     def _get_values_lists(self):
@@ -175,8 +185,6 @@ class ModelReporter(object):
         return COLUMNS_HASH['-'.join(tokens)]['extractor'](*list([exp_results] + parameters))
 
     ########## COLUMNS DEFINITIONS ##########
-    def _sort(self, column_definitions):
-        return reduce(lambda i, j: i + j, map(lambda x: sorted([_ for _ in column_definitions if _.startswith(x)]), ModelReporter.DEFAULT_COLUMNS))
     def _determine_maximal_column_for_rendering(self, results_paths):
         return list(reduce(lambda i,j: i.union(j), map(lambda x: set(self._get_all_columns(experimental_results_factory.create_from_json_file(x))), results_paths)))
     def _get_all_columns(self, exp_results):
