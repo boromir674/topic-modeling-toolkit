@@ -109,25 +109,34 @@ class ExperimentalResults(object):
         with open(file_path, 'w') as fp:
             json.dump(self, fp, cls=RoundTripEncoder, indent=indent)
 
-
-class ExperimentalResultsFactory(object):
-    def __init__(self):
-        self._data = []
-
-    def create_from_json_file(self, file_path):
+    @classmethod
+    def create_from_json_file(cls, file_path):
         with open(file_path, 'r') as fp:
             res = json.load(fp, cls=RoundTripDecoder)
-        self._data =[{'perplexity': res['tracked']['perplexity'],
-                      'sparsity-theta': res['tracked']['sparsity-theta'],
-                      'collection_passes': res['tracked']['collection-passes']}]
-        self._data.append({key: v for key, v in res['tracked'].items() if key.startswith('background-tokens-ratio')})
-        self._data.append({'tau-trajectories': res['tracked']['tau-trajectories']})
-        self._data.append({'topic-kernel-' + key: [value['avg_coh'], value['avg_con'], value['avg_pur'],
-                                                                  {t_name: t_data for t_name, t_data in
-                                                                   value['topics'].items()}] for key, value in
-                                          res['tracked']['topic-kernel'].items()})
-        self._data.append({'top-tokens-' + key: [value['avg_coh'], {t_name: t_data for t_name, t_data in value['topics'].items()}] for key, value in res['tracked']['top-tokens'].items()})
-        self._data.append({key: v for key, v in res['tracked'].items() if key.startswith('sparsity-phi-@')})
+        data = [{'perplexity': res['tracked']['perplexity'],
+                     'sparsity-theta': res['tracked']['sparsity-theta'],
+                     'collection_passes': res['tracked']['collection-passes']},
+                {key: v for key, v in res['tracked'].items() if key.startswith('background-tokens-ratio')},
+                {'tau-trajectories': res['tracked']['tau-trajectories']},
+                {'topic-kernel-' + key: [value['avg_coh'], value['avg_con'], value['avg_pur'],
+                                         {t_name: t_data for t_name, t_data in
+                                          value['topics'].items()}] for key, value in
+                 res['tracked']['topic-kernel'].items()},
+                {'top-tokens-' + key: [value['avg_coh'], {t_name: t_data for t_name, t_data in value['topics'].items()}]
+                 for key, value in res['tracked']['top-tokens'].items()},
+                {key: v for key, v in res['tracked'].items() if key.startswith('sparsity-phi-@')}]
+
+        # data = list({'perplexity': res['tracked']['perplexity'],
+        #              'sparsity-theta': res['tracked']['sparsity-theta'],
+        #              'collection_passes': res['tracked']['collection-passes']})
+        # data.append({key: v for key, v in res['tracked'].items() if key.startswith('background-tokens-ratio')})
+        # data.append({'tau-trajectories': res['tracked']['tau-trajectories']})
+        # data.append({'topic-kernel-' + key: [value['avg_coh'], value['avg_con'], value['avg_pur'],
+        #                                                           {t_name: t_data for t_name, t_data in
+        #                                                            value['topics'].items()}] for key, value in
+        #                                   res['tracked']['topic-kernel'].items()})
+        # self._data.append({'top-tokens-' + key: [value['avg_coh'], {t_name: t_data for t_name, t_data in value['topics'].items()}] for key, value in res['tracked']['top-tokens'].items()})
+        # self._data.append({key: v for key, v in res['tracked'].items() if key.startswith('sparsity-phi-@')})
         return ExperimentalResults(res['scalars']['dir'],
                                    res['scalars']['label'],
                                    res['scalars']['nb_topics'],
@@ -135,23 +144,27 @@ class ExperimentalResultsFactory(object):
                                    res['scalars']['background_topics'],
                                    res['scalars']['domain_topics'],
                                    res['scalars']['modalities'],
-                                   reduce(lambda x, y: dict(x, **y), self._data),
+                                   reduce(lambda x, y: dict(x, **y), data),
                                    {'topic-kernel-'+threshold: tokens_hash for threshold, tokens_hash in res['final']['topic-kernel'].items()},
                                    {'top-tokens-'+nb_tokens: tokens_hash for nb_tokens, tokens_hash in res['final']['top-tokens'].items()},
                                    res['final']['background-tokens'],
                                    res['regularizers'])
 
-    def create_from_experiment(self, experiment):
-        self._data = [{'perplexity': experiment.trackables['perplexity'],
+    @classmethod
+    def create_from_experiment(cls, experiment):
+        data = [{'perplexity': experiment.trackables['perplexity'],
                        'sparsity-theta': experiment.trackables['sparsity-theta'],
-                       'collection_passes': experiment.collection_passes}]
-        self._data.append({kernel_definition: [value[0], value[1], value[2], value[3]] for kernel_definition, value in experiment.trackables.items() if kernel_definition.startswith('topic-kernel')})
-        self._data.append({top_tokens_definition: [value[0], value[1]] for top_tokens_definition, value in experiment.trackables.items() if top_tokens_definition.startswith('top-tokens-')})
-        self._data.append({'tau-trajectories': {matrix_name: experiment.reg_params['sparse-'+matrix_name]['tau']} for matrix_name in ['phi', 'theta']})
-        self._data.append({key: v for key, v in experiment.trackables.items() if key.startswith('sparsity-phi-@')})
-        self._data.append({key: v for key, v in experiment.trackables.items() if key.startswith('background-tokens-ratio')})
-        final_kernel_tokens = {eval_def: self._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('topic-kernel-')}
-        final_top_tokens = {eval_def: self._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('top-tokens-')}
+                       'collection_passes': experiment.collection_passes},
+                {kernel_definition: [value[0], value[1], value[2], value[3]] for kernel_definition, value in
+                 experiment.trackables.items() if kernel_definition.startswith('topic-kernel')},
+                {top_tokens_definition: [value[0], value[1]] for top_tokens_definition, value in
+                 experiment.trackables.items() if top_tokens_definition.startswith('top-tokens-')},
+                {'tau-trajectories': {matrix_name: experiment.reg_params['sparse-' + matrix_name]['tau']} for
+                 matrix_name in ['phi', 'theta']},
+                {key: v for key, v in experiment.trackables.items() if key.startswith('sparsity-phi-@')},
+                {key: v for key, v in experiment.trackables.items() if key.startswith('background-tokens-ratio')}]
+        final_kernel_tokens = {eval_def: cls._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('topic-kernel-')}
+        final_top_tokens = {eval_def: cls._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('top-tokens-')}
         return ExperimentalResults(experiment.current_root_dir,
                                    experiment.topic_model.label,
                                    experiment.topic_model.nb_topics,
@@ -159,16 +172,18 @@ class ExperimentalResultsFactory(object):
                                    experiment.topic_model.background_topics,
                                    experiment.topic_model.domain_topics,
                                    experiment.topic_model.modalities_dictionary,
-                                   reduce(lambda x, y: dict(x, **y), self._data),
+                                   reduce(lambda x, y: dict(x, **y), data),
                                    final_kernel_tokens,
                                    final_top_tokens,
                                    experiment.topic_model.background_tokens,
                                    map(lambda x: x.label, experiment.topic_model.regularizer_wrappers))
 
-    def _get_final_tokens(self, experiment, evaluation_definition):
+    @staticmethod
+    def _get_final_tokens(experiment, evaluation_definition):
         return experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[evaluation_definition]].tokens[-1]
 
-    def _get_evolved_tokens(self, experiment, evaluation_definition):
+    @staticmethod
+    def _get_evolved_tokens(experiment, evaluation_definition):
         """
         :param experiment:
         :param evaluation_definition:
@@ -178,7 +193,75 @@ class ExperimentalResultsFactory(object):
         return experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[evaluation_definition]].tokens
 
 
-experimental_results_factory = ExperimentalResultsFactory()
+# class ExperimentalResultsFactory(object):
+#     def __init__(self):
+#         self._data = []
+#
+#     def create_from_json_file(self, file_path):
+#         with open(file_path, 'r') as fp:
+#             res = json.load(fp, cls=RoundTripDecoder)
+#         self._data =[{'perplexity': res['tracked']['perplexity'],
+#                       'sparsity-theta': res['tracked']['sparsity-theta'],
+#                       'collection_passes': res['tracked']['collection-passes']}]
+#         self._data.append({key: v for key, v in res['tracked'].items() if key.startswith('background-tokens-ratio')})
+#         self._data.append({'tau-trajectories': res['tracked']['tau-trajectories']})
+#         self._data.append({'topic-kernel-' + key: [value['avg_coh'], value['avg_con'], value['avg_pur'],
+#                                                                   {t_name: t_data for t_name, t_data in
+#                                                                    value['topics'].items()}] for key, value in
+#                                           res['tracked']['topic-kernel'].items()})
+#         self._data.append({'top-tokens-' + key: [value['avg_coh'], {t_name: t_data for t_name, t_data in value['topics'].items()}] for key, value in res['tracked']['top-tokens'].items()})
+#         self._data.append({key: v for key, v in res['tracked'].items() if key.startswith('sparsity-phi-@')})
+#         return ExperimentalResults(res['scalars']['dir'],
+#                                    res['scalars']['label'],
+#                                    res['scalars']['nb_topics'],
+#                                    res['scalars']['document_passes'],
+#                                    res['scalars']['background_topics'],
+#                                    res['scalars']['domain_topics'],
+#                                    res['scalars']['modalities'],
+#                                    reduce(lambda x, y: dict(x, **y), self._data),
+#                                    {'topic-kernel-'+threshold: tokens_hash for threshold, tokens_hash in res['final']['topic-kernel'].items()},
+#                                    {'top-tokens-'+nb_tokens: tokens_hash for nb_tokens, tokens_hash in res['final']['top-tokens'].items()},
+#                                    res['final']['background-tokens'],
+#                                    res['regularizers'])
+#
+#     def create_from_experiment(self, experiment):
+#         self._data = [{'perplexity': experiment.trackables['perplexity'],
+#                        'sparsity-theta': experiment.trackables['sparsity-theta'],
+#                        'collection_passes': experiment.collection_passes}]
+#         self._data.append({kernel_definition: [value[0], value[1], value[2], value[3]] for kernel_definition, value in experiment.trackables.items() if kernel_definition.startswith('topic-kernel')})
+#         self._data.append({top_tokens_definition: [value[0], value[1]] for top_tokens_definition, value in experiment.trackables.items() if top_tokens_definition.startswith('top-tokens-')})
+#         self._data.append({'tau-trajectories': {matrix_name: experiment.reg_params['sparse-'+matrix_name]['tau']} for matrix_name in ['phi', 'theta']})
+#         self._data.append({key: v for key, v in experiment.trackables.items() if key.startswith('sparsity-phi-@')})
+#         self._data.append({key: v for key, v in experiment.trackables.items() if key.startswith('background-tokens-ratio')})
+#         final_kernel_tokens = {eval_def: self._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('topic-kernel-')}
+#         final_top_tokens = {eval_def: self._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('top-tokens-')}
+#         return ExperimentalResults(experiment.current_root_dir,
+#                                    experiment.topic_model.label,
+#                                    experiment.topic_model.nb_topics,
+#                                    experiment.topic_model.document_passes,
+#                                    experiment.topic_model.background_topics,
+#                                    experiment.topic_model.domain_topics,
+#                                    experiment.topic_model.modalities_dictionary,
+#                                    reduce(lambda x, y: dict(x, **y), self._data),
+#                                    final_kernel_tokens,
+#                                    final_top_tokens,
+#                                    experiment.topic_model.background_tokens,
+#                                    map(lambda x: x.label, experiment.topic_model.regularizer_wrappers))
+#
+#     def _get_final_tokens(self, experiment, evaluation_definition):
+#         return experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[evaluation_definition]].tokens[-1]
+#
+#     def _get_evolved_tokens(self, experiment, evaluation_definition):
+#         """
+#         :param experiment:
+#         :param evaluation_definition:
+#         :return:
+#         :rtype: list of dicts
+#         """
+#         return experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[evaluation_definition]].tokens
+#
+#
+# experimental_results_factory = ExperimentalResultsFactory()
 
 
 class AbstractValueTracker(object):

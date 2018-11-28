@@ -1,8 +1,8 @@
-import abc
+from abc import ABCMeta
 from collections import defaultdict
 
 class FitnessValue(object):
-    __metaclass__ = abc.ABCMeta
+    __metaclass__ = ABCMeta
     def __init__(self, value):
         self.value = value
     def __abs__(self):
@@ -40,31 +40,6 @@ _INITIAL_BEST = defaultdict(lambda: 0, perplexity=float('inf'))
 _FITNESS_VALUE_CONSTRUCTORS_HASH = {'natural': NaturalFitnessValue, 'reversed': ReversedFitnessValue}
 
 
-class FitnessFunction:
-    def __init__(self, extractors, coefficients, names, ordering='natural'):
-        self._extr = extractors
-        self._coeff = coefficients
-        self._names = names
-        self._order = ordering
-        assert ordering in ('natural', 'reversed')
-        assert sum(map(lambda x: abs(x), self._coeff)) - 1 < abs(1e-6)
-
-    @property
-    def ordering(self):
-        return self._order
-
-    def compute(self, individual):
-        return _FITNESS_VALUE_CONSTRUCTORS_HASH[self._order](reduce(lambda i, j: i + j, map(lambda x: x[0] * self._wrap(x[1](individual)), zip(self._coeff, self._extr))))
-
-    def _wrap(self, value):
-        if value is None:
-            return {'natural': 0, 'reversed': float('inf')}[self._order]
-        return value
-
-    def __str__(self):
-        return ' + '.join(map(lambda x: '{}*{}'.format(x[0], x[1]), zip(self._names, self._coeff)))
-
-
 class FitnessFunctionBuilder:
     def __init__(self):
         self._column_definitions = []
@@ -83,28 +58,48 @@ class FitnessFunctionBuilder:
         self._order = ordering
         self._names = []
         return self
+
     def coefficient(self, name, value):
+        assert name in self._column_definitions
         self._extractors.append(self._create_extractor(name))
         self._coeff_values.append(value)
         self._names.append(name)
         return self
+
     def build(self):
         return FitnessFunction(self._extractors, self._coeff_values, self._names, ordering=self._order)
 
-
-class FitnessFunctionFactory(object):
-    def __init__(self):
-        self._fitness_function_builder = FitnessFunctionBuilder()
-
-    def get_single_metric_function(self, column_definitions, name):
-        return self._fitness_function_builder.new(column_definitions, ordering=_ORDERING_HASH[_get_column_key(name)]).coefficient(name, 1).build()
-
-    # def linear_combination_function(self, function_expression):
-    #     pass
-        # FUTURE WORK to support custom linnear combination of evaluation metrics
+function_builder = FitnessFunctionBuilder()
 
 
-################################
+class FitnessFunction:
+    def __init__(self, extractors, coefficients, names, ordering='natural'):
+        self._extr = extractors
+        self._coeff = coefficients
+        self._names = names
+        self._order = ordering
+        assert ordering in ('natural', 'reversed')
+        assert sum(map(lambda x: abs(x), self._coeff)) - 1 < abs(1e-6)
+
+    @classmethod
+    def single_metric(cls, metric_definition):
+        return function_builder.new([metric_definition], ordering=_ORDERING_HASH[metric_definition]).coefficient(metric_definition, 1).build()
+
+    @property
+    def ordering(self):
+        return self._order
+
+    def compute(self, individual):
+        return _FITNESS_VALUE_CONSTRUCTORS_HASH[self._order](reduce(lambda i, j: i + j, map(lambda x: x[0] * self._wrap(x[1](individual)), zip(self._coeff, self._extr))))
+
+    def _wrap(self, value):
+        if value is None:
+            return {'natural': 0, 'reversed': float('inf')}[self._order]
+        return value
+
+    def __str__(self):
+        return ' + '.join(map(lambda x: '{}*{}'.format(x[0], x[1]), zip(self._names, self._coeff)))
+
 
 class FitnessCalculator(object):
     def __init__(self):
@@ -128,9 +123,7 @@ class FitnessCalculator(object):
     @highlightable_columns.setter
     def highlightable_columns(self, column_definitions):
         self._highlightable_columns = column_definitions
-        # print 'CALCULATOR columns to find maxes:', self._highlightable_columns
-        self._best = dict(map(lambda x: (x, _INITIAL_BEST[_get_column_key(x)]), column_definitions))
-        # print 'CALCULATOR initial best-dict struct:', self._best
+        self._best = dict(map(lambda x: (x, _INITIAL_BEST[FitnessCalculator._get_column_key(x)]), column_definitions))
 
     @property
     def best(self):
@@ -154,26 +147,30 @@ class FitnessCalculator(object):
 
     def _update_best(self, values_vector):
         self._best.update([(column_def, value) for column_key, column_def, value in
-                           map(lambda x: (_get_column_key(x[0]), x[0], x[1]), zip(self._column_defs, values_vector))
-                           if column_def in self._best and self._get_value(column_key, value) > self._get_value(column_key, self._best[column_def])])
+                           map(lambda x: (FitnessCalculator._get_column_key(x[0]), x[0], x[1]), zip(self._column_defs, values_vector))
+                           if column_def in self._best and FitnessCalculator._get_value(column_key, value) > FitnessCalculator._get_value(column_key, self._best[column_def])])
+
+    def __call__(self, *args, **kwargs):
+        return self.compute_fitness(args[0])
 
     @staticmethod
     def _get_value(column_key, value):
         return _FITNESS_VALUE_CONSTRUCTORS_HASH[_ORDERING_HASH[column_key]](value)
 
+    @staticmethod
+    def _get_column_key(column_definition):
+        return '-'.join(filter(None, map(lambda x: FitnessCalculator._get_token(x), column_definition.split('-'))))
+
+    @staticmethod
+    def _get_token(definition_element):
+        try:
+            _ = float(definition_element)
+            return None
+        except ValueError:
+            if definition_element[0] == '@' or len(definition_element) == 1:
+                return None
+            return definition_element
+
     # def _query_vector(self, values_vector, column_key):
     #     """Call this method to get a list of tuples; 1st elements are the  vactor values, 2nd elements are the corresponding column definitions"""
     #     return map(lambda x: (values_vector[x[0]], x[1]), [_ for _ in enumerate(self._column_defs) if _[1].startswith(column_key)])
-
-def _get_column_key(column_definition):
-    return '-'.join(filter(None, map(lambda x: _get_token(x), column_definition.split('-'))))
-
-
-def _get_token(definition_element):
-    try:
-        _ = float(definition_element)
-        return None
-    except ValueError:
-        if definition_element[0] == '@' or len(definition_element) == 1:
-            return None
-        return definition_element

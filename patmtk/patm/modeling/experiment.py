@@ -3,7 +3,7 @@ from .persistence import ResultsWL, ModelWL
 from patm.modeling.regularization.regularizers import regularizer_type2dynamic_parameters as dyn_coefs
 from patm.modeling.experimental_results import ExperimentalResults
 
-from experimental_results import experimental_results_factory
+from experimental_results import ExperimentalResults
 
 
 class Experiment:
@@ -30,8 +30,6 @@ class Experiment:
     #     'top-tokens': ['average_coherence', 'coherence'],
     # # tokens are not tracked over time; they will be saved only for the lastest state of the inferred topics
     #     'background-tokens-ratio': ['value']
-    # # tokens are not tracked over time; they will be saved only for the lastest state of the inferred topics
-    # }
 
     def __init__(self, root_dir, cooc_dict):
         """
@@ -138,9 +136,6 @@ class Experiment:
     @property
     def current_root_dir(self):
         return self._dir
-
-    # def get_results(self):
-    #     return experimental_results_factory.create_from_experiment(self)
 
     def save_experiment(self, save_phi=True):
         """
@@ -282,8 +277,6 @@ class DegenerationChecker(object):
 class EvaluationOutputLoadingException(Exception):
     def __init__(self, msg):
         super(EvaluationOutputLoadingException, self).__init__(msg)
-
-
 class DidNotReceiveTrainSignalException(Exception):
     def __init__(self, msg):
         super(DidNotReceiveTrainSignalException, self).__init__(msg)

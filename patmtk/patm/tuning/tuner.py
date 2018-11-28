@@ -205,7 +205,7 @@ class Tuner(object):
 
     def _initialize1(self, prefix_label='', append_explorables='all', append_static=None, static_regularizers_specs=None, overwrite=False):
         """
-        :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix used for the naming files (models, results) saved on disk
+        :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix used for naming the files (models phi matrices dumped on disk, and results saved on disk as jsons)
         :param bool enable_ideology_labels: Enable using the 'vowpal_wabbit' format to exploit extra modalities modalities. A modalitity is a disctreet space of values (tokens, class_labels, ..)
         :param list or str append_explorables: if list is given will use these exact parameters' names as part of unique names used for files saved on disk. If 'all' is given then all possible parameter names will be used
         :param bool append_static: indicates whether to use the values of the parameters remaining constant during space exploration, as part of the unique names used for files saved on disk

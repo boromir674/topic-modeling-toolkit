@@ -1,113 +1,161 @@
+# -*- coding: utf8 -*-
+
+import os
+from . import results_handler
+# import matplotlib as mlp
+import matplotlib.pyplot as plt
+
+plt.ion()
+from easyplot import EasyPlot
 
 
 class GraphMaker(object):
-    SUPPORTED_GRAPHS = ['perplexity', '']
-
-    def __init__(self, plot_dir):
-        self.line_designs = ['b',
-                             'y',
-                             'g',
-                             'k',
-                             'c',
-                             'm',
-                             'p',
-                             'r'
-                             ]
-        self._tau_traj_extractor = {
-            'phi': lambda x: _infer_trajectory_values_list([(span, params['sparse-phi']['tau']) for span, params in x['reg_parameters']]) if 'sparse-phi' in x['reg_parameters'][-1][1] else None,
-            'theta': lambda x: _infer_trajectory_values_list([(span, params['sparse-theta']['tau']) for span, params in x['reg_parameters']]) if 'sparse-theta' in x['reg_parameters'][-1][1] else None,
-        }
-        self._cross_tau_titler = lambda x: 'Coefficient tau for {}-matrix-sparsing regularizer'.format(x)
+    SUPPORTED_GRAPHS = ['perplexity', 'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',
+                        'sparsity-theta', 'background-tokens-ratio']
+    LINES = ['b', 'y', 'g', 'k', 'c', 'm', 'p', 'r']
+    # linestyle / ls: Plot linestyle['-', '--', '-.', ':', 'None', ' ', '']
+    # marker: '+', 'o', '*', 's', 'D', ',', '.', '<', '>', '^', '1', '2'
+    def __init__(self, collections_dir_path, plot_dir_name='graphs'):
+        self._collections_dir_path = collections_dir_path
+        self._plot_dir_name = plot_dir_name
+        self._verbose_save = True
+        self._save_lambdas = {True: lambda z: self._save_plot_n_return(z[0], z[1], verbose=self._verbose_save), False: lambda y: (x[0], x[1])}
+        self._model_label_joiner = '+'
         self._results_indices = []
-        # self._all_taus_titler = lambda x, y: 'Coefficients tau for {} sparsing regularizer for model {}'.format(x, y)
-        # linestyle / ls: Plot linestyle['-', '--', '-.', ':', 'None', ' ', '']
-        # marker: '+', 'o', '*', 's', 'D', ',', '.', '<', '>', '^', '1', '2'
-
+        self._exp_results_list = []
+        self._tau_traj_extractor = {'phi-tau-trajectory': lambda x: ResultsHandler.get_tau_trajectory(x, 'phi'),
+                                    'theta-tau-trajectory': lambda x: ResultsHandler.get_tau_trajectory(x, 'theta')}
         self._max_digits_prepend = 2
         self._plot_counter = Counter()
-        self.eplot = None
-        self._max_len = 0 # this variable holds the longest value list of y's length
-        self.gr_dir = plot_dir
-        if os.path.exists(self.gr_dir):
-            if not os.path.isdir(self.gr_dir):
+        self.graph_names_n_eplots = []  # list of tuples
+
+    def _prepare_output_folder(self, collection_name):
+        self._output_dir_path = os.path.join(self._collections_dir_path, collection_name, self._plot_dir_name)
+        if os.path.exists(self._output_dir_path):
+            if not os.path.isdir(self._output_dir_path):
                 target_dir = '\\tmp\graphs'
                 print('Found file \'{}\'. Output graphs will be stored in', target_dir)
                 os.makedirs(target_dir)
                 print('Created \'{}\' directory'.format(target_dir))
             else:
-                print('Using found \'{}\' directory to store graphs'.format(self.gr_dir))
+                print('Using found \'{}\' directory to store graphs'.format(self._output_dir_path))
         else:
-            os.makedirs(self.gr_dir)
-            print('Created \'{}\' directory'.format(self.gr_dir))
+            os.makedirs(self._output_dir_path)
+            print('Created \'{}\' directory'.format(self._output_dir_path))
 
-    def save_tau_trajectories(self, results, nb_points=None):
-        """Plots tau coefficient value trajectory for sparsing phi and theta matrices and saves to disk"""
-        assert len(results) <= len(self.line_designs)
-        graph_plots = []
-        labels_list = list(map(lambda x: x['model_label'], results))
-        for tau_type, extractor in self._tau_traj_extractor.items():
-            ys, xs = self._build_ys_n_xs(results, extractor, nb_points=nb_points)
-            print("Ommiting '{}' model(s) for not having a {}-matrix-sparse regularizer".format(', '.join([labels_list[_] for _ in range(len(results)) if _ not in self._results_indices]), tau_type))
-            graph_plots.append(('{}-tau-{}'.format('-'.join(map(lambda x: x['model_label'], results)), tau_type),
-                                _build_graph(xs, ys, [self.line_designs[_] for _ in self._results_indices], [labels_list[_] for _ in self._results_indices], self._cross_tau_titler(tau_type), 'iteration', 'τ')))
-        for graph_type, plot in graph_plots:
-            self._save_plot(graph_type, plot)
+    def build_graphs_from_collection(self, collection_name, top=8, indices_range=(), metric='perplexity', score_definitions='all', tau_trajectories='all', save=True, nb_points=None, verbose=True):
+        self._prepare_output_folder(collection_name)
+        if indices_range:
+            self._exp_results_list = results_handler.get_experimental_results(collection_name, top='all', sort=metric)[indices_range[0]:indices_range[1]]
+        else:
+            self._exp_results_list = results_handler.get_experimental_results(collection_name, top=top, sort=metric)
+        self.build_graphs(self._exp_results_list, score_definitions=score_definitions, tau_trajectories=tau_trajectories,
+                          save=save, nb_points=nb_points, verbose=verbose)
 
-    def build_metric_graphs(self, results, scores='all', nb_points=None):
+    def build_graphs(self, results, score_definitions='all', tau_trajectories='all', save=True, nb_points=None, verbose=True):
+        if score_definitions == 'all':
+            score_definitions = ResultsHandler.determine_metrics_usable_for_comparison(results)
+        if tau_trajectories == 'all':
+            tau_trajectories = ['phi', 'theta']
+        self.graph_names_n_eplots.extend(self.build_metrics_graphs(results, scores=score_definitions, save=save, nb_points=nb_points, verbose=verbose))
+        self.graph_names_n_eplots.extend(self.build_tau_trajectories_graphs(results, matrices=tau_trajectories, save=save, nb_points=nb_points, verbose=verbose))
+
+    def build_tau_trajectories_graphs(self, results, matrices='all', save=True, nb_points=None, verbose=True):
+        return map(lambda x: self._save_lambdas[save](self._build_metric_graph(results, x, limit_iteration=nb_points, verbose=verbose)), matrices)
+
+    def build_metrics_graphs(self, results, scores='all', save=True, nb_points=None, verbose=True):
         """
-        Call this method to create and save comparison plots between the tracked metrics of the given experimental results. Currently supported maximum 8 plots on the same figure\n.
-        :param list of dicts results: experimental results, gathered after model training
+        Call this method to create and potentially save comparison plots between the tracked metrics (scores) of the given experimental results. Currently supported maximum 8 plots on the same figure\n.
+        :param list of patm.modeling.experimental_results.ExperimentalResults results:
         :param list or str scores: if 'all' then builds all admissible scores, else builds the custom selected scores
+        :param bool save: whether to save figure on disk as .png files
         :param int nb_points: number of points to plot. Defaults to plotting all measurements found
+        :param bool verbose:
         """
-        if scores == 'all':
-            scores = sorted(results[0]['trackables'].keys())
-        for score in scores:
-            try:
-                graph_types_n_eplots = self._build_metric_graphs(results, score, sub_scores='all', limit_iteration=nb_points)
-                for graph_type, eplot_obj in graph_types_n_eplots:
-                    self._save_plot(graph_type, eplot_obj)
-            except KeyError:
-                print("Score '{}' is not found in tracked experimental result metrics".format(score))
-                print("Try a metric in [{}]".format(', '.join(sorted(results[0]['trackables'].keys()))))
+        self._verbose_save = verbose
+        return map(lambda x: self._save_lambdas[save](self._build_metric_graph(results, x, limit_iteration=nb_points, verbose=verbose)), scores)
 
-    def _build_metric_graphs(self, results, score, sub_scores='all', limit_iteration=None):
-        assert len(results) <= len(self.line_designs)
-        if score not in results[0]['trackables']:
-            raise KeyError
-        labels_list = list(map(lambda x: x['model_label'], results))
-        graph_plots = []
-        if sub_scores == 'all':
-            sub_scores = sorted(results[0]['trackables'][score].keys())
-        for sub_score in sub_scores:
-            measure_name = score + '-' + sub_score
-            try:
-                ys, xs = self._build_ys_n_xs(results, lambda x: x['trackables'][score][sub_score], limit_iteration)
-                graph_plots.append(('{}-{}'.format('-'.join(labels_list), measure_name),
-                                    _build_graph(xs, ys, self.line_designs[:len(results)], labels_list, measure_name.replace('-', '.'), 'iteration', 'y')))
-            except TypeError:
-                print("Not creating sub-score '{}' plot of '{}', because either the format is not supported or the average of the same metric is plotted".format(sub_score, score))
-        return graph_plots
+    def _build_metric_graph(self, exp_results_list, metric, limit_iteration=None, verbose=True):
+        """Call this method to get a graph name (as a string) and a graph (as an Eplot object) tuple.\n
+        :param list of patm.modeling.experimental_results.ExperimentalResults exp_results_list:
+        :param str metric: Supports unique metric definitions such as {'perplexity', 'sparsity-theta', 'sprasity-phi-d',
+            'sparsity-phi-i', 'kernel-coherence-0.80', 'top-tokens-coherence-100', ..} as well as the 'phi-tau-trajectory' and 'theta-tau-trajectory' tracked values
+        :param None or int limit_iteration: wether to limit the length at which it will plot along the x axis: if None, plots all available datapoint; if int value given limits plotting at a maximum of 'value' along the x axis
+        """
+        assert len(exp_results_list) <= len(GraphMaker.LINES)
+        self._verbose_save = verbose
+        labels = [_.scalars.model_label for _ in exp_results_list]
+        measure_name = ResultsHandler.get_abbreviation(metric)
+        extractor = self._tau_traj_extractor.get(metric, lambda x: ResultsHandler.extract(x, metric, 'all'))
+        ys, xs = self._get_ys_n_xs(exp_results_list, extractor, nb_points=limit_iteration)
+        return '{}-{}'.format(self._model_label_joiner.join(labels), measure_name), \
+               GraphMaker.build_graph(xs, ys,
+                                      GraphMaker.LINES[:len(exp_results_list)],
+                                      labels,
+                                      title=measure_name.replace('-', '.'),
+                                      xlabel='iteration',
+                                      ylabel='y')
 
-    def _save_plot(self, graph_type, eplot):
+    def _save_plot_n_return(self, graph_type, eplot, verbose=True):
+        self._save_plot(graph_type, eplot, verbose=verbose)
+        return graph_type, eplot
+
+    def _save_plot(self, graph_type, eplot, verbose=True):
+        """Call this method to save a graph on the disk as a .png file. The input graph type contributes to naming the file
+        and appending any numbers for versioning and the plot object has a 'save' method."""
         target_name = self._get_target_name(graph_type)
-        while os.path.exists(target_name): # while old graph files are found with the same name, increment the plot 'version'
+        while os.path.exists(target_name): # while old graph files are found with the same name and version number, increment the plot 'version'
             target_name = self._get_target_name(graph_type)
         eplot.kwargs['fig'].savefig(target_name)
-        print('Saved figure as', target_name)
+        if verbose:
+            print('Saved figure as', target_name)
 
     def _get_target_name(self, graph_type):
         self._plot_counter[graph_type] += 1
         return os.path.join(self.gr_dir, '{}_{}.png'.format(graph_type, self._iter_prepend(self._plot_counter[graph_type])))
 
-    def _build_ys_n_xs(self, results, extractor, nb_points=None):
-        _ = list(map(extractor, results))
-        self._results_indices = [ind for ind, el in enumerate(_) if el is not None]
-        ys = list(map(lambda x: self._limit_points(x, nb_points), filter(None, _)))
+    def _get_ys_n_xs(self, exp_results_list, extractor, nb_points=None):
+        if 0:
+            ys = filter(None, map(lambda x: extractor(x), exp_results_list))
+            self._results_indices = [ind for ind, el in enumerate(ys) if el is not None]
+            # assert len(ys) == len(self._results_indices)
+            # print 'results_indices len: {}. MUST BE LENGTH number of plots on the same graph.'
+            ys = list(map(lambda x: GraphMaker._limit_points(x, nb_points), filter(None, ys)))
+            return ys, [range(len(_)) for _ in ys]
+        # elif 0:
+        #     ys = GraphMaker._limit_points(list(map(lambda x: ResultsHandler.extract(x, metric_definition), exp_results_list)), nb_points)
+        #     self._results_indices = range(len(ys))
+        #     return ys, [range(len(_)) for _ in ys]
+        else:
+            ys = filter(None, map(lambda x: GraphMaker._limit_points(extractor(x), nb_points), exp_results_list))
+            # ys = list(filter(None, map(lambda x: GraphMaker._limit_points(ResultsHandler.extract(x, metric_definition), nb_points), exp_results_list)))
+            self._results_indices = range(len(ys))
+            return ys, [range(len(_)) for _ in ys]
 
-        return ys, [range(len(_)) for _ in ys]
+    @staticmethod
+    def build_graph(xs, ys, line_designs, labels, title, xlabel, ylabel, grid='on'):
+        assert len(ys) == len(xs) == len(line_designs) == len(labels)
+        pl = EasyPlot(xs[0], ys[0], line_designs[0], label=labels[0], showlegend=True, xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
+        for i, y_vals in enumerate(ys[1:]):
+            pl.add_plot(xs[i + 1], y_vals, line_designs[i + 1], label=labels[i + 1])
+        return pl
 
-    def _limit_points(self, value_list, limit):
+        # Advanced grid modification
+        # eplot.new_plot(x, 1 / (1 + x), '-s', label=r"$y = \frac{1}{1+x}$", c='#fdb462')
+        # eplot.grid(which='major', axis='x', linewidth=2, linestyle='--', color='b', alpha=0.5)
+        # eplot.grid(which='major', axis='y', linewidth=2, linestyle='-', color='0.85', alpha=0.5)
+
+        #     eplot = EasyPlot(x, tracked_metrics_dict['trackables'], 'b-o', label='y1 != x**2', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
+        #     eplot.iter_plot(x, y_dict, linestyle=linestyle_dict, marker=marker_dict, label=labels_dict, linewidth=3, ms=10, showlegend=True, grid='on')
+
+    # def _build_ys_n_xs(self, results, extractor, nb_points=None):
+    #     _ = list(map(extractor, results))
+    #     self._results_indices = [ind for ind, el in enumerate(_) if el is not None]
+    #     ys = list(map(lambda x: self._limit_points(x, nb_points), filter(None, _)))
+    #     return ys, [range(len(_)) for _ in ys]
+
+    @staticmethod
+    def _limit_points(value_list, limit):
         if limit is None:
             return value_list
         else:

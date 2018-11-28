@@ -9,6 +9,7 @@ my_dir = os.path.dirname(os.path.realpath(__file__))
 
 RESULTS_DIR_NAME = 'results'
 MODELS_DIR_NAME = 'models'
+GRAPHS_DIR_NAME = 'graphs'
 
 REGULARIZERS_CFG = os.path.join(my_dir, '../regularizers.cfg')
 TRAIN_CFG = os.path.join(my_dir, '../train.cfg')

@@ -2,7 +2,7 @@ import os
 import abc
 import glob
 import json
-from patm.modeling.experimental_results import experimental_results_factory
+from patm.modeling.experimental_results import ExperimentalResults
 from patm.definitions import MODELS_DIR_NAME, RESULTS_DIR_NAME
 
 
@@ -90,12 +90,12 @@ class ResultsWL(ExperimentWL):
 
     def save(self, name):
         results_file_path = self.get_full_path(name)
-        results = experimental_results_factory.create_from_experiment(self._exp)
+        results = ExperimentalResults.create_from_experiment(self._exp)
         results.save_as_json(results_file_path, human_redable=True)
         self._saved.append(results_file_path)
 
     def load(self, name, *args):
-        return experimental_results_factory.create_from_json_file(self.get_full_path(name))
+        return ExperimentalResults.create_from_json_file(self.get_full_path(name))
 
 
 class ModelWL(ExperimentWL):

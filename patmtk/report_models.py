@@ -2,31 +2,6 @@ import argparse
 from reporting import ModelReporter
 
 
-# class Spinner:
-#     busy = False
-#     delay = 0.1
-#     @staticmethod
-#     def spinning_cursor():
-#         while 1:
-#             for cursor in '|/-\\': yield cursor
-#     def __init__(self, delay=None):
-#         self.spinner_generator = self.spinning_cursor()
-#         if delay and float(delay): self.delay = delay
-#     def spinner_task(self):
-#         while self.busy:
-#             sys.stdout.write(next(self.spinner_generator))
-#             sys.stdout.flush()
-#             time.sleep(self.delay)
-#             sys.stdout.write('\b')
-#             sys.stdout.flush()
-#     def start(self):
-#         self.busy = True
-#         threading.Thread(target=self.spinner_task).start()
-#     def stop(self):
-#         self.busy = False
-#         time.sleep(self.delay)
-
-
 def get_cli_arguments():
     parser = argparse.ArgumentParser(description='Reports on existing saved model topic model instances developed on the specified dataset', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('dataset', metavar='collection_name', help='the collection to report models trained on')
@@ -66,3 +41,28 @@ if __name__ == '__main__':
     #     raise e
     # spinner.stop()
     # print(b1)
+
+
+# class Spinner:
+#     busy = False
+#     delay = 0.1
+#     @staticmethod
+#     def spinning_cursor():
+#         while 1:
+#             for cursor in '|/-\\': yield cursor
+#     def __init__(self, delay=None):
+#         self.spinner_generator = self.spinning_cursor()
+#         if delay and float(delay): self.delay = delay
+#     def spinner_task(self):
+#         while self.busy:
+#             sys.stdout.write(next(self.spinner_generator))
+#             sys.stdout.flush()
+#             time.sleep(self.delay)
+#             sys.stdout.write('\b')
+#             sys.stdout.flush()
+#     def start(self):
+#         self.busy = True
+#         threading.Thread(target=self.spinner_task).start()
+#     def stop(self):
+#         self.busy = False
+#         time.sleep(self.delay)

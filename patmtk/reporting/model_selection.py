@@ -1,6 +1,10 @@
-# import os
+import os
 import re
 from glob import glob
+from collections import Counter
+
+from patm.modeling import ExperimentalResults
+from .fitness import FitnessFunction
 
 
 KERNEL_SUB_ENTITIES = ('coherence', 'contrast', 'purity')
@@ -59,30 +63,87 @@ class ResultsHandler(object):
     DEFAULT_COLUMNS = ['nb-topics', 'collection-passes', 'document-passes', 'total-phi-updates', 'perplexity'] +\
                       DYNAMIC_COLUMNS[:-1] + ['sparsity-theta'] + [DYNAMIC_COLUMNS[-1]] + ['regularizers']
 
-    def __init__(self):
-        self._entities = COLUMNS_HASH.copy()
+    def __init__(self, collection_root_path, results_dir_name='results'):
+        self._collection_root_path = collection_root_path
+        self._results_dir_name = results_dir_name
+        self._results_hash = {}
+        self._collection = ''
+        # self._fitness_function_builder = FitnessFunctionBuilder()
+        self._fitness_function_hash = {}
 
-    def get_titles(self, column_definitions):
-        return map(lambda z: self._entities['-'.join(z[0])]['column-title'](*z[1]), map(lambda x: ResultsHandler._parse_column_definition(x), column_definitions))
+    def get_experimental_results(self, collection_name, top='all', sort=''):
+        """
+        Call this method to get a list of experimental result objects from topic models trained on the given collection.
+        :param str collection_name:
+        :param str or int top:
+        :param str sort:
+        :return:
+        """
+        self._collection = collection_name
+        result_paths = glob('{}/*.json'.format(os.path.join(self._collection_root_path, collection_name, self._results_dir_name)))
+        return self._get_experimental_results(result_paths, top=top, callable_metric=self._get_metric(sort))
 
-    def stringnify(self, column, value):
+    def _get_experimental_results(self, results_paths, top='all', callable_metric=None):
+        if top == 'all':
+            top = len(results_paths)
+        assert type(top) == int and top > 0
+        if callable_metric:
+            return sorted(map(lambda x: self._process_result_path(x), results_paths), key=callable_metric, reverse=True)[:top]
+        return map(lambda x: self._process_result_path(x), results_paths)[:top]
+
+    def _process_result_path(self, result_path):
+        if result_path not in self._results_hash:
+            self._results_hash[result_path] = ExperimentalResults.create_from_json_file(result_path)
+        return self._results_hash[result_path]
+
+    def _get_metric(self, metric):
+        if not metric:
+            return None
+        if metric not in self._fitness_function_hash:
+            self._fitness_function_hash[metric] = FitnessFunction.single_metric(metric)
+        return lambda x: self._fitness_function_hash[metric].compute([ResultsHandler.extract(x, metric, 'last')])
+
+    @staticmethod
+    def get_titles(column_definitions):
+        return map(lambda x: ResultsHandler.get_abbreviation(x), column_definitions)
+
+    @staticmethod
+    def get_abbreviation(definition):
+        tokens, parameters = ResultsHandler._parse_column_definition(definition)
+        return COLUMNS_HASH['-'.join(tokens)]['column-title'](*parameters)
+
+    @staticmethod
+    def stringnify(column, value):
         """
         :param str column: key or definition; example values: 'perplexity', 'kernel-coherence', 'kernel-coherence-0.80'
         :param value:
         :return:
         :rtype str
         """
-        return self._entities.get(column, ResultsHandler._def_2_key(column)).get('to-string', '{}').format(value)
+        return COLUMNS_HASH.get(column, COLUMNS_HASH[ResultsHandler._get_hash_key(column)]).get('to-string', '{}').format(value)
 
-    def extract(self, column_definition, exp_results, quantity):
+    @staticmethod
+    def get_tau_trajectory(exp_results, matrix_name):
         """
-        :param str column_definition:
+
         :param patm.modeling.experimental_results.ExperimentalResults exp_results:
+        :param matrix_name:
+        :return:
+        """
+        return getattr(exp_results.tracked.tau_trajectories, matrix_name).all
+
+    @staticmethod
+    def extract(exp_results, column_definition, quantity):
+        """
+        Call this method to query the given experimental results object about a specific metric. Supports requesting all
+        values tracked along the training process.
+        :param patm.modeling.experimental_results.ExperimentalResults exp_results:
+        :param str column_definition:
         :param str quantity: must be one of {'last', 'all'}
         :return:
         """
         tokens, parameters = ResultsHandler._parse_column_definition(column_definition)
-        return self._entities['-'.join(tokens)][ResultsHandler._QUANTITY_2_EXTRACTOR[quantity]+'-extractor'](*list([exp_results] + parameters))
+        return COLUMNS_HASH['-'.join(tokens)][ResultsHandler._QUANTITY_2_EXTRACTOR[quantity]+'-extractor'](*list([exp_results] + parameters))
 
     @staticmethod
     def get_all_columns(exp_results):
@@ -95,12 +156,8 @@ class ResultsHandler(object):
                    zip(*map(lambda x: (x, None) if ResultsHandler._is_token(x) else (None, x), definition.split('-'))))
 
     @staticmethod
-    def _def_2_key(column_definition):
-        return '-'.join([_ for _ in column_definition.split('-') if ResultsHandler._is_token(_)])
-
-    @staticmethod
     def _get_hash_key(column_definition):
-        return '-'.join([_ for _ in column_definition.split('-') if ModelReporter._is_token(_)])
+        return '-'.join([_ for _ in column_definition.split('-') if ResultsHandler._is_token(_)])
 
     @staticmethod
     def _is_token(definition_element):
@@ -112,37 +169,45 @@ class ResultsHandler(object):
                 return False
             return True
 
+    @staticmethod
+    def determine_metrics_usable_for_comparison(exp_results_list):
+        c = Counter()
+        c.update(map(lambda i,j: i+j, map(lambda x: ResultsHandler.get_all_columns(x), exp_results_list)))
+        return [k for k, v in c.items() if v > 1]
 
-class ModelSelector(object):
+    @staticmethod
+    def determine_maximal_set_of_renderable_columns(exp_results_list):
+        return reduce(lambda i, j: i.union(j), map(lambda x: set(ResultsHandler.get_all_columns(x)), exp_results_list))
 
-    def __init__(self, collection_results_dir_path=''):
-        self._working_dir = ''
-        self._results_paths, self._available_model_labels = [], []
+# class ModelSelector(object):
+#
+#     def __init__(self, collection_results_dir_path=''):
+#         self._working_dir = ''
+#         self._results_paths, self._available_model_labels = [], []
+#
+#         if collection_results_dir_path:
+#             self.working_dir = collection_results_dir_path
+#
+#     @property
+#     def working_dir(self):
+#         return self._working_dir
+#
+#     @working_dir.setter
+#     def working_dir(self, results_dir_path):
+#         self._working_dir = results_dir_path
+#         self._results_paths = glob('{}/*.json'.format(self._working_dir))
+#         if not self._results_paths:
+#             raise NoTrainingResultsFoundException("No saved training results found in '{}' directory.".format(collection_results_dir_path))
+#         self._available_model_labels = list(map(lambda x: re.search('/([\w\-.]+)\.json$', x).group(1), self._results_paths))
+#
+#     def select_n_get(self, expression='all'):
+#         if expression == 'all':
+#             return self._available_model_labels
+#         return []
 
-        if collection_results_dir_path:
-            self.working_dir = collection_results_dir_path
-
-    @property
-    def working_dir(self):
-        return self._working_dir
-
-    @working_dir.setter
-    def working_dir(self, results_dir_path):
-        self._working_dir = results_dir_path
-        self._results_paths = glob('{}/*.json'.format(self._working_dir))
-        if not self._results_paths:
-            raise NoTrainingResultsFoundException("No saved training results found in '{}' directory.".format(collection_results_dir_path))
-        self._available_model_labels = list(map(lambda x: re.search('/([\w\-.]+)\.json$', x).group(1), self._results_paths))
-
-    def select_n_get(self, expression='all'):
-        if expression == 'all':
-            return self._available_model_labels
-        return []
-
-
-class NoTrainingResultsFoundException(Exception):
-    def __init__(self, msg):
-        super(NoTrainingResultsFoundException, self).__init__(msg)
+# class NoTrainingResultsFoundException(Exception):
+#     def __init__(self, msg):
+#         super(NoTrainingResultsFoundException, self).__init__(msg)
 
 
 if __name__ == '__main__':
