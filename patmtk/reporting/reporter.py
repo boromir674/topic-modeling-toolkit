@@ -116,6 +116,7 @@ class ModelReporter(object):
         :param str collection_name:
         :param list columns:
         :param str metric:
+        :param bool verbose:
         :return:
         :rtype: str
         """
