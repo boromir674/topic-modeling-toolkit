@@ -6,7 +6,7 @@ import pprint
 from tqdm import tqdm
 from collections import OrderedDict, Counter
 
-from building import RegularizersActivationDefinitionBuilder
+from .building import RegularizersActivationDefinitionBuilder
 
 from patm import trainer_factory, Experiment
 from patm.modeling.parameters import ParameterGrid
@@ -104,8 +104,8 @@ class Tuner(object):
     @active_regularizers.setter
     def active_regularizers(self, active_regularizers):
         """
-        :param dist or dict active_regularizers: in case of list it should be a list of regularizer-types ie ['smooth-phi', 'sparse-phi', 'smooth-theta']\n
-            in case of dict it should be a dict with keys regularizer-types ie ('smooth-phi', 'sparse-phi', 'smooth-theta') and values unique corresponding names
+        :param list or dict active_regularizers: in case of list it should be a list of regularizer-types ie ['smooth-phi', 'sparse-phi', 'smooth-theta']\n
+            in case of dict it should be a dict having as keys regularizer-types ie ('smooth-phi', 'sparse-phi', 'smooth-theta') and as values the corresponding unique names
         """
         if type(active_regularizers) == list:
             self._active_regs = Tuner._create_active_regs_with_default_names(active_regularizers)
@@ -159,7 +159,7 @@ class Tuner(object):
         for i, self.parameter_vector in enumerate(generator):
             self._cur_label = self._build_label(self.parameter_vector)
             assert self._cur_label == self._required_labels[i]
-            if 4 == vb:
+            if 4 == self._vb:
                 tqdm.write(pprint.pformat(self.static_regularization_specs))
             tm, specs = self._create_model_n_specs()
             self.experiment.init_empty_trackables(tm)
@@ -194,6 +194,7 @@ class Tuner(object):
         assert all(map(lambda x: type(x) == list or x == 'all', [constants, explorables]))
         explorables_labels = self._get_labels_extractor('explorables')(explorables)
         constants_labels = self._get_labels_extractor('constants')(constants)
+        print 'DEFINE LABELING SCHEME\nconstants {}\nexplorabe {}'.format(constants_labels, explorables_labels)
         self._versioning_needed = not explorables_labels == self.explorables
         self._labeling_params = explorables_labels + constants_labels
 
@@ -221,7 +222,7 @@ class Tuner(object):
         self._define_labeling_scheme((lambda y: [] if y is None else y)(append_explorables), (lambda y: [] if y is None else y)(append_static))
 
         if 1 < self._vb:
-            print 'Automatically labeling files using parameter values: {[]}'.format(', '.join(self._labeling_params))
+            print 'Automatically labeling files using parameter values: [{}]'.format(', '.join(self._labeling_params))
 
         if static_regularizers_specs:
             # for which ever of the activated regularizers there is a missing setting, then use a default value

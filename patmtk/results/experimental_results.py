@@ -1,13 +1,12 @@
-from __future__ import division
-from builtins import str
-from builtins import range
-from past.utils import old_div
-from builtins import object
+# from __future__ import division  # this emulates the old python2 '/' (division) operator; in python2 2/3 != 2.0/3. in python3 2/3 == 2.0/3
+# from builtins import str
+# from builtins import range
+# from builtins import object
 import sys
 from math import ceil
 import json
-from abc import ABCMeta, abstractmethod
-from future.utils import with_metaclass
+# from abc import ABCMeta, abstractmethod
+# from future.utils import with_metaclass
 from functools import reduce
 
 
@@ -99,7 +98,7 @@ class ExperimentalResults(object):
 
     @property
     def phi_sparsities(self):
-        return [getattr(self._tracker, 'sparsity_phi_'+x) for x in self._tracker.modalities_initials]
+        return [getattr(self._tracker, 'sparsity_phi_'.format(x)) for x in self._tracker.modalities_initials]
 
     def to_json(self, human_redable=True):
         if human_redable:
@@ -271,7 +270,8 @@ class ExperimentalResults(object):
 # experimental_results_factory = ExperimentalResultsFactory()
 
 
-class AbstractValueTracker(with_metaclass(ABCMeta, object)):
+# class AbstractValueTracker(with_metaclass(ABCMeta, object)):
+class AbstractValueTracker(object):
     def __dir__(self):
         return [_f for _f in [self._trans('perplexity'), self._trans('sparsity_theta')] + ['sparsity_phi_' + x for x in self.modalities_initials] + \
                ['kernel'+str(x)[2:] for x in self.kernel_thresholds] + \
@@ -333,33 +333,33 @@ class AbstractValueTracker(with_metaclass(ABCMeta, object)):
             return 'top-tokens-' + method_name[3:]
         return method_name
 
-    @abstractmethod
-    def collection_passes(self):
-        raise NotImplemented
-    @abstractmethod
-    def perplexity(self):
-        raise NotImplemented
-    @abstractmethod
-    def sparsity_phi(self):
-        raise NotImplemented
-    @abstractmethod
-    def sparsity_theta(self):
-        raise NotImplemented
-    @abstractmethod
-    def background_tokens_ratio(self):
-        raise NotImplemented
-    @abstractmethod
-    def kernel(self):
-        raise NotImplemented
-    @abstractmethod
-    def top10(self):
-        raise NotImplemented
-    @abstractmethod
-    def top100(self):
-        raise NotImplemented
-    @abstractmethod
-    def tau_trajectories(self):
-        raise NotImplemented
+    # @abstractmethod
+    # def collection_passes(self):
+    #     raise NotImplemented
+    # @abstractmethod
+    # def perplexity(self):
+    #     raise NotImplemented
+    # @abstractmethod
+    # def sparsity_phi(self):
+    #     raise NotImplemented
+    # @abstractmethod
+    # def sparsity_theta(self):
+    #     raise NotImplemented
+    # @abstractmethod
+    # def background_tokens_ratio(self):
+    #     raise NotImplemented
+    # @abstractmethod
+    # def kernel(self):
+    #     raise NotImplemented
+    # @abstractmethod
+    # def top10(self):
+    #     raise NotImplemented
+    # @abstractmethod
+    # def top100(self):
+    #     raise NotImplemented
+    # @abstractmethod
+    # def tau_trajectories(self):
+    #     raise NotImplemented
 
 
 def _strip_parameters(score_definition):
@@ -659,7 +659,7 @@ class TopicsTokens(object):
         self._nb_columns = 10
         self._tokens = {topic_name: TokensList(tokens_list) for topic_name, tokens_list in list(topic_name2tokens_hash.items())}
         self._nb_topics = len(topic_name2tokens_hash)
-        self._nb_rows = int(ceil((old_div(float(self._nb_topics), self._nb_columns))))
+        self._nb_rows = int(ceil((float(self._nb_topics) / self._nb_columns)))
         self.__lens = {}
         for k, v in list(self._tokens.items()):
             setattr(self, k, v)

@@ -1,6 +1,7 @@
 from abc import ABCMeta
 from collections import defaultdict
 
+
 class FitnessValue(object):
     __metaclass__ = ABCMeta
     def __init__(self, value):
