@@ -61,7 +61,7 @@ class GraphMaker(object):
         self.graph_names_n_eplots.extend(self.build_tau_trajectories_graphs(results, matrices=tau_trajectories, save=save, nb_points=nb_points, verbose=verbose))
 
     def build_tau_trajectories_graphs(self, results, matrices='all', save=True, nb_points=None, verbose=True):
-        return map(lambda x: self._save_lambdas[save](self._build_metric_graph(results, x, limit_iteration=nb_points, verbose=verbose)), matrices)
+        return [self._save_lambdas[save](self._build_metric_graph(results, x, limit_iteration=nb_points, verbose=verbose)) for x in matrices]
 
     def build_metrics_graphs(self, results, scores='all', save=True, nb_points=None, verbose=True):
         """
@@ -73,7 +73,7 @@ class GraphMaker(object):
         :param bool verbose:
         """
         self._verbose_save = verbose
-        return map(lambda x: self._save_lambdas[save](self._build_metric_graph(results, x, limit_iteration=nb_points, verbose=verbose)), scores)
+        return [self._save_lambdas[save](self._build_metric_graph(results, x, limit_iteration=nb_points, verbose=verbose)) for x in scores]
 
     def _build_metric_graph(self, exp_results_list, metric, limit_iteration=None, verbose=True):
         """Call this method to get a graph name (as a string) and a graph (as an Eplot object) tuple.\n
@@ -116,21 +116,22 @@ class GraphMaker(object):
 
     def _get_ys_n_xs(self, exp_results_list, extractor, nb_points=None):
         if 0:
-            ys = filter(None, map(lambda x: extractor(x), exp_results_list))
+            ys = filter(None, map(extractor, exp_results_list))
             self._results_indices = [ind for ind, el in enumerate(ys) if el is not None]
             # assert len(ys) == len(self._results_indices)
             # print 'results_indices len: {}. MUST BE LENGTH number of plots on the same graph.'
-            ys = list(map(lambda x: GraphMaker._limit_points(x, nb_points), filter(None, ys)))
-            return ys, [range(len(_)) for _ in ys]
+            ys = [GraphMaker._limit_points(_, nb_points) for _ in ys]
+            # ys = list([GraphMaker._limit_points(x, nb_points) for x in [_f for _f in ys if _f]])
         # elif 0:
         #     ys = GraphMaker._limit_points(list(map(lambda x: ResultsHandler.extract(x, metric_definition), exp_results_list)), nb_points)
         #     self._results_indices = range(len(ys))
         #     return ys, [range(len(_)) for _ in ys]
         else:
-            ys = filter(None, map(lambda x: GraphMaker._limit_points(extractor(x), nb_points), exp_results_list))
+            ys = [GraphMaker._limit_points(extractor(_), nb_points) for _ in exp_results_list]
+            # ys = [_f for _f in [GraphMaker._limit_points(extractor(x), nb_points) for x in exp_results_list] if _f]
             # ys = list(filter(None, map(lambda x: GraphMaker._limit_points(ResultsHandler.extract(x, metric_definition), nb_points), exp_results_list)))
-            self._results_indices = range(len(ys))
-            return ys, [range(len(_)) for _ in ys]
+            self._results_indices = list(range(len(ys)))
+        return ys, [list(range(len(_))) for _ in ys]
 
     @staticmethod
     def build_graph(xs, ys, line_designs, labels, title, xlabel, ylabel, grid='on'):
@@ -155,11 +156,9 @@ class GraphMaker(object):
     #     return ys, [range(len(_)) for _ in ys]
 
     @staticmethod
-    def _limit_points(value_list, limit):
-        if limit is None:
-            return value_list
-        else:
-            return value_list[:limit]
+    def _limit_points(values_list, limit):
+        if limit is None: return values_list
+        return values_list[:limit]
 
     def _iter_prepend(self, int_num):
         nb_digits = len(str(int_num))
