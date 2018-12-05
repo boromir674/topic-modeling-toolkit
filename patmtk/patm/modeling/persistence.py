@@ -2,8 +2,9 @@ import os
 import abc
 import glob
 import json
-from patm.modeling.experimental_results import ExperimentalResults
 from patm.definitions import MODELS_DIR_NAME, RESULTS_DIR_NAME
+
+from results import ExperimentalResults
 
 
 class WriterLoader(object):

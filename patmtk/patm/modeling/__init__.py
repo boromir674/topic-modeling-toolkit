@@ -6,6 +6,4 @@ from .trainer import TrainerFactory
 
 trainer_factory = TrainerFactory()
 
-from patm.modeling.regularization.regularizers import regularizers_factory
-
-from .experimental_results import ExperimentalResults
+from .regularization.regularizers import regularizers_factory

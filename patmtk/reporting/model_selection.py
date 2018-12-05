@@ -3,7 +3,8 @@ import re
 from glob import glob
 from collections import Counter
 
-from patm.modeling import ExperimentalResults
+from results import ExperimentalResults
+
 from .fitness import FitnessFunction
 
 
@@ -126,7 +127,7 @@ class ResultsHandler(object):
     def get_tau_trajectory(exp_results, matrix_name):
         """
 
-        :param patm.modeling.experimental_results.ExperimentalResults exp_results:
+        :param results.experimental_results.ExperimentalResults exp_results:
         :param matrix_name:
         :return:
         """
@@ -137,7 +138,7 @@ class ResultsHandler(object):
         """
         Call this method to query the given experimental results object about a specific metric. Supports requesting all
         values tracked along the training process.
-        :param patm.modeling.experimental_results.ExperimentalResults exp_results:
+        :param results.experimental_results.ExperimentalResults exp_results:
         :param str column_definition:
         :param str quantity: must be one of {'last', 'all'}
         :return:

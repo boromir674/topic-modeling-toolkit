@@ -66,7 +66,7 @@ class GraphMaker(object):
     def build_metrics_graphs(self, results, scores='all', save=True, nb_points=None, verbose=True):
         """
         Call this method to create and potentially save comparison plots between the tracked metrics (scores) of the given experimental results. Currently supported maximum 8 plots on the same figure\n.
-        :param list of patm.modeling.experimental_results.ExperimentalResults results:
+        :param list of results.experimental_results.ExperimentalResults results:
         :param list or str scores: if 'all' then builds all admissible scores, else builds the custom selected scores
         :param bool save: whether to save figure on disk as .png files
         :param int nb_points: number of points to plot. Defaults to plotting all measurements found
@@ -77,7 +77,7 @@ class GraphMaker(object):
 
     def _build_metric_graph(self, exp_results_list, metric, limit_iteration=None, verbose=True):
         """Call this method to get a graph name (as a string) and a graph (as an Eplot object) tuple.\n
-        :param list of patm.modeling.experimental_results.ExperimentalResults exp_results_list:
+        :param list of results.experimental_results.ExperimentalResults exp_results_list:
         :param str metric: Supports unique metric definitions such as {'perplexity', 'sparsity-theta', 'sprasity-phi-d',
             'sparsity-phi-i', 'kernel-coherence-0.80', 'top-tokens-coherence-100', ..} as well as the 'phi-tau-trajectory' and 'theta-tau-trajectory' tracked values
         :param None or int limit_iteration: wether to limit the length at which it will plot along the x axis: if None, plots all available datapoint; if int value given limits plotting at a maximum of 'value' along the x axis
