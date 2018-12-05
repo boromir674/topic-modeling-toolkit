@@ -6,7 +6,7 @@ from builtins import object
 import sys
 from math import ceil
 import json
-from abc import ABCMeta, abstractproperty
+from abc import ABCMeta, abstractmethod
 from future.utils import with_metaclass
 from functools import reduce
 
@@ -333,31 +333,31 @@ class AbstractValueTracker(with_metaclass(ABCMeta, object)):
             return 'top-tokens-' + method_name[3:]
         return method_name
 
-    @abstractproperty
+    @abstractmethod
     def collection_passes(self):
         raise NotImplemented
-    @abstractproperty
+    @abstractmethod
     def perplexity(self):
         raise NotImplemented
-    @abstractproperty
+    @abstractmethod
     def sparsity_phi(self):
         raise NotImplemented
-    @abstractproperty
+    @abstractmethod
     def sparsity_theta(self):
         raise NotImplemented
-    @abstractproperty
+    @abstractmethod
     def background_tokens_ratio(self):
         raise NotImplemented
-    @abstractproperty
+    @abstractmethod
     def kernel(self):
         raise NotImplemented
-    @abstractproperty
+    @abstractmethod
     def top10(self):
         raise NotImplemented
-    @abstractproperty
+    @abstractmethod
     def top100(self):
         raise NotImplemented
-    @abstractproperty
+    @abstractmethod
     def tau_trajectories(self):
         raise NotImplemented
 

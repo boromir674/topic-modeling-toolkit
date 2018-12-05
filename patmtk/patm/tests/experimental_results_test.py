@@ -3,7 +3,10 @@ import json
 import unittest
 from random import randint
 # import patm
-from patm.modeling.experimental_results import ExperimentalResults, TrackedKernel, ExperimentalResultsFactory, RoundTripEncoder, RoundTripDecoder
+
+from results import ExperimentalResults
+from results.experimental_results import TrackedKernel, ExperimentalResultsFactory, RoundTripEncoder, RoundTripDecoder
+
 from patm.modeling import Experiment
 from patm.definitions import COLLECTIONS_DIR_PATH, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 from patm.modeling import trainer_factory
@@ -88,7 +91,6 @@ regs = ['reg1', 'reg2']
 
 
 exp1 = ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked, kernel_tokens, top_tokens, background_tokens, regs)
-results_factory = ExperimentalResultsFactory()
 
 
 def setUpModule():
@@ -176,7 +178,7 @@ class TestExperimentalResults(unittest.TestCase):
         assert res['final']['background-tokens'] == ['l1', 'm1', 'n1']
 
     def test_creation_from_json(self):
-        self.exp1 = results_factory.create_from_json_file(test_json_path)
+        self.exp1 = ExperimentalResults.create_from_json_file(test_json_path)
         # print self.exp1.to_json(human_redable=True)  # ExperimentalResults(_dir, label, topics, doc_passes, bg_t, dm_t, mods, tracked)
         self._assert_experimental_results_creation()
 
@@ -188,40 +190,39 @@ class TestExperimentalResults(unittest.TestCase):
         train_specs = model_trainer.model_factory.create_train_specs()
         experiment.init_empty_trackables(topic_model)
         model_trainer.train(topic_model, train_specs, effects=False)
-        exp1 = results_factory.create_from_experiment(experiment)
-        dom = topic_model.domain_topics
+        exprm_1 = ExperimentalResults.create_from_experiment(experiment)
 
-        assert hasattr(exp1, 'tracked')
-        assert hasattr(exp1, 'scalars')
-        assert exp1.scalars.nb_topics == self.nb_topics
-        assert exp1.scalars.model_label == 'test-model'
-        assert all(map(lambda x: len(x) == self.collection_passes, [exp1.tracked.perplexity, exp1.tracked.sparsity_theta, exp1.tracked.sparsity_phi_d, exp1.tracked.sparsity_phi_i]))
+        assert hasattr(exprm_1, 'tracked')
+        assert hasattr(exprm_1, 'scalars')
+        assert exprm_1.scalars.nb_topics == self.nb_topics
+        assert exprm_1.scalars.model_label == 'test-model'
+        assert all(map(lambda x: len(x) == self.collection_passes, [exprm_1.tracked.perplexity, exprm_1.tracked.sparsity_theta, exprm_1.tracked.sparsity_phi_d, exprm_1.tracked.sparsity_phi_i]))
         for reg_def in (_ for _ in self.eval_def2eval_name if _.startswith('topic-kernel-')):
-            tr_kernel = getattr(exp1.tracked, 'kernel'+reg_def.split('-')[-1][2:])
+            tr_kernel = getattr(exprm_1.tracked, 'kernel'+reg_def.split('-')[-1][2:])
             assert all(map(lambda x: len(getattr(tr_kernel.average, x)) == self.collection_passes, ['coherence', 'contrast', 'purity']))
         assert all(map(lambda x: len(x.average_coherence) == self.collection_passes,
-                       (getattr(exp1.tracked, 'top' + _.split('-')[-1]) for _ in self.eval_def2eval_name if _.startswith('top-tokens-'))))
+                       (getattr(exprm_1.tracked, 'top' + _.split('-')[-1]) for _ in self.eval_def2eval_name if _.startswith('top-tokens-'))))
         assert all(map(lambda x: len(x.all) == self.collection_passes,
-                       (getattr(exp1.tracked, 'sparsity_phi_' + _.split('-')[-1][1]) for _ in self.eval_def2eval_name if
+                       (getattr(exprm_1.tracked, 'sparsity_phi_' + _.split('-')[-1][1]) for _ in self.eval_def2eval_name if
                         _.startswith('sparsity-phi-@'))))
         # for ed, en in (_ for _ in self.eval_def2eval_name.items() if _[0].startswith('top-tokens-')):
-        #     print ed, en, '[{}]'.format(', '.join(map(lambda x: str(x), getattr(exp1.tracked, 'top'+ed.split('-')[-1]).average_coherence)))
+        #     print ed, en, '[{}]'.format(', '.join(map(lambda x: str(x), getattr(exprm_1.tracked, 'top'+ed.split('-')[-1]).average_coherence)))
         #
         # for ed, en in (_ for _ in self.eval_def2eval_name.items() if _[0].startswith('topic-kernel-')):
-        #     print ed, en, '[{}]'.format(', '.join(map(lambda x: str(x), getattr(exp1.tracked, 'kernel'+ed.split('-')[-1][2:]).average.coherence)))
+        #     print ed, en, '[{}]'.format(', '.join(map(lambda x: str(x), getattr(exprm_1.tracked, 'kernel'+ed.split('-')[-1][2:]).average.coherence)))
 
         for reg_def in (_ for _ in self.eval_def2eval_name if _.startswith('top-tokens-')):
-            tr_top = getattr(exp1.tracked, 'top' + reg_def.split('-')[-1])
+            tr_top = getattr(exprm_1.tracked, 'top' + reg_def.split('-')[-1])
             assert len(tr_top.average_coherence) == self.collection_passes
 
     #         # assert abs(tr_kernel.average.coherence.last - sum(map(lambda x: getattr(tr_kernel, x).coherence.last, dom)) / float(self.nb_topics)) < 0.001
     #
-        for kernel, kernel_def in zip(exp1.final.kernels, exp1.final.kernel_defs):
-            for topic_name in exp1.scalars.domain_topics:
-                # print dir(getattr(exp1.final, kernel))
-                # print getattr(getattr(exp1.final, kernel), topic_name).tokens
+        for kernel, kernel_def in zip(exprm_1.final.kernels, exprm_1.final.kernel_defs):
+            for topic_name in exprm_1.scalars.domain_topics:
+                # print dir(getattr(exprm_1.final, kernel))
+                # print getattr(getattr(exprm_1.final, kernel), topic_name).tokens
                 # print experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[kernel_def]].tokens[-1]
-                assert getattr(getattr(exp1.final, kernel), topic_name).tokens == experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[kernel_def]].tokens[-1][topic_name]
+                assert getattr(getattr(exprm_1.final, kernel), topic_name).tokens == experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[kernel_def]].tokens[-1][topic_name]
     #
     #     for top, top_def in zip(exp1.final.top, exp1.final.top_defs):
     #         for topic_name in exp1.scalars.domain_topics:
