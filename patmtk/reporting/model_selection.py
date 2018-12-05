@@ -6,6 +6,7 @@ from collections import Counter
 from results import ExperimentalResults
 
 from .fitness import FitnessFunction
+from functools import reduce
 
 
 KERNEL_SUB_ENTITIES = ('coherence', 'contrast', 'purity')
@@ -16,7 +17,7 @@ def _get_kernel_sub_hash(entity):
                                'list-extractor': lambda x, y: getattr(x.tracked, 'kernel' + y[2:]).average.all if hasattr(x.tracked, 'kernel' + y[2:]) else None,
                                'column-title': lambda x: 'k'+entity[:3:2]+'.'+str(x)[2:],
                                'to-string': '{:.4f}',
-                               'definitions': lambda x: map(lambda z: 'kernel-{}-{:.2f}'.format(entity, z), x.tracked.kernel_thresholds)}}
+                               'definitions': lambda x: ['kernel-{}-{:.2f}'.format(entity, z) for z in x.tracked.kernel_thresholds]}}
 
 COLUMNS_HASH = {
     'nb-topics': {'scalar-extractor': lambda x: x.scalars.nb_topics,
@@ -36,12 +37,12 @@ COLUMNS_HASH = {
                              'list-extractor': lambda x,y: getattr(x.tracked, 'top'+str(y)).average_coherence.all if hasattr(x.tracked, 'top'+str(y)) else None,
                              'column-title': lambda x: 'top'+str(x)+'ch',
                              'to-string': '{:.4f}',
-                             'definitions': lambda x: map(lambda y: 'top-tokens-coherence-'+str(y), x.tracked.top_tokens_cardinalities)},
+                             'definitions': lambda x: ['top-tokens-coherence-'+str(y) for y in x.tracked.top_tokens_cardinalities]},
     'sparsity-phi': {'scalar-extractor': lambda x,y: getattr(x.tracked, 'sparsity_phi_'+y).last if hasattr(x.tracked, 'sparsity_phi_'+y) else None,
                      'list-extractor': lambda x,y: getattr(x.tracked, 'sparsity_phi_'+y).all if hasattr(x.tracked, 'sparsity_phi_'+y) else None,
                      'column-title': lambda y: 'spp@'+y,
                      'to-string': '{:.2f}',
-                     'definitions': lambda x: map(lambda z: 'sparsity-phi-{}'.format(z), x.tracked.modalities_initials)},
+                     'definitions': lambda x: ['sparsity-phi-{}'.format(z) for z in x.tracked.modalities_initials]},
     'sparsity-theta': {'scalar-extractor': lambda x: x.tracked.sparsity_theta.last,
                        'list-extractor': lambda x: x.tracked.sparsity_theta.all,
                        'column-title': lambda: 'spt',
@@ -50,12 +51,12 @@ COLUMNS_HASH = {
                                 'list-extractor': lambda x,y: getattr(x.tracked, 'background_tokens_ratio_'+str(y)[2:]).all if hasattr(x.tracked, 'background_tokens_ratio_'+str(y)[2:]) else None,
                                 'column-title': lambda x: 'btr.'+str(x)[2:],
                                 'to-string': '{:.2f}',
-                                'definitions': lambda x: map(lambda y: 'background-tokens-ratio-{:.2f}'.format(y), x.tracked.background_tokens_thresholds)},
+                                'definitions': lambda x: ['background-tokens-ratio-{:.2f}'.format(y) for y in x.tracked.background_tokens_thresholds]},
     'regularizers': {'scalar-extractor': lambda x: '[{}]'.format(', '.join(x.regularizers)),
                      'column-title': lambda: 'regs'}
 }
 
-COLUMNS_HASH = reduce(lambda x, y: dict(y, **x), [COLUMNS_HASH] + map(lambda z: _get_kernel_sub_hash(z), KERNEL_SUB_ENTITIES))
+COLUMNS_HASH = reduce(lambda x, y: dict(y, **x), [COLUMNS_HASH] + [_get_kernel_sub_hash(z) for z in KERNEL_SUB_ENTITIES])
 
 
 class ResultsHandler(object):
@@ -89,7 +90,7 @@ class ResultsHandler(object):
             top = len(results_paths)
         assert type(top) == int and top > 0
         if callable_metric:
-            return sorted(map(lambda x: self._process_result_path(x), results_paths), key=callable_metric, reverse=True)[:top]
+            return sorted([self._process_result_path(x) for x in results_paths], key=callable_metric, reverse=True)[:top]
         return map(lambda x: self._process_result_path(x), results_paths)[:top]
 
     def _process_result_path(self, result_path):
@@ -106,7 +107,7 @@ class ResultsHandler(object):
 
     @staticmethod
     def get_titles(column_definitions):
-        return map(lambda x: ResultsHandler.get_abbreviation(x), column_definitions)
+        return [ResultsHandler.get_abbreviation(x) for x in column_definitions]
 
     @staticmethod
     def get_abbreviation(definition):
@@ -148,13 +149,12 @@ class ResultsHandler(object):
 
     @staticmethod
     def get_all_columns(exp_results):
-        return reduce(lambda i, j: i + j, map(lambda x: COLUMNS_HASH[x]['definitions'](exp_results) if x in ResultsHandler.DYNAMIC_COLUMNS else [x], ResultsHandler.DEFAULT_COLUMNS))
+        return reduce(lambda i, j: i + j, [COLUMNS_HASH[x]['definitions'](exp_results) if x in ResultsHandler.DYNAMIC_COLUMNS else [x] for x in ResultsHandler.DEFAULT_COLUMNS])
 
     ###### UTILITY FUNCTIONS ######
     @staticmethod
     def _parse_column_definition(definition):
-        return map(lambda y: list(filter(None, y)),
-                   zip(*map(lambda x: (x, None) if ResultsHandler._is_token(x) else (None, x), definition.split('-'))))
+        return [list([_f for _f in y if _f]) for y in zip(*[(x, None) if ResultsHandler._is_token(x) else (None, x) for x in definition.split('-')])]
 
     @staticmethod
     def _get_hash_key(column_definition):
@@ -173,12 +173,12 @@ class ResultsHandler(object):
     @staticmethod
     def determine_metrics_usable_for_comparison(exp_results_list):
         c = Counter()
-        c.update(map(lambda i,j: i+j, map(lambda x: ResultsHandler.get_all_columns(x), exp_results_list)))
+        c.update(map(lambda i,j: i+j, [ResultsHandler.get_all_columns(x) for x in exp_results_list]))
         return [k for k, v in c.items() if v > 1]
 
     @staticmethod
     def determine_maximal_set_of_renderable_columns(exp_results_list):
-        return reduce(lambda i, j: i.union(j), map(lambda x: set(ResultsHandler.get_all_columns(x)), exp_results_list))
+        return reduce(lambda i, j: i.union(j), [set(ResultsHandler.get_all_columns(x)) for x in exp_results_list])
 
 # class ModelSelector(object):
 #
