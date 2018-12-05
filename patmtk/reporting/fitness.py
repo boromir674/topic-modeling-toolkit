@@ -1,9 +1,9 @@
 from abc import ABCMeta
 from collections import defaultdict
+from functools import reduce
 
 
-class FitnessValue(object):
-    __metaclass__ = ABCMeta
+class FitnessValue:
     def __init__(self, value):
         self.value = value
     def __abs__(self):
@@ -14,7 +14,7 @@ class FitnessValue(object):
         return not self.__ne__(other)
 class NaturalFitnessValue(FitnessValue):
     def __init__(self, value):
-        super(NaturalFitnessValue, self).__init__(value)
+        super().__init__(value)
     def __lt__(self, other):
         return self.value < other.value
     def __le__(self, other):
@@ -25,7 +25,7 @@ class NaturalFitnessValue(FitnessValue):
         return self.value >= other.value
 class ReversedFitnessValue(FitnessValue):
     def __init__(self, value):
-        super(ReversedFitnessValue, self).__init__(value)
+        super().__init__(value)
     def __lt__(self, other):
         return self.value > other.value
     def __le__(self, other):
@@ -80,7 +80,7 @@ class FitnessFunction:
         self._names = names
         self._order = ordering
         assert ordering in ('natural', 'reversed')
-        assert sum(map(lambda x: abs(x), self._coeff)) - 1 < abs(1e-6)
+        assert abs(sum(map(abs, self._coeff))) - 1 < 1e-6
 
     @classmethod
     def single_metric(cls, metric_definition):
@@ -91,7 +91,7 @@ class FitnessFunction:
         return self._order
 
     def compute(self, individual):
-        return _FITNESS_VALUE_CONSTRUCTORS_HASH[self._order](reduce(lambda i, j: i + j, map(lambda x: x[0] * self._wrap(x[1](individual)), zip(self._coeff, self._extr))))
+        return _FITNESS_VALUE_CONSTRUCTORS_HASH[self._order](reduce(lambda i, j: i + j, [x[0] * self._wrap(x[1](individual)) for x in zip(self._coeff, self._extr)]))
 
     def _wrap(self, value):
         if value is None:
@@ -99,10 +99,10 @@ class FitnessFunction:
         return value
 
     def __str__(self):
-        return ' + '.join(map(lambda x: '{}*{}'.format(x[0], x[1]), zip(self._names, self._coeff)))
+        return ' + '.join(['{}*{}'.format(x[0], x[1]) for x in zip(self._names, self._coeff)])
 
 
-class FitnessCalculator(object):
+class FitnessCalculator:
     def __init__(self):
         self._func = None
         self._column_defs, self._best = [], []
@@ -124,7 +124,7 @@ class FitnessCalculator(object):
     @highlightable_columns.setter
     def highlightable_columns(self, column_definitions):
         self._highlightable_columns = column_definitions
-        self._best = dict(map(lambda x: (x, _INITIAL_BEST[FitnessCalculator._get_column_key(x)]), column_definitions))
+        self._best = dict([(x, _INITIAL_BEST[FitnessCalculator._get_column_key(x)]) for x in column_definitions])
 
     @property
     def best(self):
@@ -148,7 +148,7 @@ class FitnessCalculator(object):
 
     def _update_best(self, values_vector):
         self._best.update([(column_def, value) for column_key, column_def, value in
-                           map(lambda x: (FitnessCalculator._get_column_key(x[0]), x[0], x[1]), zip(self._column_defs, values_vector))
+                           [(FitnessCalculator._get_column_key(x[0]), x[0], x[1]) for x in zip(self._column_defs, values_vector)]
                            if column_def in self._best and FitnessCalculator._get_value(column_key, value) > FitnessCalculator._get_value(column_key, self._best[column_def])])
 
     def __call__(self, *args, **kwargs):
@@ -160,7 +160,8 @@ class FitnessCalculator(object):
 
     @staticmethod
     def _get_column_key(column_definition):
-        return '-'.join(filter(None, map(lambda x: FitnessCalculator._get_token(x), column_definition.split('-'))))
+        return '-'.join([_f for _f in map(FitnessCalculator._get_token, column_definition.split('-')) if _f])
+        # return '-'.join([_f for _f in [FitnessCalculator._get_token(x) for x in column_definition.split('-')] if _f])
 
     @staticmethod
     def _get_token(definition_element):
