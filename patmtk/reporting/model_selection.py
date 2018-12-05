@@ -60,7 +60,7 @@ COLUMNS_HASH = reduce(lambda x, y: dict(y, **x), [COLUMNS_HASH] + [_get_kernel_s
 
 
 class ResultsHandler(object):
-    _QUANTITY_2_EXTRACTOR = {'last': 'scalar', 'all': 'list'}
+    _QUANTITY_2_EXTRACTOR_KEY = {'last': 'scalar', 'all': 'list'}
     DYNAMIC_COLUMNS = ['kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi', 'background-tokens-ratio']
     DEFAULT_COLUMNS = ['nb-topics', 'collection-passes', 'document-passes', 'total-phi-updates', 'perplexity'] +\
                       DYNAMIC_COLUMNS[:-1] + ['sparsity-theta'] + [DYNAMIC_COLUMNS[-1]] + ['regularizers']
@@ -145,7 +145,7 @@ class ResultsHandler(object):
         :return:
         """
         tokens, parameters = ResultsHandler._parse_column_definition(column_definition)
-        return COLUMNS_HASH['-'.join(tokens)][ResultsHandler._QUANTITY_2_EXTRACTOR[quantity]+'-extractor'](*list([exp_results] + parameters))
+        return COLUMNS_HASH['-'.join(tokens)][ResultsHandler._QUANTITY_2_EXTRACTOR_KEY[quantity] + '-extractor'](*list([exp_results] + parameters))
 
     @staticmethod
     def get_all_columns(exp_results):
