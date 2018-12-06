@@ -11,10 +11,12 @@ from functools import reduce
 
 KERNEL_SUB_ENTITIES = ('coherence', 'contrast', 'purity')
 
+MAX_DECIMALS = 2  # this consant should agree with the patm.modeling.experiment.Experiment.MAX_DECIMALS
+
 def _get_kernel_sub_hash(entity):
     assert entity in KERNEL_SUB_ENTITIES
-    return {'kernel-'+entity: {'scalar-extractor': lambda x,y: getattr(x.tracked, 'kernel'+y[2:]).average.last if hasattr(x.tracked, 'kernel'+y[2:]) else None,
-                               'list-extractor': lambda x, y: getattr(x.tracked, 'kernel' + y[2:]).average.all if hasattr(x.tracked, 'kernel' + y[2:]) else None,
+    return {'kernel-'+entity: {'scalar-extractor': lambda x,y: getattr(getattr(x.tracked, 'kernel'+y[2:]).average, entity).last if hasattr(x.tracked, 'kernel'+y[2:]) else None,
+                               'list-extractor': lambda x, y: getattr(getattr(x.tracked, 'kernel' + y[2:]).average, entity).all if hasattr(x.tracked, 'kernel' + y[2:]) else None,
                                'column-title': lambda x: 'k'+entity[:3:2]+'.'+str(x)[2:],
                                'to-string': '{:.4f}',
                                'definitions': lambda x: ['kernel-{}-{:.2f}'.format(entity, z) for z in x.tracked.kernel_thresholds]}}
@@ -91,7 +93,7 @@ class ResultsHandler(object):
         assert type(top) == int and top > 0
         if callable_metric:
             return sorted([self._process_result_path(x) for x in results_paths], key=callable_metric, reverse=True)[:top]
-        return map(lambda x: self._process_result_path(x), results_paths)[:top]
+        return [self._process_result_path(_) for _ in results_paths][:top]
 
     def _process_result_path(self, result_path):
         if result_path not in self._results_hash:
@@ -179,6 +181,7 @@ class ResultsHandler(object):
     @staticmethod
     def determine_maximal_set_of_renderable_columns(exp_results_list):
         return reduce(lambda i, j: i.union(j), [set(ResultsHandler.get_all_columns(x)) for x in exp_results_list])
+
 
 # class ModelSelector(object):
 #

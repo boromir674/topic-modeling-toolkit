@@ -27,7 +27,7 @@ class Experiment:
     #     'top-tokens': ['average_coherence', 'coherence'],
     # # tokens are not tracked over time; they will be saved only for the lastest state of the inferred topics
     #     'background-tokens-ratio': ['value']
-
+    MAX_DECIMALS = 2
     def __init__(self, root_dir, cooc_dict):
         """
         Encapsulates experimentation by doing topic modeling on a 'collection' in the given patm_root_dir. A 'collection' is a proccessed document collection into BoW format and possibly split into 'train' and 'test' splits
@@ -42,6 +42,7 @@ class Experiment:
         self.phi_matrix_handler = ModelWL(self, None)
         self.failed_top_tokens_coherence = {}
         self._total_passes = 0
+        self.reg_params = None
         # self.degeneration_checker = DegenerationChecker([])
 
     def init_empty_trackables(self, model):
@@ -51,9 +52,9 @@ class Experiment:
         self._total_passes = 0
         for evaluator_definition in model.evaluator_definitions:
             if self._strip_parameters(evaluator_definition) in ('perplexity', 'sparsity-phi', 'sparsity-theta', 'background-tokens-ratio'):
-                self.trackables[evaluator_definition] = []
+                self.trackables[Experiment._assert_max_decimals(evaluator_definition)] = []
             elif evaluator_definition.startswith('topic-kernel-'):
-                self.trackables[evaluator_definition] = [[], [], [], {t_name: {'coherence': [], 'contrast': [], 'purity': []} for t_name in model.domain_topics}]
+                self.trackables[Experiment._assert_max_decimals(evaluator_definition)] = [[], [], [], {t_name: {'coherence': [], 'contrast': [], 'purity': []} for t_name in model.domain_topics}]
             elif evaluator_definition.startswith('top-tokens-'):
                 self.trackables[evaluator_definition] = [[], {t_name: [] for t_name in model.domain_topics}]
                 self.failed_top_tokens_coherence[evaluator_definition] = {t_name: [] for t_name in model.domain_topics}
@@ -86,6 +87,25 @@ class Experiment:
                     tokens.append(el)
         return '-'.join(tokens)
 
+    @classmethod
+    def _assert_max_decimals(cls, definition):
+        """Converts like:\n
+        - 'topic-kernel-0.6'            -> 'topic-kernel-0.60'\n
+        - 'topic-kernel-0.871'          -> 'topic-kernel-0.87'\n
+        - 'background-tokens-ratio-0.3' -> 'background-tokens-ratio-0.30'
+        """
+        s = definition.split('-')
+        sl = s[-1]
+        try:
+            _ = float(sl)
+            if len(sl) < 4:
+                sl = '{}{}'.format(sl, '0'*(2 + cls.MAX_DECIMALS- len(sl)))
+            else:
+                sl = sl[:4]
+            return '-'.join(s[:-1] + [sl])
+        except ValueError:
+            return definition
+
     @property
     def dictionary(self):
         return self._loaded_dictionary
@@ -103,14 +123,15 @@ class Experiment:
 
         for evaluator_name, evaluator_definition in zip(topic_model.evaluator_names, topic_model.evaluator_definitions):
             reportable_to_results = topic_model.get_evaluator(evaluator_name).evaluate(topic_model.artm_model)
+            definition_with_max_decimals = Experiment._assert_max_decimals(evaluator_definition)
 
             if self._strip_parameters(evaluator_definition) in ('perplexity', 'sparsity-phi', 'sparsity-theta', 'background-tokens-ratio'):
-                self.trackables[evaluator_definition].extend(reportable_to_results['value'][-span:])
+                self.trackables[definition_with_max_decimals].extend(reportable_to_results['value'][-span:])
             elif evaluator_definition.startswith('topic-kernel-'):
-                self.trackables[evaluator_definition][0].extend(reportable_to_results['average_coherence'][-span:])
-                self.trackables[evaluator_definition][1].extend(reportable_to_results['average_contrast'][-span:])
-                self.trackables[evaluator_definition][2].extend(reportable_to_results['average_purity'][-span:])
-                for topic_name, topic_metrics in self.trackables[evaluator_definition][3].items():
+                self.trackables[definition_with_max_decimals][0].extend(reportable_to_results['average_coherence'][-span:])
+                self.trackables[definition_with_max_decimals][1].extend(reportable_to_results['average_contrast'][-span:])
+                self.trackables[definition_with_max_decimals][2].extend(reportable_to_results['average_purity'][-span:])
+                for topic_name, topic_metrics in self.trackables[definition_with_max_decimals][3].items():
                     topic_metrics['coherence'].extend(map(lambda x: x[topic_name], reportable_to_results['coherence'][-span:]))
                     topic_metrics['contrast'].extend(map(lambda x: x[topic_name], reportable_to_results['contrast'][-span:]))
                     topic_metrics['purity'].extend(map(lambda x: x[topic_name], reportable_to_results['purity'][-span:]))

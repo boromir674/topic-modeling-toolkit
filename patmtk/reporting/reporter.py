@@ -13,8 +13,8 @@ class ModelReporter:
     UNDERLINE = '\033[4m'
     ENDC = '\033[0m'
 
-    def __init__(self, collections_dir_path, results_dir_name='results'):
-        self._collections_dir = collections_dir_path
+    def __init__(self, collections_root_path, results_dir_name='results'):
+        self._collections_dir = collections_root_path
         self._results_dir_name = results_dir_name
         self._label_separator = ':'
         self._columns_to_render = []

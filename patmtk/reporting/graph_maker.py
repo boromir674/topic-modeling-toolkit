@@ -1,12 +1,14 @@
 # -*- coding: utf8 -*-
 
 import os
-from . import results_handler
+from collections import Counter
 # import matplotlib as mlp
-import matplotlib.pyplot as plt
 
+import matplotlib.pyplot as plt
 plt.ion()
 from easyplot import EasyPlot
+
+from . import results_handler
 
 
 class GraphMaker(object):
@@ -15,8 +17,8 @@ class GraphMaker(object):
     LINES = ['b', 'y', 'g', 'k', 'c', 'm', 'p', 'r']
     # linestyle / ls: Plot linestyle['-', '--', '-.', ':', 'None', ' ', '']
     # marker: '+', 'o', '*', 's', 'D', ',', '.', '<', '>', '^', '1', '2'
-    def __init__(self, collections_dir_path, plot_dir_name='graphs'):
-        self._collections_dir_path = collections_dir_path
+    def __init__(self, collections_root_path, plot_dir_name='graphs'):
+        self._collections_dir_path = collections_root_path
         self._plot_dir_name = plot_dir_name
         self._verbose_save = True
         self._save_lambdas = {True: lambda z: self._save_plot_n_return(z[0], z[1], verbose=self._verbose_save), False: lambda y: (x[0], x[1])}

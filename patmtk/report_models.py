@@ -10,7 +10,8 @@ def get_cli_arguments():
     return parser.parse_args()
 
 if __name__ == '__main__':
-    from patm.definitions import COLLECTIONS_DIR_PATH, RESULTS_DIR_NAME
+    # from patm.definitions import COLLECTIONS_DIR_PATH, RESULTS_DIR_NAME
+    from reporting import model_reporter
 
     COLUMNS = ['nb-topics', 'collection-passes', 'document-passes', 'total-phi-updates', 'perplexity',
                'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',
@@ -18,13 +19,19 @@ if __name__ == '__main__':
                'background-tokens-ratio',
                'regularizers']
 
+    # COLUMNS = ['nb-topics', 'collection-passes', 'perplexity']
+               # 'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',
+               # 'sparsity-theta',
+               # 'background-tokens-ratio',
+               # 'regularizers']
+
     cli_args = get_cli_arguments()
 
-    reporter = ModelReporter(COLLECTIONS_DIR_PATH, results_dir_name=RESULTS_DIR_NAME)
+    # reporter = ModelReporter(COLLECTIONS_DIR_PATH, results_dir_name=RESULTS_DIR_NAME)
 
-    s = reporter.get_formatted_string(cli_args.dataset, columns=COLUMNS, metric=cli_args.sort, verbose=True)
+    s = model_reporter.get_formatted_string(cli_args.dataset, columns=COLUMNS, metric=cli_args.sort, verbose=True)
     # s = reporter.get_formatted_string(cli_args.dataset, columns=None, metric=cli_args.sort)
-    print '\n', s
+    print('\n{}'.format(s))
 
     # from pprint import pprint
     # print '\n', pprint(dict(zip(reporter._columns_titles, reporter._max_col_lens)))

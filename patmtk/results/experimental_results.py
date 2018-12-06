@@ -119,6 +119,10 @@ class ExperimentalResults(object):
     def create_from_json_file(cls, file_path):
         with open(file_path, 'r') as fp:
             res = json.load(fp, cls=RoundTripDecoder)
+        # nb_decimals = set([ExperimentalResults._count_decimals1(key)
+        #                    for key in res['tracked']['topic-kernel'].keys() + [_ for _ in res['tracked'].keys() if _.startswith('background-tokens-ratio')]])
+        # assert len(nb_decimals) == 1
+
         data = [{'perplexity': res['tracked']['perplexity'],
                      'sparsity-theta': res['tracked']['sparsity-theta'],
                      'collection_passes': res['tracked']['collection-passes']},

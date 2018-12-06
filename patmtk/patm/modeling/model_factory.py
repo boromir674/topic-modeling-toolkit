@@ -40,6 +40,7 @@ class ModelFactory(object):
         self._modality_weights = {}
         self.topic_model_evaluators = {}
         self._eval_def2name = {}
+        self._reg_types2names = {}
 
     def construct_model(self, label, nb_topics, nb_collection_passes, nb_document_passes, background_topics_pct, modality_weights, scores, regularizers, reg_settings=None):
         """
@@ -80,23 +81,23 @@ class ModelFactory(object):
         _ = cfg2model_settings(train_cfg)
         return self.construct_model(label, _['learning']['nb_topics'], _['learning']['collection_passes'], _['learning']['document_passes'], background_topics_pct, modality_weights, _['scores'], _['regularizers'], reg_settings=reg_cfg)
 
-    def create_model_with_phi_from_disk(self, phi_file_path, results):
-        """
-        Given a phi file path, a unique label and a dictionary of experimental tracked_metrics_dict, initializes a TopicModel object with the restored state of a model stored in disk. Configures to track the same
-        evaluation metrics/scores. Uses the self.dictionary for indexing.\n
-        It copies the tau trajectory definitions found in loaded model. This means that tau will foloow the same trajectory from scratch
-        Sets the below parameters with the latest corresponding values found in the experimental tracked_metrics_dict:\n
-        - number of phi-matrix-updates/passes-per-document\n
-        - number of train iterations to perform on the whole documents collection\n
-        - regularizers to use and their parameters\n
-        :param str phi_file_path: strored phi matrix p_wt
-        :param dict results: experimental results object; patm.modeling.experiment.Experiment.get_results() output
-        :return: tuple of initialized model and training specifications
-        :rtype: (patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs)
-        """
-        self._nb_topics, self._nb_document_passes = int(results['model_parameters']['nb_topics'][-1][1]), results['model_parameters']['document_passes'][-1][1]
-        self._eval_def2name, self._reg_types2names = results['eval_definition2eval_name'], {k: v['name'] for k, v in results['reg_parameters'][-1][1].items()}
-        return self._create_model(results['model_label'], results['modalities'], results['background_topics'], results['domain_topics'], reg_cfg=results['reg_parameters'][1][1], phi_path=phi_file_path)
+    # def create_model_with_phi_from_disk(self, phi_file_path, results):
+    #     """
+    #     Given a phi file path, a unique label and a dictionary of experimental tracked_metrics_dict, initializes a TopicModel object with the restored state of a model stored in disk. Configures to track the same
+    #     evaluation metrics/scores. Uses the self.dictionary for indexing.\n
+    #     It copies the tau trajectory definitions found in loaded model. This means that tau will foloow the same trajectory from scratch
+    #     Sets the below parameters with the latest corresponding values found in the experimental tracked_metrics_dict:\n
+    #     - number of phi-matrix-updates/passes-per-document\n
+    #     - number of train iterations to perform on the whole documents collection\n
+    #     - regularizers to use and their parameters\n
+    #     :param str phi_file_path: strored phi matrix p_wt
+    #     :param dict results: experimental results object; patm.modeling.experiment.Experiment.get_results() output
+    #     :return: tuple of initialized model and training specifications
+    #     :rtype: (patm.modeling.topic_model.TopicModel, patm.modeling.topic_model.TrainSpecs)
+    #     """
+    #     self._nb_topics, self._nb_document_passes = int(results['model_parameters']['nb_topics'][-1][1]), results['model_parameters']['document_passes'][-1][1]
+    #     self._eval_def2name, self._reg_types2names = results['eval_definition2eval_name'], {k: v['name'] for k, v in results['reg_parameters'][-1][1].items()}
+    #     return self._create_model(results['model_label'], results['modalities'], results['background_topics'], results['domain_topics'], reg_cfg=results['reg_parameters'][1][1], phi_path=phi_file_path)
 
     def _create_model(self, label, background_topics, domain_topics, reg_cfg=None, phi_path=''):
         assert self._nb_topics == len(background_topics + domain_topics)
