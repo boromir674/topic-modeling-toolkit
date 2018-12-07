@@ -64,11 +64,10 @@ class ModelTrainer(object):
         else:
             steady_iter_chunks = get_fit_iteration_chunks(map(lambda x: x[1], trajectories_data))
             all_iter_chunks = steady_iter_chunks.to_training_chunks(specs.collection_passes)
-
             iter_sum = 0
             gener = all_iter_chunks
             if effects:
-                print 'Will fit on {} chunks and train with tau trajectories for regs [{}]'.format(len(all_iter_chunks), ', '.join((_[0] for _ in trajectories_data)))
+                print 'Will fit on {} chunks ({} steady) and train with tau trajectories for regs [{}]'.format(len(all_iter_chunks), len(steady_iter_chunks), ', '.join((_[0] for _ in trajectories_data)))
                 from tqdm import tqdm
                 gener = tqdm(all_iter_chunks, total=len(all_iter_chunks), unit='fit-operation')
             for chunk in gener:

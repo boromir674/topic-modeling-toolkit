@@ -1,12 +1,13 @@
 import os
 import re
 from glob import glob
+from functools import reduce
 from collections import Counter
+import numpy as np
 
 from results import ExperimentalResults
 
 from .fitness import FitnessFunction
-from functools import reduce
 
 
 KERNEL_SUB_ENTITIES = ('coherence', 'contrast', 'purity')
@@ -19,7 +20,7 @@ def _get_kernel_sub_hash(entity):
                                'list-extractor': lambda x, y: getattr(getattr(x.tracked, 'kernel' + y[2:]).average, entity).all if hasattr(x.tracked, 'kernel' + y[2:]) else None,
                                'column-title': lambda x: 'k'+entity[:3:2]+'.'+str(x)[2:],
                                'to-string': '{:.4f}',
-                               'definitions': lambda x: ['kernel-{}-{:.2f}'.format(entity, z) for z in x.tracked.kernel_thresholds]}}
+                               'definitions': lambda x: ['kernel-{}-{:.2f}'.format(entity, y) for y in x.tracked.kernel_thresholds]}}
 
 COLUMNS_HASH = {
     'nb-topics': {'scalar-extractor': lambda x: x.scalars.nb_topics,
@@ -44,7 +45,7 @@ COLUMNS_HASH = {
                      'list-extractor': lambda x,y: getattr(x.tracked, 'sparsity_phi_'+y).all if hasattr(x.tracked, 'sparsity_phi_'+y) else None,
                      'column-title': lambda y: 'spp@'+y,
                      'to-string': '{:.2f}',
-                     'definitions': lambda x: ['sparsity-phi-{}'.format(z) for z in x.tracked.modalities_initials]},
+                     'definitions': lambda x: ['sparsity-phi-{}'.format(y) for y in x.tracked.modalities_initials]},
     'sparsity-theta': {'scalar-extractor': lambda x: x.tracked.sparsity_theta.last,
                        'list-extractor': lambda x: x.tracked.sparsity_theta.all,
                        'column-title': lambda: 'spt',
@@ -62,6 +63,10 @@ COLUMNS_HASH = reduce(lambda x, y: dict(y, **x), [COLUMNS_HASH] + [_get_kernel_s
 
 
 class ResultsHandler(object):
+    _list_selector_hash = {str: lambda x: x[0] if x[1] == 'all' else None,
+                           range: lambda x: [x[0][_] for _ in x[1]],
+                           int: lambda x: x[0][:x[1]],
+                           list: lambda x: [x[0][_] for _ in x[1]]}
     _QUANTITY_2_EXTRACTOR_KEY = {'last': 'scalar', 'all': 'list'}
     DYNAMIC_COLUMNS = ['kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi', 'background-tokens-ratio']
     DEFAULT_COLUMNS = ['nb-topics', 'collection-passes', 'document-passes', 'total-phi-updates', 'perplexity'] +\
@@ -71,29 +76,31 @@ class ResultsHandler(object):
         self._collection_root_path = collection_root_path
         self._results_dir_name = results_dir_name
         self._results_hash = {}
-        self._collection = ''
-        # self._fitness_function_builder = FitnessFunctionBuilder()
         self._fitness_function_hash = {}
+        self._list_selector = None
 
-    def get_experimental_results(self, collection_name, top='all', sort=''):
+    def get_experimental_results(self, collection_name, sort='', selection='all'):
         """
-        Call this method to get a list of experimental result objects from topic models trained on the given collection.
+        Call this method to get a list of experimental result objects from topic models trained on the given collection.\n
         :param str collection_name:
-        :param str or int top:
         :param str sort:
-        :return:
+        :param str or range or int or list selection: whether to select a subset of the experimental results fron the given collection\n
+            - if selection == 'all', returns every experimental results object "extracted" from the jsons
+            - if type(selection) == range, returns a "slice" of the experimental results based on the range
+            - if type(selection) == int, returns the first n experimental results
+            - if type(selection) == list, then it represents specific indices to sample the list of experimental results from
+        :return: the ExperimentalResults objects
+        :rtype: list
         """
-        self._collection = collection_name
         result_paths = glob('{}/*.json'.format(os.path.join(self._collection_root_path, collection_name, self._results_dir_name)))
-        return self._get_experimental_results(result_paths, top=top, callable_metric=self._get_metric(sort))
+        print("GET exp results: selection '{}' of type {}".format(selection, type(selection)))
+        self._list_selector = lambda x: ResultsHandler._list_selector_hash[type(selection)]([x, selection])
+        return self._list_selector(self._get_experimental_results(result_paths, callable_metric=self._get_metric(sort)))
 
-    def _get_experimental_results(self, results_paths, top='all', callable_metric=None):
-        if top == 'all':
-            top = len(results_paths)
-        assert type(top) == int and top > 0
+    def _get_experimental_results(self, results_paths, callable_metric=None):
         if callable_metric:
-            return sorted([self._process_result_path(x) for x in results_paths], key=callable_metric, reverse=True)[:top]
-        return [self._process_result_path(_) for _ in results_paths][:top]
+            return self._list_selector(sorted([self._process_result_path(x) for x in results_paths], key=callable_metric, reverse=True))
+        return [self._process_result_path(_) for _ in self._list_selector(results_paths)]
 
     def _process_result_path(self, result_path):
         if result_path not in self._results_hash:
@@ -171,12 +178,6 @@ class ResultsHandler(object):
             if definition_element[0] == '@' or len(definition_element) == 1:
                 return False
             return True
-
-    @staticmethod
-    def determine_metrics_usable_for_comparison(exp_results_list):
-        c = Counter()
-        c.update(map(lambda i,j: i+j, [ResultsHandler.get_all_columns(x) for x in exp_results_list]))
-        return [k for k, v in c.items() if v > 1]
 
     @staticmethod
     def determine_maximal_set_of_renderable_columns(exp_results_list):

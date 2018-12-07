@@ -1,7 +1,7 @@
 import warnings
 from collections import Counter
 
-from patm.modeling.regularization.regularizers import regularizer_type2dynamic_parameters
+from patm.modeling.regularization.regularizers import REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH
 
 
 class TopicModel(object):
@@ -179,9 +179,8 @@ class TopicModel(object):
         for reg_type in self.regularizer_types:
             d[reg_type] = {}
             cur_reg_obj = self.artm_model.regularizers[self._reg_type2name[reg_type]]
-            # d[reg_type]['name'] = cur_reg_obj.name
-            for attribute_name in (_ for _ in regularizer_type2dynamic_parameters[reg_type] if _):  # ie for _ in ('tau', 'gamma')
-                d[reg_type][attribute_name] = cur_reg_obj.__getattribute__(attribute_name)
+            for attribute_name in REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH[reg_type]:  # ie for _ in ('tau', 'gamma')
+                d[reg_type][attribute_name] = getattr(cur_reg_obj, attribute_name)
         return d
 
     # def get_top_tokens(self, topic_names='all', nb_tokens=10):

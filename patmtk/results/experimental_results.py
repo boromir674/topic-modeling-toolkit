@@ -163,14 +163,13 @@ class ExperimentalResults(object):
     @classmethod
     def create_from_experiment(cls, experiment):
         data = [{'perplexity': experiment.trackables['perplexity'],
-                       'sparsity-theta': experiment.trackables['sparsity-theta'],
-                       'collection_passes': experiment.collection_passes},
+                 'sparsity-theta': experiment.trackables['sparsity-theta'],
+                 'collection_passes': experiment.collection_passes},
                 {kernel_definition: [value[0], value[1], value[2], value[3]] for kernel_definition, value in
                  list(experiment.trackables.items()) if kernel_definition.startswith('topic-kernel')},
                 {top_tokens_definition: [value[0], value[1]] for top_tokens_definition, value in
                  list(experiment.trackables.items()) if top_tokens_definition.startswith('top-tokens-')},
-                {'tau-trajectories': {matrix_name: experiment.reg_params['sparse-' + matrix_name]['tau']} for
-                 matrix_name in ['phi', 'theta']},
+                {'tau-trajectories': {matrix_name: experiment.reg_params['sparse-' + matrix_name]['tau'] for matrix_name in ['theta', 'phi']}},
                 {key: v for key, v in list(experiment.trackables.items()) if key.startswith('sparsity-phi-@')},
                 {key: v for key, v in list(experiment.trackables.items()) if key.startswith('background-tokens-ratio')}]
         final_kernel_tokens = {eval_def: cls._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('topic-kernel-')}
@@ -300,7 +299,9 @@ class AbstractValueTracker(object):
             elif score_type == 'top-tokens':
                 self._groups[evaluator_definition] = TrackedTopTokens(*v)
             elif score_type == 'tau-trajectories':
+                # print('VT', v)
                 self._groups[score_type] = TrackedTrajectories(v)
+                # print(self._groups['tau-trajectories']._trajs.keys())
             else:
                 self._flat[evaluator_definition.replace('_', '-')] = TrackedEntity(score_type, v)
 

@@ -29,7 +29,7 @@ class GraphMaker(object):
                                     'theta-tau-trajectory': lambda x: ResultsHandler.get_tau_trajectory(x, 'theta')}
         self._max_digits_prepend = 2
         self._plot_counter = Counter()
-        self.graph_names_n_eplots = []  # list of tuples
+        self._graph_names_n_eplots = []  # list of tuples
 
     def _prepare_output_folder(self, collection_name):
         self._output_dir_path = os.path.join(self._collections_dir_path, collection_name, self._plot_dir_name)
@@ -45,22 +45,35 @@ class GraphMaker(object):
             os.makedirs(self._output_dir_path)
             print('Created \'{}\' directory'.format(self._output_dir_path))
 
-    def build_graphs_from_collection(self, collection_name, top=8, indices_range=(), metric='perplexity', score_definitions='all', tau_trajectories='all', save=True, nb_points=None, verbose=True):
+    def build_graphs_from_collection(self, collection_name, selection, metric='perplexity',
+                                     score_definitions='all', tau_trajectories='all', save=True, nb_points=None, verbose=True):
+        """
+        Call this method to create plots for the given collection.\n
+        :param str collection_name:
+        :param str or range or int or list selection: whether to select a subset of the experimental results fron the given collection\n
+            - if selection == 'all', returns every experimental results object "extracted" from the jsons
+            - if type(selection) == range, returns a "slice" of the experimental results based on the range
+            - if type(selection) == int, returns the first n experimental results
+            - if type(selection) == list, then it represents specific indices to sample the list of experimental results from
+        :param str metric:
+        :param list or str score_definitions:
+        :param list or str tau_trajectories:
+        :param bool save:
+        :param int nb_points:
+        :param bool verbose:
+        """
         self._prepare_output_folder(collection_name)
-        if indices_range:
-            self._exp_results_list = results_handler.get_experimental_results(collection_name, top='all', sort=metric)[indices_range[0]:indices_range[1]]
-        else:
-            self._exp_results_list = results_handler.get_experimental_results(collection_name, top=top, sort=metric)
+        self._exp_results_list = results_handler.get_experimental_results(collection_name, sort=metric, selection=selection)
         self.build_graphs(self._exp_results_list, score_definitions=score_definitions, tau_trajectories=tau_trajectories,
                           save=save, nb_points=nb_points, verbose=verbose)
 
     def build_graphs(self, results, score_definitions='all', tau_trajectories='all', save=True, nb_points=None, verbose=True):
         if score_definitions == 'all':
-            score_definitions = ResultsHandler.determine_metrics_usable_for_comparison(results)
+            score_definitions = results_handler.determine_metrics_usable_for_comparison(results)
         if tau_trajectories == 'all':
             tau_trajectories = ['phi', 'theta']
-        self.graph_names_n_eplots.extend(self.build_metrics_graphs(results, scores=score_definitions, save=save, nb_points=nb_points, verbose=verbose))
-        self.graph_names_n_eplots.extend(self.build_tau_trajectories_graphs(results, matrices=tau_trajectories, save=save, nb_points=nb_points, verbose=verbose))
+        self._graph_names_n_eplots.extend(self.build_metrics_graphs(results, scores=score_definitions, save=save, nb_points=nb_points, verbose=verbose))
+        self._graph_names_n_eplots.extend(self.build_tau_trajectories_graphs(results, matrices=tau_trajectories, save=save, nb_points=nb_points, verbose=verbose))
 
     def build_tau_trajectories_graphs(self, results, matrices='all', save=True, nb_points=None, verbose=True):
         return [self._save_lambdas[save](self._build_metric_graph(results, x, limit_iteration=nb_points, verbose=verbose)) for x in matrices]
@@ -87,8 +100,9 @@ class GraphMaker(object):
         assert len(exp_results_list) <= len(GraphMaker.LINES)
         self._verbose_save = verbose
         labels = [_.scalars.model_label for _ in exp_results_list]
-        measure_name = ResultsHandler.get_abbreviation(metric)
-        extractor = self._tau_traj_extractor.get(metric, lambda x: ResultsHandler.extract(x, metric, 'all'))
+        measure_name = results_handler.get_abbreviation(metric)
+        print('METRIC', metric)
+        extractor = self._tau_traj_extractor.get(metric, lambda x: results_handler.extract(x, metric, 'all'))
         ys, xs = self._get_ys_n_xs(exp_results_list, extractor, nb_points=limit_iteration)
         return '{}-{}'.format(self._model_label_joiner.join(labels), measure_name), \
                GraphMaker.build_graph(xs, ys,
@@ -105,16 +119,16 @@ class GraphMaker(object):
     def _save_plot(self, graph_type, eplot, verbose=True):
         """Call this method to save a graph on the disk as a .png file. The input graph type contributes to naming the file
         and appending any numbers for versioning and the plot object has a 'save' method."""
-        target_name = self._get_target_name(graph_type)
+        target_name = self._get_target_file_path(graph_type)
         while os.path.exists(target_name): # while old graph files are found with the same name and version number, increment the plot 'version'
-            target_name = self._get_target_name(graph_type)
+            target_name = self._get_target_file_path(graph_type)
         eplot.kwargs['fig'].savefig(target_name)
         if verbose:
             print('Saved figure as', target_name)
 
-    def _get_target_name(self, graph_type):
+    def _get_target_file_path(self, graph_type):
         self._plot_counter[graph_type] += 1
-        return os.path.join(self.gr_dir, '{}_{}.png'.format(graph_type, self._iter_prepend(self._plot_counter[graph_type])))
+        return os.path.join(self._output_dir_path, '{}_{}.png'.format(graph_type, self._iter_prepend(self._plot_counter[graph_type])))
 
     def _get_ys_n_xs(self, exp_results_list, extractor, nb_points=None):
         if 0:
@@ -134,6 +148,18 @@ class GraphMaker(object):
             # ys = list(filter(None, map(lambda x: GraphMaker._limit_points(ResultsHandler.extract(x, metric_definition), nb_points), exp_results_list)))
             self._results_indices = list(range(len(ys)))
         return ys, [list(range(len(_))) for _ in ys]
+
+    @staticmethod
+    def determine_metrics_usable_for_comparison(exp_results_list):
+        c = Counter()
+        _ = reduce(lambda i, j: i + j, [ResultsHandler.get_all_columns(x) for x in exp_results_list])
+        c.update(_)
+        return [k for k, v in c.items() if v > 1]
+
+    @classmethod
+    def get_plotable_columns(cls, exp_results):
+        return reduce(lambda i, j: i + j, [results_handler.COLUMNS_HASH[x]['definitions'](exp_results) if x in ResultsHandler.DYNAMIC_COLUMNS else [x] for x
+                       in ResultsHandler.DEFAULT_COLUMNS])
 
     @staticmethod
     def build_graph(xs, ys, line_designs, labels, title, xlabel, ylabel, grid='on'):

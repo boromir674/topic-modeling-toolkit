@@ -1,6 +1,6 @@
 from .model_factory import get_model_factory
 from .persistence import ResultsWL, ModelWL
-from patm.modeling.regularization.regularizers import regularizer_type2dynamic_parameters as dyn_coefs
+from patm.modeling.regularization.regularizers import REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH as dyn_coefs
 
 
 class Experiment:
@@ -118,9 +118,8 @@ class Experiment:
         self.collection_passes.append(span) # iterations performed on the train set for the current 'steady' chunk
 
         for reg_type, reg_settings in topic_model.get_regs_param_dict().items():
-            for param_name, param_value in (_ for _ in reg_settings.items() if _[1]):
+            for param_name, param_value in reg_settings.items():
                 self.reg_params[reg_type][param_name].extend([param_value]*span)
-
         for evaluator_name, evaluator_definition in zip(topic_model.evaluator_names, topic_model.evaluator_definitions):
             reportable_to_results = topic_model.get_evaluator(evaluator_name).evaluate(topic_model.artm_model)
             definition_with_max_decimals = Experiment._assert_max_decimals(evaluator_definition)

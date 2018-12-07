@@ -147,18 +147,5 @@ class InvalidSpanException(Exception):
         super(InvalidSpanException, self).__init__(msg)
 
 
-
-# class ParameterExplorer(object):
-#     def get_tau_start_span(self):
-#         return sparse_tau_start
-#     def get_tau_deactivation_period_span(self):
-#         return deactivation_period
-#     def get_tau_deactivation_period_pct_span(self):
-#         return deactivation_period_pct
-#     def get_spline_types(self):
-#         return splines
-#
-# parameter_explorer = ParameterExplorer()
-
 if __name__ == '__main__':
     test()

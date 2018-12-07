@@ -38,7 +38,8 @@ regularizer2parameters = {
 # parameters that can be dynamically updated during training ie tau coefficients for sparsing regularizers should increase in absolute values (start below zero and decrease )
 supported_dynamic_parameters = ('tau', 'gamma')
 
-regularizer_type2dynamic_parameters = dict(zip(regularizer2parameters.keys(), [supported_dynamic_parameters]*len(regularizer2parameters)))
+REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH = dict([(k, [_ for _ in v if _ in supported_dynamic_parameters]) for k, v in regularizer2parameters.items()])
+
 
 parameter_name2encoder = {
     'tau': str, # the coefficient of regularization for this regularizer
