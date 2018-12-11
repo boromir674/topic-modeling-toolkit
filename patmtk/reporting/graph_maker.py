@@ -1,6 +1,7 @@
 # -*- coding: utf8 -*-
 
 import os
+from functools import reduce
 from collections import Counter
 # import matplotlib as mlp
 
@@ -25,8 +26,8 @@ class GraphMaker(object):
         self._model_label_joiner = '+'
         self._results_indices = []
         self._exp_results_list = []
-        self._tau_traj_extractor = {'phi-tau-trajectory': lambda x: ResultsHandler.get_tau_trajectory(x, 'phi'),
-                                    'theta-tau-trajectory': lambda x: ResultsHandler.get_tau_trajectory(x, 'theta')}
+        self._tau_traj_extractor = {'phi': lambda x: getattr(x.tracked.tau_trajectories, 'phi').all,
+                                    'theta': lambda x: getattr(x.tracked.tau_trajectories, 'theta').all}
         self._max_digits_prepend = 2
         self._plot_counter = Counter()
         self._graph_names_n_eplots = []  # list of tuples
@@ -64,12 +65,16 @@ class GraphMaker(object):
         """
         self._prepare_output_folder(collection_name)
         self._exp_results_list = results_handler.get_experimental_results(collection_name, sort=metric, selection=selection)
+        print("Retrieved {} models from collection '{}', sorted {}.\nModels: [{}]".format(
+            len(self._exp_results_list), collection_name, (lambda x: x if x else 'alphabetically')(metric),
+            ', '.join((_.scalars.model_label for _ in self._exp_results_list))))
         self.build_graphs(self._exp_results_list, score_definitions=score_definitions, tau_trajectories=tau_trajectories,
                           save=save, nb_points=nb_points, verbose=verbose)
 
     def build_graphs(self, results, score_definitions='all', tau_trajectories='all', save=True, nb_points=None, verbose=True):
+        self._verbose_save = verbose
         if score_definitions == 'all':
-            score_definitions = results_handler.determine_metrics_usable_for_comparison(results)
+            score_definitions = self.determine_metrics_usable_for_comparison(results)
         if tau_trajectories == 'all':
             tau_trajectories = ['phi', 'theta']
         self._graph_names_n_eplots.extend(self.build_metrics_graphs(results, scores=score_definitions, save=save, nb_points=nb_points, verbose=verbose))
@@ -87,7 +92,6 @@ class GraphMaker(object):
         :param int nb_points: number of points to plot. Defaults to plotting all measurements found
         :param bool verbose:
         """
-        self._verbose_save = verbose
         return [self._save_lambdas[save](self._build_metric_graph(results, x, limit_iteration=nb_points, verbose=verbose)) for x in scores]
 
     def _build_metric_graph(self, exp_results_list, metric, limit_iteration=None, verbose=True):
@@ -95,20 +99,22 @@ class GraphMaker(object):
         :param list of results.experimental_results.ExperimentalResults exp_results_list:
         :param str metric: Supports unique metric definitions such as {'perplexity', 'sparsity-theta', 'sprasity-phi-d',
             'sparsity-phi-i', 'kernel-coherence-0.80', 'top-tokens-coherence-100', ..} as well as the 'phi-tau-trajectory' and 'theta-tau-trajectory' tracked values
-        :param None or int limit_iteration: wether to limit the length at which it will plot along the x axis: if None, plots all available datapoint; if int value given limits plotting at a maximum of 'value' along the x axis
+        :param None or int limit_iteration: whether to limit the length at which it will plot along the x axis: if None, plots all available datapoint; if int value given limits plotting at a maximum of 'value' along the x axis
         """
         assert len(exp_results_list) <= len(GraphMaker.LINES)
-        self._verbose_save = verbose
         labels = [_.scalars.model_label for _ in exp_results_list]
-        measure_name = results_handler.get_abbreviation(metric)
         print('METRIC', metric)
+        if metric in ('phi', 'theta'):
+            measure_name = 'τ_{}'.format(metric)
+        else:
+            measure_name = results_handler.get_abbreviation(metric).replace('-', '.')
         extractor = self._tau_traj_extractor.get(metric, lambda x: results_handler.extract(x, metric, 'all'))
         ys, xs = self._get_ys_n_xs(exp_results_list, extractor, nb_points=limit_iteration)
         return '{}-{}'.format(self._model_label_joiner.join(labels), measure_name), \
                GraphMaker.build_graph(xs, ys,
                                       GraphMaker.LINES[:len(exp_results_list)],
                                       labels,
-                                      title=measure_name.replace('-', '.'),
+                                      title=measure_name,
                                       xlabel='iteration',
                                       ylabel='y')
 
@@ -130,6 +136,12 @@ class GraphMaker(object):
         self._plot_counter[graph_type] += 1
         return os.path.join(self._output_dir_path, '{}_{}.png'.format(graph_type, self._iter_prepend(self._plot_counter[graph_type])))
 
+    def _iter_prepend(self, int_num):
+        nb_digits = len(str(int_num))
+        if nb_digits >= self._max_digits_prepend:
+            return str(int_num)
+        return '{}{}'.format((self._max_digits_prepend - nb_digits) * '0', int_num)
+
     def _get_ys_n_xs(self, exp_results_list, extractor, nb_points=None):
         if 0:
             ys = filter(None, map(extractor, exp_results_list))
@@ -149,17 +161,12 @@ class GraphMaker(object):
             self._results_indices = list(range(len(ys)))
         return ys, [list(range(len(_))) for _ in ys]
 
-    @staticmethod
-    def determine_metrics_usable_for_comparison(exp_results_list):
+    @classmethod
+    def determine_metrics_usable_for_comparison(cls, exp_results_list):
         c = Counter()
-        _ = reduce(lambda i, j: i + j, [ResultsHandler.get_all_columns(x) for x in exp_results_list])
+        _ = reduce(lambda i, j: i + j, [results_handler.get_all_columns(x, cls.SUPPORTED_GRAPHS) for x in exp_results_list])
         c.update(_)
         return [k for k, v in c.items() if v > 1]
-
-    @classmethod
-    def get_plotable_columns(cls, exp_results):
-        return reduce(lambda i, j: i + j, [results_handler.COLUMNS_HASH[x]['definitions'](exp_results) if x in ResultsHandler.DYNAMIC_COLUMNS else [x] for x
-                       in ResultsHandler.DEFAULT_COLUMNS])
 
     @staticmethod
     def build_graph(xs, ys, line_designs, labels, title, xlabel, ylabel, grid='on'):
@@ -177,19 +184,7 @@ class GraphMaker(object):
         #     eplot = EasyPlot(x, tracked_metrics_dict['trackables'], 'b-o', label='y1 != x**2', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
         #     eplot.iter_plot(x, y_dict, linestyle=linestyle_dict, marker=marker_dict, label=labels_dict, linewidth=3, ms=10, showlegend=True, grid='on')
 
-    # def _build_ys_n_xs(self, results, extractor, nb_points=None):
-    #     _ = list(map(extractor, results))
-    #     self._results_indices = [ind for ind, el in enumerate(_) if el is not None]
-    #     ys = list(map(lambda x: self._limit_points(x, nb_points), filter(None, _)))
-    #     return ys, [range(len(_)) for _ in ys]
-
     @staticmethod
     def _limit_points(values_list, limit):
         if limit is None: return values_list
         return values_list[:limit]
-
-    def _iter_prepend(self, int_num):
-        nb_digits = len(str(int_num))
-        if nb_digits >= self._max_digits_prepend:
-            return str(int_num)
-        return '{}{}'.format((self._max_digits_prepend - nb_digits) * '0', int_num)
