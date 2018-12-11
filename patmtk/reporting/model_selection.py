@@ -94,13 +94,18 @@ class ResultsHandler(object):
         """
         result_paths = glob('{}/*.json'.format(os.path.join(self._collection_root_path, collection_name, self._results_dir_name)))
         print("GET exp results: selection '{}' of type {}".format(selection, type(selection)))
-        self._list_selector = lambda x: ResultsHandler._list_selector_hash[type(selection)]([x, selection])
+        print('All models are {}'.format(len(result_paths)))
+        if type(selection) == list and all([type(x) == 'str' for x in selection]):
+            self._list_selector = lambda y: ResultsHandler._label_selection(selection, y)
+        self._list_selector = lambda y: ResultsHandler._list_selector_hash[type(selection)]([y, selection])
+        r = self._get_experimental_results(result_paths, callable_metric=self._get_metric(sort))
+        assert len(result_paths) == len(r)
         return self._list_selector(self._get_experimental_results(result_paths, callable_metric=self._get_metric(sort)))
 
     def _get_experimental_results(self, results_paths, callable_metric=None):
         if callable_metric:
-            return self._list_selector(sorted([self._process_result_path(x) for x in results_paths], key=callable_metric, reverse=True))
-        return [self._process_result_path(_) for _ in self._list_selector(results_paths)]
+            return sorted([self._process_result_path(x) for x in results_paths], key=callable_metric, reverse=True)
+        return [self._process_result_path(_) for _ in results_paths]
 
     def _process_result_path(self, result_path):
         if result_path not in self._results_hash:
@@ -133,15 +138,15 @@ class ResultsHandler(object):
         """
         return COLUMNS_HASH.get(column, COLUMNS_HASH[ResultsHandler._get_hash_key(column)]).get('to-string', '{}').format(value)
 
-    @staticmethod
-    def get_tau_trajectory(exp_results, matrix_name):
-        """
-
-        :param results.experimental_results.ExperimentalResults exp_results:
-        :param matrix_name:
-        :return:
-        """
-        return getattr(exp_results.tracked.tau_trajectories, matrix_name).all
+    # @staticmethod
+    # def get_tau_trajectory(exp_results, matrix_name):
+    #     """
+    #
+    #     :param results.experimental_results.ExperimentalResults exp_results:
+    #     :param matrix_name:
+    #     :return:
+    #     """
+    #     return getattr(exp_results.tracked.tau_trajectories, matrix_name).all
 
     @staticmethod
     def extract(exp_results, column_definition, quantity):
@@ -157,8 +162,10 @@ class ResultsHandler(object):
         return COLUMNS_HASH['-'.join(tokens)][ResultsHandler._QUANTITY_2_EXTRACTOR_KEY[quantity] + '-extractor'](*list([exp_results] + parameters))
 
     @staticmethod
-    def get_all_columns(exp_results):
-        return reduce(lambda i, j: i + j, [COLUMNS_HASH[x]['definitions'](exp_results) if x in ResultsHandler.DYNAMIC_COLUMNS else [x] for x in ResultsHandler.DEFAULT_COLUMNS])
+    def get_all_columns(exp_results, requested_entities):
+        return reduce(lambda i, j: i + j,
+                      [COLUMNS_HASH[x]['definitions'](exp_results) if x in ResultsHandler.DYNAMIC_COLUMNS else [x] for x
+                       in requested_entities])
 
     ###### UTILITY FUNCTIONS ######
     @staticmethod
@@ -180,8 +187,9 @@ class ResultsHandler(object):
             return True
 
     @staticmethod
-    def determine_maximal_set_of_renderable_columns(exp_results_list):
-        return reduce(lambda i, j: i.union(j), [set(ResultsHandler.get_all_columns(x)) for x in exp_results_list])
+    def _label_selection(labels, experimental_results_list):
+        _ = [x.scalars.model_label for x in experimental_results_list]
+        return [experimental_results_list.index(_.index(i)) for i in labels if i in _]
 
 
 # class ModelSelector(object):

@@ -127,15 +127,18 @@ class ModelReporter:
 
     ########## EXTRACTION ##########
     def _get_values_lists1(self):
-        return [self._extract_all(x) for x in results_handler.get_experimental_results(self._collection_name, top='all', sort=self._metric)]
+        return [self._extract_all(x) for x in results_handler.get_experimental_results(self._collection_name, sort=self._metric, selection='all')]
     def _extract_all(self, exp_results):  # get a list (vector) of extracted values
         return [results_handler.extract(exp_results, x, 'last') for x in self.columns_to_render]
 
     ########## COLUMNS DEFINITIONS ##########
     def _get_maximal_renderable_columns(self):
         """Call this method to get a list of all the inferred columns allowed to render."""
-        return ModelReporter._get_column_definitions(results_handler.DEFAULT_COLUMNS, results_handler.
-                                                     determine_maximal_set_of_renderable_columns(results_handler.get_experimental_results(self._collection_name)))
+        return ModelReporter._get_column_definitions(results_handler.DEFAULT_COLUMNS, ModelReporter.determine_maximal_set_of_renderable_columns(results_handler.get_experimental_results(self._collection_name)))
+
+    @staticmethod
+    def determine_maximal_set_of_renderable_columns(exp_results_list):
+        return reduce(lambda i, j: i.union(j), [set(results_handler.get_all_columns(x, results_handler.DEFAULT_COLUMNS)) for x in exp_results_list])
 
     ########## STATIC ##########
     @staticmethod
