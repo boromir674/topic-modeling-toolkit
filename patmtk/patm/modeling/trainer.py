@@ -103,9 +103,8 @@ class TrainerFactory(object):
         text_dict = os.path.join(self._root_dir, 'mydic.txt')
         vocab = os.path.join(self._root_dir, 'vocab.' + self._col + '.txt')
 
-        batches = [_ for _ in os.listdir(self._batches_target_dir) if '.batch' in _]
-        print 'batches', batches
-        if not force_new_batches and batches:
+        self._existing_batches = [_ for _ in os.listdir(self._batches_target_dir) if '.batch' in _]
+        if not force_new_batches and self._existing_batches:
             self.load_batches()
         else:
             self.create_batches(use_ideology_information=exploit_ideology_labels)
@@ -141,7 +140,7 @@ class TrainerFactory(object):
         self._mod_tr.batch_vectorizer = artm.BatchVectorizer(collection_name=self._col,
                                                        data_path=self._batches_target_dir,
                                                        data_format='batches')
-        print "Vectorizer initialized from 'batches' found in '{}'".format(self._batches_target_dir)
+        print "Vectorizer initialized from [{}] 'batch' files found in '{}'".format(', '.join(self._existing_batches), self._batches_target_dir)
 
 
 if __name__ == '__main__':
