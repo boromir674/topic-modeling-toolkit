@@ -147,13 +147,14 @@ class Tuner(object):
         self._initialize0(parameters_mixture)
         self._initialize1(prefix_label=prefix_label, append_explorables=append_explorables, append_static=append_static,
                           static_regularizers_specs=static_regularizers_specs, overwrite=force_overwrite)
+        if 1 < self._vb:
+            print 'Taking {} samples for grid-search'.format(len(self._parameter_grid_searcher))
         if self._vb:
             print 'Tuning..'
             generator = tqdm(self._parameter_grid_searcher, total=len(self._parameter_grid_searcher), unit='model')
         else:
             generator = iter(self._parameter_grid_searcher)
-        if 1 < self._vb:
-            print 'Taking {} samples for grid-search'.format(len(self._parameter_grid_searcher))
+
 
         self._label_groups = Counter()
         for i, self.parameter_vector in enumerate(generator):
@@ -184,7 +185,7 @@ class Tuner(object):
             print 'Constants: [{}]\nExplorables: [{}]'.format(', '.join(self.constants), ', '.join(self.explorables))
             # print 'Tau trajectories for:', self._tau_traj_to_build.keys()
             print 'Search space', tuner_definition.parameter_spans
-            print 'Potentially producing {} parameter vectors'.format(len(self._parameter_grid_searcher))
+            # print 'Potentially producing {} parameter vectors'.format(len(self._parameter_grid_searcher))
 
     def _define_labeling_scheme(self, explorables, constants):
         """Call this method to define the values to use for labeling the artifacts of tuning from the mixture of explorable and constant parameters.
@@ -194,7 +195,6 @@ class Tuner(object):
         assert all(map(lambda x: type(x) == list or x == 'all', [constants, explorables]))
         explorables_labels = self._get_labels_extractor('explorables')(explorables)
         constants_labels = self._get_labels_extractor('constants')(constants)
-        print 'DEFINE LABELING SCHEME\nconstants {}\nexplorabe {}'.format(constants_labels, explorables_labels)
         self._versioning_needed = not explorables_labels == self.explorables
         self._labeling_params = explorables_labels + constants_labels
 
@@ -217,8 +217,6 @@ class Tuner(object):
         self._experiments_saved = []
         self._label_groups = Counter()
         self._overwrite = overwrite
-        print append_explorables, (lambda y: [] if y is None else y)(append_explorables)
-        print append_static, (lambda y: [] if y is None else y)(append_static)
         self._define_labeling_scheme((lambda y: [] if y is None else y)(append_explorables), (lambda y: [] if y is None else y)(append_static))
 
         if 1 < self._vb:
@@ -280,8 +278,6 @@ class Tuner(object):
 
     def _create_model_n_specs(self):
         self.static_regularization_specs = self._replace_settings_with_supported_explorable(self._reg_specs)
-        # for reg_type in (_ for _ in self.active_regularizers if _.startswith('sparse_')):
-        #     self._reg_specs[reg_type] = self._build_definition(self._val('sparse_' + reg_type.split('-')[1]))
         tm = self.trainer.model_factory.construct_model(self._cur_label, self._val('nb_topics'),
                                                               self._val('collection_passes'),
                                                               self._val('document_passes'),
