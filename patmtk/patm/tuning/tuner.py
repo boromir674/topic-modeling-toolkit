@@ -134,33 +134,39 @@ class Tuner(object):
 
     def tune(self, parameters_mixture, prefix_label='', append_explorables='all', append_static=True, static_regularizers_specs=None, force_overwrite=False, verbose=3):
         """
-        :param patm.tuning.building.TunerDefinition parameters_mixture:
+        :param patm.tuning.building.TunerDefinition parameters_mixture: an object encapsulating a unique tuning process; constant parameters and parameters to tune on
         :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix used for the naming files (models, results) saved on disk
         :param list or str append_explorables: if list is given will use these exact parameters' names as part of unique names used for files saved on disk. If 'all' is given then all possible parameter names will be used
         :param bool append_static: indicates whether to use the values of the parameters remaining constant during space exploration, as part of the unique names used for files saved on disk
-        :param static_regularizers_specs:
-        :param force_overwrite:
-        :param verbose:
-        :return:
+        :param dict static_regularizers_specs: example input:\n
+            {'smooth-phi': {'tau': 1.0},\n
+            'smooth-theta': {'tau': 1.0, 'alpha_iter': 1.0},\n
+            'sparse-phi': {'tau': 'linear_-5_-15', 'start': 4},\n
+            'sparse-theta': {'alpha_iter': 1, 'tau': 'linear_-3_-13', 'start': 4}}
+        :param bool force_overwrite: whether to overwrite any existing files (json results and phi matrices) on disk, which names collide
+            with the newly created files
+        :param int verbose: the verbosity level on the stdout
         """
         self._set_verbosity_level(verbose)
-        self._initialize0(parameters_mixture)
-        self._initialize1(prefix_label=prefix_label, append_explorables=append_explorables, append_static=append_static,
-                          static_regularizers_specs=static_regularizers_specs, overwrite=force_overwrite)
+        self._initialize_parameters(parameters_mixture, static_regularizers_specifications=static_regularizers_specs)
+        self._initialize_labeling_functionality(prefix_label=prefix_label,
+                                                append_explorables=append_explorables,
+                                                append_static=append_static,
+                                                overwrite=force_overwrite)
         if 1 < self._vb:
             print 'Taking {} samples for grid-search'.format(len(self._parameter_grid_searcher))
+        if force_overwrite:
+            print 'Overiding any existing results and phi matrices found'
         if self._vb:
             print 'Tuning..'
             generator = tqdm(self._parameter_grid_searcher, total=len(self._parameter_grid_searcher), unit='model')
         else:
             generator = iter(self._parameter_grid_searcher)
 
-
         self._label_groups = Counter()
         for i, self.parameter_vector in enumerate(generator):
-            self._cur_label = self._build_label(self.parameter_vector)
-            assert self._cur_label == self._required_labels[i]
-            if 4 == self._vb:
+            self._cur_label = self._labeler(i)
+            if 3 < self._vb:
                 tqdm.write(pprint.pformat(self.static_regularization_specs))
             tm, specs = self._create_model_n_specs()
             self.experiment.init_empty_trackables(tm)
@@ -168,11 +174,21 @@ class Tuner(object):
             self.experiment.save_experiment(save_phi=True)
             if 2 < self._vb:
                 tqdm.write(self._cur_label)
-            del tm
+            # del tm
 
-    def _initialize0(self, tuner_definition):
-        """
+    def _initialize_parameters(self, tuner_definition, static_regularizers_specifications=None):
+        """Call this method to initialize/define:
+            - the parameters that will remain steady during the tuning phase\n
+            - the parameters that comprise the search space\n
+            - the regularizers' tau coefficients that will dynamically change during each training cycle; tau trajectories, if applicable\n
+            - the parameters' "grid searcher" object\n
+            - the static untunable regularizers' parameters with the provided values or with default ones where necessary
         :param patm.tuning.building.TunerDefinition tuner_definition:
+        :param dict static_regularizers_specifications: example input:\n
+            {'smooth-phi': {'tau': 1.0},\n
+            'smooth-theta': {'tau': 1.0, 'alpha_iter': 1.0},\n
+            'sparse-phi': {'tau': 'linear_-5_-15', 'start': 4},\n
+            'sparse-theta': {'alpha_iter': 1, 'tau': 'linear_-3_-13', 'start': 4}}
         """
         if self._vb:
             print 'Initializing Tuner..'
@@ -181,11 +197,50 @@ class Tuner(object):
         self._check_parameters()
         self._tau_traj_to_build = tuner_definition.valid_trajectory_defs()
         self._parameter_grid_searcher = ParameterGrid(tuner_definition.parameter_spans)
-        if 1 < self._vb :
+        if 1 < self._vb:
             print 'Constants: [{}]\nExplorables: [{}]'.format(', '.join(self.constants), ', '.join(self.explorables))
-            # print 'Tau trajectories for:', self._tau_traj_to_build.keys()
             print 'Search space', tuner_definition.parameter_spans
-            # print 'Potentially producing {} parameter vectors'.format(len(self._parameter_grid_searcher))
+        if static_regularizers_specifications:
+            # for which ever of the activated regularizers there is a missing setting, then use a default value
+            self.static_regularization_specs = self._create_reg_specs(static_regularizers_specifications, self.active_regularizers)
+        else:
+            self.static_regularization_specs = self._create_reg_specs(self._default_regularizer_parameters, self.active_regularizers)
+
+    def _initialize_labeling_functionality(self, prefix_label='', append_explorables='all', append_static=None, overwrite=False):
+        """Call this method to:
+            - define the labeling scheme to use for naming the files created on disk\n
+            - determine any potential naming collisions with existing files on disk and resolve by either overwritting or skipping them
+        :param str prefix_label: an optional alphanumeric that serves as a constant prefix used for naming the files (models phi matrices dumped on disk, and results saved on disk as jsons)
+        :param list or str append_explorables: if list is given will use these exact parameters' names as part of unique names used for files saved on disk. If 'all' is given then all possible parameter names will be used
+        :param bool append_static: indicates whether to use the values of the parameters remaining constant during space exploration, as part of the unique names used for files saved on disk
+        """
+        self._prefix = prefix_label
+        self._experiments_saved = []
+        self._label_groups = Counter()
+        self._define_labeling_scheme((lambda y: [] if y is None else y)(append_explorables), (lambda y: [] if y is None else y)(append_static))
+        if 1 < self._vb:
+            print 'Automatically labeling files using parameter values: [{}]'.format(', '.join(self._labeling_params))
+
+        if not overwrite:
+            maximal_model_labels = map(self._build_label, self._parameter_grid_searcher)  # depends on self.parameter_grid_searcher and self._labeling_params
+            results_indices_list, phi_indices_list = self._get_overlapping_indices(maximal_model_labels)
+            result_inds, model_inds = IndicesList(results_indices_list, 'train results'), IndicesList(phi_indices_list, 'phi matrix')
+            common = result_inds + model_inds  # finds intersection of indices
+            only_res = result_inds - common
+            only_mods = model_inds - common
+            # print 'DEBUG:\ncommon: {}\nonly_res: {}\nonly_mods: {}'.format(list(common), list(only_res), list(only_mods))
+            self._parameter_grid_searcher.ommited_indices = common.indices
+            self._required_labels = [x for i, x in enumerate(maximal_model_labels) if i not in common.indices]
+            if 2 < self._vb:
+                for obj in (_ for _ in (common, only_mods, only_res) if _):
+                    print obj.msg(maximal_model_labels)
+            if 2 < self._vb:
+                print 'Models to create:', '[{}]'.format(', '.join(self._required_labels))
+            if 1 < self._vb:
+                print 'Ommiting creating a total of {} files'.format(len(common)+len(only_res)+len(only_mods))
+            self._labeler = lambda index: self._required_labels[index]
+        else:
+            self._labeler = lambda index: self._build_label(self.parameter_vector)
 
     def _define_labeling_scheme(self, explorables, constants):
         """Call this method to define the values to use for labeling the artifacts of tuning from the mixture of explorable and constant parameters.
@@ -203,65 +258,19 @@ class Tuner(object):
                            str: lambda x: [_ for _ in getattr(self, parameters_type) if _ in self._allowed_labeling_params]}
         return lambda y: sorted(extractors_hash[type(y)](y))
 
-
-    def _initialize1(self, prefix_label='', append_explorables='all', append_static=None, static_regularizers_specs=None, overwrite=False):
-        """
-        :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix used for naming the files (models phi matrices dumped on disk, and results saved on disk as jsons)
-        :param bool enable_ideology_labels: Enable using the 'vowpal_wabbit' format to exploit extra modalities modalities. A modalitity is a disctreet space of values (tokens, class_labels, ..)
-        :param list or str append_explorables: if list is given will use these exact parameters' names as part of unique names used for files saved on disk. If 'all' is given then all possible parameter names will be used
-        :param bool append_static: indicates whether to use the values of the parameters remaining constant during space exploration, as part of the unique names used for files saved on disk
-        :param static_regularizers_specs:
-        :return:
-        """
-        self._prefix = prefix_label
-        self._experiments_saved = []
-        self._label_groups = Counter()
-        self._overwrite = overwrite
-        self._define_labeling_scheme((lambda y: [] if y is None else y)(append_explorables), (lambda y: [] if y is None else y)(append_static))
-
-        if 1 < self._vb:
-            print 'Automatically labeling files using parameter values: [{}]'.format(', '.join(self._labeling_params))
-
-        if static_regularizers_specs:
-            # for which ever of the activated regularizers there is a missing setting, then use a default value
-            self.static_regularization_specs = self._create_reg_specs(static_regularizers_specs, self.active_regularizers)
-        else:
-            self.static_regularization_specs = self._create_reg_specs(self._default_regularizer_parameters, self.active_regularizers)
-
-        self._build_required_labels()  # depends on self.parameter_grid_searcher and self._labeling_params
-
-        if not self._overwrite:
-            _ = self._get_overlapping_indices()
-            result_inds, model_inds = IndicesList(_[0], 'train results'), IndicesList(_[1], 'phi matrix')
-            common = result_inds + model_inds  # finds intersection of indices
-            only_res = result_inds - common
-            only_mods = model_inds - common
-            self._parameter_grid_searcher.ommited_indices = common.indices
-            self._required_labels = [x for i, x in enumerate(self._required_labels) if i not in common.indices]
-            if 2 < self._vb:
-                for obj in (_ for _ in (common, only_mods, only_res) if _):
-                    print obj.msg(self._required_labels)
-            if 3 < self._vb:
-                print 'Required labels:', '[{}]'.format(', '.join(self._required_labels))
-            if 1 < self._vb:
-                print 'Ommiting creating a total of {} files'.format(len(common)+len(only_res)+len(only_mods))
-
     def _create_reg_specs(self, reg_settings, active_regularizers):
-        """Call this method to use default values when missing, according to given activated regularizers"""
+        """Call this method to use default values where missing, according to given activated regularizers"""
         return {k: dict(map(lambda x: (x[0], reg_settings[k].get(x[0],
             self._default_regularizer_parameters[k][x[0]])), self._default_regularizer_parameters[k].items())) for k in active_regularizers}
 
-    def _get_overlapping_indices(self):
-        _ = map(lambda x: self._expr((x[1] in self.experiment.train_results_handler.list, x[1] in self.experiment.phi_matrix_handler.list), x[0]), enumerate(self._required_labels))
+    def _get_overlapping_indices(self, maximal_model_labels):
+        _ = map(lambda x: self._trans((x[1] in self.experiment.train_results_handler.list, x[1] in self.experiment.phi_matrix_handler.list), x[0]),
+                enumerate(maximal_model_labels))
         return map(lambda x: filter(lambda y: y is not None, x), map(list, zip(*_)))
 
-    def _expr(self, tt, el):
-        return map(lambda x: el if x else None, tt)
+    def _trans(self, two_length_tupe_of_bool, index):
+        return map(lambda x: index if x else None, two_length_tupe_of_bool)
 
-    def _build_required_labels(self):
-        self._label_groups = Counter()
-        self._required_labels = map(lambda x: self._build_label(x), self._parameter_grid_searcher)
-        
     def _build_label(self, parameter_vector):
         cached = map(lambda x: str(self._extract(parameter_vector, x)), self._labeling_params)
         label = '_'.join(filter(None, [self._prefix] + cached))
@@ -351,8 +360,7 @@ class IndicesList(object):
     def __contains__(self, item):
         return item in self._inds
     def __iter__(self):
-        for _ in self._inds:
-            yield _
+        return iter(self._inds)
     def __add__(self, other):
         return IndicesList([_ for _ in self if _ in other], '{} and {}'.format(self, other))
     def __sub__(self, other):

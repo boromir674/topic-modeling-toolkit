@@ -103,7 +103,7 @@ class GraphMaker(object):
         """
         assert len(exp_results_list) <= len(GraphMaker.LINES)
         labels = [_.scalars.model_label for _ in exp_results_list]
-        print('METRIC', metric)
+        print('_BUILD METRIC', metric)
         if metric in ('phi', 'theta'):
             measure_name = 'τ_{}'.format(metric)
         else:

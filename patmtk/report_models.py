@@ -1,17 +1,18 @@
+#!/usr/bin/python3
+
 import argparse
-from reporting import ModelReporter
+from reporting import model_reporter
 
 
 def get_cli_arguments():
-    parser = argparse.ArgumentParser(description='Reports on existing saved model topic model instances developed on the specified dataset', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(description='Reports on the trained models for the specified collection (dataset)', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('dataset', metavar='collection_name', help='the collection to report models trained on')
     # parser.add_argument('--details', '-d', default=False, action='store_true', help='Switch to show details about the models')
     parser.add_argument('--sort', '-s', default='perplexity', help='Whether to sort the found experiments by checking the desired metric against the corresponding models')
     return parser.parse_args()
 
+
 if __name__ == '__main__':
-    # from patm.definitions import COLLECTIONS_DIR_PATH, RESULTS_DIR_NAME
-    from reporting import model_reporter
 
     COLUMNS = ['nb-topics', 'collection-passes', 'document-passes', 'total-phi-updates', 'perplexity',
                'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',
@@ -27,10 +28,9 @@ if __name__ == '__main__':
 
     cli_args = get_cli_arguments()
 
-    # reporter = ModelReporter(COLLECTIONS_DIR_PATH, results_dir_name=RESULTS_DIR_NAME)
 
     s = model_reporter.get_formatted_string(cli_args.dataset, columns=COLUMNS, metric=cli_args.sort, verbose=True)
-    # s = reporter.get_formatted_string(cli_args.dataset, columns=None, metric=cli_args.sort)
+
     print('\n{}'.format(s))
 
     # from pprint import pprint

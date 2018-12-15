@@ -51,10 +51,11 @@ COLUMNS_HASH = {
                        'column-title': lambda: 'spt',
                        'to-string': '{:.2f}'},
     'background-tokens-ratio': {'scalar-extractor': lambda x,y: getattr(x.tracked, 'background_tokens_ratio_'+str(y)[2:]).last if hasattr(x.tracked, 'background_tokens_ratio_'+str(y)[2:]) else None,
+                                # 'list-extractor': lambda x,y: getattr(x.tracked, 'background_tokens_ratio_'+str(y)[2:]).all if hasattr(x.tracked, 'background_tokens_ratio_'+str(y)[2:]) else None,
                                 'list-extractor': lambda x,y: getattr(x.tracked, 'background_tokens_ratio_'+str(y)[2:]).all if hasattr(x.tracked, 'background_tokens_ratio_'+str(y)[2:]) else None,
                                 'column-title': lambda x: 'btr.'+str(x)[2:],
                                 'to-string': '{:.2f}',
-                                'definitions': lambda x: ['background-tokens-ratio-{:.2f}'.format(y) for y in x.tracked.background_tokens_thresholds]},
+                                'definitions': lambda x: ['background-tokens-ratio-{}'.format(y[:4]) for y in x.tracked.background_tokens_thresholds]},
     'regularizers': {'scalar-extractor': lambda x: '[{}]'.format(', '.join(x.regularizers)),
                      'column-title': lambda: 'regs'}
 }
@@ -159,6 +160,17 @@ class ResultsHandler(object):
         :return:
         """
         tokens, parameters = ResultsHandler._parse_column_definition(column_definition)
+        print('LABEL', exp_results.scalars.model_label)
+        print(exp_results.tracked)
+        print(dir(exp_results.tracked))
+        if column_definition.startswith('background-tokens-ratio'):
+            print('col-def:', column_definition)
+        # if hasattr(exp_results.tracked, )
+        # print(hasattr(exp_results.tracked, 'background_tokens_ratio_3'))
+        # print(hasattr(exp_results.tracked, 'background_tokens_ratio_2'))
+            print(exp_results.tracked.background_tokens_thresholds)
+        if hasattr(exp_results.tracked, 'background_tokens_ratio_20'):
+            print('has 20')
         return COLUMNS_HASH['-'.join(tokens)][ResultsHandler._QUANTITY_2_EXTRACTOR_KEY[quantity] + '-extractor'](*list([exp_results] + parameters))
 
     @staticmethod

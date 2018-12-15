@@ -49,6 +49,11 @@ class BaseWriterLoader(WriterLoader):
 
     @property
     def list(self):
+        """
+        This property dynamically holds the files' names, which are found in the saving location
+        :return:
+        :rtype: list
+        """
         # return [os.path.basename(file_path) for file_path in glob.glob('{}/*{}{}'.format(self._loc, self._post, self._extension))]
         return [os.path.basename(file_path[:file_path.index(self._extension)]) for file_path in glob.glob('{}/*{}'.format(self._loc, ''.join(filter(None, [self._post, self._extension]))))]
 
@@ -119,15 +124,3 @@ class ModelWL(ExperimentWL):
         :return:
         """
         return self._exp.model_factory.create_model_with_phi_from_disk(self.get_full_path(name), args[0])
-
-#
-# def _stringify_trackable_dicts(results):
-#     tr = results['trackables']
-#     for k, v in tr.items():
-#         if type(v) == list:
-#             tr[k] = map(lambda x: str(x), tr[k])
-#         elif type(v) == dict:
-#             for in_k, in_v in v.items():
-#                 if type(in_v) == list:
-#                     v[in_k] = map(lambda x: str(x), v[in_k])
-#     return results
