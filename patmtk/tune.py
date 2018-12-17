@@ -48,13 +48,13 @@ def get_cli_arguments():
 
 if __name__ == '__main__':
     args = get_cli_arguments()
-    from patm.tuning.building import tuner_definition_builder as tdb
+
 
     tuner = Tuner(args.dataset)
-    tuning_definition = tdb.initialize().nb_topics([20]).collection_passes(10).document_passes(1).background_topics_pct([0.1]).\
-        ideology_class_weight([5]). \
-        sparse_phi().deactivate(2).kind(['linear']).start(-10).end([-20, -30]). \
-        sparse_theta().deactivate(3).kind('linear').start([-5]).end([-15, -25]).build()
+    tuning_definition = tdb.initialize().nb_topics([20]).collection_passes(50).document_passes([1, 3]).background_topics_pct([0.2]).\
+        ideology_class_weight([5.0]). \
+        sparse_phi().deactivate(2).kind(['linear']).start(-1).end([-40, -60]). \
+        sparse_theta().deactivate(2).kind('linear').start([-5]).end([-25, -50]).build()
 
     tuner.activate_regularizers.smoothing.phi.theta.sparsing.phi.theta.done()
     # tuner.static_regularization_specs = {'smooth-phi': {'tau': 1.0},

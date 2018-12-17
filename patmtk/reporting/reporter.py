@@ -89,6 +89,10 @@ class ModelReporter:
         self._model_labels, values_lists = self._get_labels_n_values(sort_by=metric)
         return [self._to_row(y[0], y[1]) for y in zip(self._model_labels, [self._to_list_of_strings(x) for x in values_lists])]
 
+    # TODO Temporarily refactor this with a for loop to print the "current" model label. This would allow to check the
+    # TODO correponding json file for the encoded metrics, used to assess the model, that were tracked during training
+    # TODO Having the actual dumped metrics and the resulting values vector side by side one can see which extractors
+    # TODO handle correctly the presence or not of the actual data; ie return None when value is not found
     def _get_labels_n_values(self, sort_by=''):
         """Call this method to get a list of model labels and a list of lists of reportable values that correspond to each label
         Fitness_computer finds the maximum values per eligible column definition that need to be highlighted."""

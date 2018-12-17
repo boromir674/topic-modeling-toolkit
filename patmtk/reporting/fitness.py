@@ -2,6 +2,11 @@ from abc import ABCMeta
 from collections import defaultdict
 from functools import reduce
 
+# import sys to use with: sys._getframe(1).f_code.co_name
+
+
+import sys
+
 
 class FitnessValue:
     def __init__(self, value):
@@ -147,6 +152,10 @@ class FitnessCalculator:
         return self._func.compute(values_vector)
 
     def _update_best(self, values_vector):
+        print('_UPDATE_BEST')
+        print(sys._getframe().f_code.co_name)
+        print(sys._getframe(1).f_code.co_name)
+        print(values_vector)
         self._best.update([(column_def, value) for column_key, column_def, value in
                            [(FitnessCalculator._get_column_key(x[0]), x[0], x[1]) for x in zip(self._column_defs, values_vector)]
                            if column_def in self._best and FitnessCalculator._get_value(column_key, value) > FitnessCalculator._get_value(column_key, self._best[column_def])])

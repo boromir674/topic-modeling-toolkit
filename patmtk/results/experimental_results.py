@@ -252,7 +252,7 @@ class AbstractValueTracker(object):
 
     @property
     def kernel_thresholds(self):
-        return sorted(float(_.split('-')[-1]) for _ in list(self._groups.keys()) if _.startswith('topic-kernel'))
+        return sorted(_.split('-')[-1] for _ in list(self._groups.keys()) if _.startswith('topic-kernel'))
 
     @property
     def modalities_initials(self):

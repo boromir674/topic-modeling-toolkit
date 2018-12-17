@@ -20,7 +20,7 @@ def _get_kernel_sub_hash(entity):
                                'list-extractor': lambda x, y: getattr(getattr(x.tracked, 'kernel' + y[2:]).average, entity).all if hasattr(x.tracked, 'kernel' + y[2:]) else None,
                                'column-title': lambda x: 'k'+entity[:3:2]+'.'+str(x)[2:],
                                'to-string': '{:.4f}',
-                               'definitions': lambda x: ['kernel-{}-{:.2f}'.format(entity, y) for y in x.tracked.kernel_thresholds]}}
+                               'definitions': lambda x: ['kernel-{}-{}'.format(entity, y) for y in x.tracked.kernel_thresholds]}}
 
 COLUMNS_HASH = {
     'nb-topics': {'scalar-extractor': lambda x: x.scalars.nb_topics,
@@ -94,8 +94,8 @@ class ResultsHandler(object):
         :rtype: list
         """
         result_paths = glob('{}/*.json'.format(os.path.join(self._collection_root_path, collection_name, self._results_dir_name)))
-        print("GET exp results: selection '{}' of type {}".format(selection, type(selection)))
-        print('All models are {}'.format(len(result_paths)))
+        # print("GET exp results: selection '{}' of type {}".format(selection, type(selection)))
+        # print('All models are {}'.format(len(result_paths)))
         if type(selection) == list and all([type(x) == 'str' for x in selection]):
             self._list_selector = lambda y: ResultsHandler._label_selection(selection, y)
         self._list_selector = lambda y: ResultsHandler._list_selector_hash[type(selection)]([y, selection])
@@ -160,17 +160,6 @@ class ResultsHandler(object):
         :return:
         """
         tokens, parameters = ResultsHandler._parse_column_definition(column_definition)
-        print('LABEL', exp_results.scalars.model_label)
-        print(exp_results.tracked)
-        print(dir(exp_results.tracked))
-        if column_definition.startswith('background-tokens-ratio'):
-            print('col-def:', column_definition)
-        # if hasattr(exp_results.tracked, )
-        # print(hasattr(exp_results.tracked, 'background_tokens_ratio_3'))
-        # print(hasattr(exp_results.tracked, 'background_tokens_ratio_2'))
-            print(exp_results.tracked.background_tokens_thresholds)
-        if hasattr(exp_results.tracked, 'background_tokens_ratio_20'):
-            print('has 20')
         return COLUMNS_HASH['-'.join(tokens)][ResultsHandler._QUANTITY_2_EXTRACTOR_KEY[quantity] + '-extractor'](*list([exp_results] + parameters))
 
     @staticmethod
