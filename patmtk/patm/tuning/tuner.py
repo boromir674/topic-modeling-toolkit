@@ -127,8 +127,8 @@ class Tuner(object):
             self._vb = int(input_verbose)
             if self._vb < 0:
                 self._vb = 0
-            elif 4 < self._vb:
-                self._vb = 4
+            elif 5 < self._vb:
+                self._vb = 5
         except ValueError:
             self._vb = 3
 
@@ -166,15 +166,17 @@ class Tuner(object):
         self._label_groups = Counter()
         for i, self.parameter_vector in enumerate(generator):
             self._cur_label = self._labeler(i)
-            if 3 < self._vb:
+            if 4 < self._vb:
                 tqdm.write(pprint.pformat(self.static_regularization_specs))
             tm, specs = self._create_model_n_specs()
+            if 3 < self._vb:
+                tqdm.write(pprint.pformat(tm.modalities_dictionary))
             self.experiment.init_empty_trackables(tm)
             self.trainer.train(tm, specs)
             self.experiment.save_experiment(save_phi=True)
             if 2 < self._vb:
                 tqdm.write(self._cur_label)
-            # del tm
+            del tm
 
     def _initialize_parameters(self, tuner_definition, static_regularizers_specifications=None):
         """Call this method to initialize/define:

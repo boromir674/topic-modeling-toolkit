@@ -50,12 +50,18 @@ if __name__ == '__main__':
     args = get_cli_arguments()
 
     tuner = Tuner(args.dataset)
-    tuning_definition = tdb.initialize().nb_topics([20]).collection_passes(50).document_passes([1, 3]).background_topics_pct([0.2]).\
-        ideology_class_weight([5.0]). \
-        sparse_phi().deactivate(2).kind(['linear']).start(-1).end([-40, -60]). \
-        sparse_theta().deactivate(2).kind('linear').start([-5]).end([-25, -50]).build()
+    tuning_definition = tdb.initialize().nb_topics(10).collection_passes(10, 20).document_passes(1, 2, 3)\
+        .background_topics_pct(0.2)\
+        .ideology_class_weight(0, 5, 15)\
+        .sparse_phi().deactivate(2, 5).kind('linear').start(-1, -10).end(-20, -40)\
+        .sparse_theta().deactivate(2, 5).kind('linear').start(-5, -15).end(-30, -50)\
+        .build()
 
-    tuner.activate_regularizers.smoothing.phi.theta.sparsing.phi.theta.done()
+    tuner.activate_regularizers\
+        .smoothing.phi.theta\
+        .sparsing.phi.theta\
+        .done()
+
     # tuner.static_regularization_specs = {'smooth-phi': {'tau': 1.0},
     #                                      'smooth-theta': {'tau': 1.0},
     #                                      'sparse-theta': {'alpha_iter': 1}}
