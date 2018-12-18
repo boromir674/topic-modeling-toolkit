@@ -1,3 +1,5 @@
+#!/home/kostas/software_and_libs/anaconda2/bin/python
+
 import os
 import re
 import pickle
@@ -6,7 +8,7 @@ import argparse
 from patm.dataset import TextDataset
 from patm.definitions import BINARY_DICTIONARY_NAME, COOCURENCE_DICT_FILE_NAMES
 
-class bcolors:
+class bcolors(object):
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKGREEN = '\033[92m'
