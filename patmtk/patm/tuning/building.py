@@ -34,12 +34,12 @@ class StaticAndExplorableMixture(MetaParameterMixture):
             self._assimilate_mixture(v)
         elif type(v) in (str, int, float):
             self._static[k] = v
-        elif type(v) == list:
+        elif type(v) in (list, tuple):
             assert len(v) > 0
             if len(v) == 1:
                 self._static[k] = v[0]
             else:  # len(v) > 1
-                self._explorable[k] = v
+                self._explorable[k] = list(v)
                 self._nb_combinations *= len(v)
         else:
             raise ValueError("Parsing of type '{}' is not supported".format(type(v)))
@@ -113,6 +113,7 @@ class ParameterMixtureBuilder(object):
         self._params[key] = value
         return self
 
+
 class TunerDefinitionBuilder(ParameterMixtureBuilder):
     def __init__(self):
         super(TunerDefinitionBuilder, self).__init__()
@@ -122,22 +123,22 @@ class TunerDefinitionBuilder(ParameterMixtureBuilder):
         super(TunerDefinitionBuilder, self).initialize()
         return self
 
-    def nb_topics(self, value):
+    def nb_topics(self, *value):
         return self._set_return(sys._getframe().f_code.co_name, value)
 
-    def collection_passes(self, value):
+    def collection_passes(self, *value):
         return self._set_return(sys._getframe().f_code.co_name, value)
 
-    def document_passes(self, value):
+    def document_passes(self, *value):
         return self._set_return(sys._getframe().f_code.co_name, value)
 
-    def background_topics_pct(self, value):
+    def background_topics_pct(self, *value):
         return self._set_return(sys._getframe().f_code.co_name, value)
 
-    def default_class_weight(self, value):
+    def default_class_weight(self, *value):
         return self._set_return(sys._getframe().f_code.co_name, value)
 
-    def ideology_class_weight(self, value):
+    def ideology_class_weight(self, *value):
         return self._set_return(sys._getframe().f_code.co_name, value)
 
     def sparse_phi(self):
@@ -167,16 +168,16 @@ class TrajectoryParametersBuilder(ParameterMixtureBuilder):
         self._reg_name = param_set_key
         super(TrajectoryParametersBuilder, self).initialize()
 
-    def deactivate(self, value):
+    def deactivate(self, *value):
         return self._set_return(sys._getframe().f_code.co_name, value)
 
-    def kind(self, value):
+    def kind(self, *value):
         return self._set_return(sys._getframe().f_code.co_name, value)
 
-    def start(self, value):
+    def start(self, *value):
         return self._set_return(sys._getframe().f_code.co_name, value)
 
-    def end(self, value):
+    def end(self, *value):
         self._params[sys._getframe().f_code.co_name] = value
         self.build()
         return self._master_builder
