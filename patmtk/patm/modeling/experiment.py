@@ -1,6 +1,6 @@
 from .model_factory import get_model_factory
 from .persistence import ResultsWL, ModelWL
-from patm.modeling.regularization.regularizers import REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH as dyn_coefs
+from patm.modeling.regularization.regularizers import REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH as DYN_COEFS
 
 
 class Experiment:
@@ -59,7 +59,7 @@ class Experiment:
                 self.trackables[evaluator_definition] = [[], {t_name: [] for t_name in model.domain_topics}]
                 self.failed_top_tokens_coherence[evaluator_definition] = {t_name: [] for t_name in model.domain_topics}
         self.collection_passes = []
-        self.reg_params = {reg_type: {attr: [] for attr in dyn_coefs[reg_type]} for reg_type in model.regularizer_types}
+        self.reg_params = {reg_type: {attr: [] for attr in DYN_COEFS[reg_type]} for reg_type in model.regularizer_types}
 
     @property
     def dataset_iterations(self):

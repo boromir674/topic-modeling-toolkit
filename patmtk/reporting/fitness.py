@@ -152,19 +152,17 @@ class FitnessCalculator:
         return self._func.compute(values_vector)
 
     def _update_best(self, values_vector):
-        print('_UPDATE_BEST')
-        print(sys._getframe().f_code.co_name)
-        print(sys._getframe(1).f_code.co_name)
-        print(values_vector)
         self._best.update([(column_def, value) for column_key, column_def, value in
                            [(FitnessCalculator._get_column_key(x[0]), x[0], x[1]) for x in zip(self._column_defs, values_vector)]
-                           if column_def in self._best and FitnessCalculator._get_value(column_key, value) > FitnessCalculator._get_value(column_key, self._best[column_def])])
+                           if column_def in self._best and FitnessCalculator._fitness(column_key, value) > FitnessCalculator._fitness(column_key, self._best[column_def])])
 
     def __call__(self, *args, **kwargs):
         return self.compute_fitness(args[0])
 
     @staticmethod
-    def _get_value(column_key, value):
+    def _fitness(column_key, value):
+        if value is None:
+            return _FITNESS_VALUE_CONSTRUCTORS_HASH[_ORDERING_HASH[column_key]](_INITIAL_BEST[column_key])
         return _FITNESS_VALUE_CONSTRUCTORS_HASH[_ORDERING_HASH[column_key]](value)
 
     @staticmethod

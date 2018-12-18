@@ -89,18 +89,14 @@ class ModelReporter:
         self._model_labels, values_lists = self._get_labels_n_values(sort_by=metric)
         return [self._to_row(y[0], y[1]) for y in zip(self._model_labels, [self._to_list_of_strings(x) for x in values_lists])]
 
-    # TODO Temporarily refactor this with a for loop to print the "current" model label. This would allow to check the
-    # TODO correponding json file for the encoded metrics, used to assess the model, that were tracked during training
-    # TODO Having the actual dumped metrics and the resulting values vector side by side one can see which extractors
-    # TODO handle correctly the presence or not of the actual data; ie return None when value is not found
     def _get_labels_n_values(self, sort_by=''):
         """Call this method to get a list of model labels and a list of lists of reportable values that correspond to each label
         Fitness_computer finds the maximum values per eligible column definition that need to be highlighted."""
         if sort_by:
             self._fitness_function = FitnessFunction.single_metric(sort_by)
             self.fitness_computer.initialize(self._fitness_function, self.columns_to_render)
-            return [list(t) for t in zip(*sorted(zip(self._model_labels, self._get_values_lists1()), key=lambda y: self.fitness_computer(y[1]), reverse=True))]
-        return self._model_labels, [self.fitness_computer.pass_vector(x) for x in self._get_values_lists1()]
+            return [list(t) for t in zip(*sorted(zip(self._model_labels, self._results_value_vectors), key=lambda y: self.fitness_computer(y[1]), reverse=True))]
+        return self._model_labels, [self.fitness_computer.pass_vector(x) for x in self._results_value_vectors]
 
     ########## STRING OPERATIONS ##########
     def _to_row(self, model_label, strings_list):
@@ -124,15 +120,14 @@ class ModelReporter:
     def _length(self, a_string):
         _ = re.search(r'm(\d+(?:\.\d+)?)', a_string)
         if _: # if string is wrapped arround rendering decorators
-            l = len(_.group(1))
-        else:
-            l = len(a_string)
-        return l
+            return len(_.group(1))
+        return len(a_string)
 
     ########## EXTRACTION ##########
-    def _get_values_lists1(self):
+    @property
+    def _results_value_vectors(self):
         return [self._extract_all(x) for x in results_handler.get_experimental_results(self._collection_name, sort=self._metric, selection='all')]
-    def _extract_all(self, exp_results):  # get a list (vector) of extracted values
+    def _extract_all(self, exp_results):  # get a list (vector) of extracted values; it shall contain integers, floats, Nones (for metrics not tracked for the specific model) a single string for representing the regularization specifications and nan for the 'sparsity-phi-i' metric
         return [results_handler.extract(exp_results, x, 'last') for x in self.columns_to_render]
 
     ########## COLUMNS DEFINITIONS ##########
@@ -167,7 +162,7 @@ class ModelReporter:
         elif requested_column in results_handler.DYNAMIC_COLUMNS:
             return sorted([_ for _ in allowed_renderable if _.startswith(requested_column)]), [None]
         elif requested_column in results_handler.DEFAULT_COLUMNS:  # if c is one of the columns that map to exactly one column to render; ie 'perplexity'
-            print("DEBUG: '{}' not in {} but in DEFAULT COLUMNS".format(requested_column, allowed_renderable, results_handler.DEFAULT_COLUMNS))
+            # print("DEBUG: '{}' not in {} but in DEFAULT COLUMNS".format(requested_column, allowed_renderable, results_handler.DEFAULT_COLUMNS))
             return [requested_column], [None]
         else: # requested column is invalid: is not on of the allowed renderable columns
             return [None], [requested_column]
