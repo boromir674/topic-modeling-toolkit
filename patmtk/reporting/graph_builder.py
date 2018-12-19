@@ -15,14 +15,15 @@ from . import results_handler
 class GraphMaker(object):
     SUPPORTED_GRAPHS = ['perplexity', 'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',
                         'sparsity-theta', 'background-tokens-ratio']
-    LINES = ['b', 'y', 'g', 'k', 'c', 'm', 'p', 'r']
+    LINES = ['b', 'y', 'y', 'g', 'k', 'c', 'm', 'r']
     # linestyle / ls: Plot linestyle['-', '--', '-.', ':', 'None', ' ', '']
     # marker: '+', 'o', '*', 's', 'D', ',', '.', '<', '>', '^', '1', '2'
     def __init__(self, collections_root_path, plot_dir_name='graphs'):
         self._collections_dir_path = collections_root_path
         self._plot_dir_name = plot_dir_name
         self._verbose_save = True
-        self._save_lambdas = {True: lambda z: self._save_plot_n_return(z[0], z[1], verbose=self._verbose_save), False: lambda y: (x[0], x[1])}
+        self._save_lambdas = {True: lambda z: self._save_plot_n_return(z[0], z[1], verbose=self._verbose_save),
+                              False: lambda y: (y[0], y[1])}
         self._model_label_joiner = '+'
         self._results_indices = []
         self._exp_results_list = []
@@ -46,6 +47,10 @@ class GraphMaker(object):
             os.makedirs(self._output_dir_path)
             print('Created \'{}\' directory'.format(self._output_dir_path))
 
+    @property
+    def saved_figures(self):
+        return [_[0] for _ in self._graph_names_n_eplots if _[0]]
+
     def build_graphs_from_collection(self, collection_name, selection, metric='perplexity',
                                      score_definitions='all', tau_trajectories='all', save=True, nb_points=None, verbose=True):
         """
@@ -65,8 +70,8 @@ class GraphMaker(object):
         """
         self._prepare_output_folder(collection_name)
         self._exp_results_list = results_handler.get_experimental_results(collection_name, sort=metric, selection=selection)
-        print("Retrieved {} models from collection '{}', sorted {}.\nModels: [{}]".format(
-            len(self._exp_results_list), collection_name, (lambda x: x if x else 'alphabetically')(metric),
+        print("Retrieved {} models from collection '{}', sorted on '{}'.\nModels: [{}]".format(
+            len(self._exp_results_list), collection_name, (lambda x: x if x else 'their labels alphabetically')(metric),
             ', '.join((_.scalars.model_label for _ in self._exp_results_list))))
         self.build_graphs(self._exp_results_list, score_definitions=score_definitions, tau_trajectories=tau_trajectories,
                           save=save, nb_points=nb_points, verbose=verbose)
@@ -77,64 +82,74 @@ class GraphMaker(object):
             score_definitions = self.determine_metrics_usable_for_comparison(results)
         if tau_trajectories == 'all':
             tau_trajectories = ['phi', 'theta']
-        self._graph_names_n_eplots.extend(self.build_metrics_graphs(results, scores=score_definitions, save=save, nb_points=nb_points, verbose=verbose))
-        self._graph_names_n_eplots.extend(self.build_tau_trajectories_graphs(results, matrices=tau_trajectories, save=save, nb_points=nb_points, verbose=verbose))
+        self._graph_names_n_eplots.extend(self.build_metrics_graphs(results, scores=score_definitions, save=save, nb_points=nb_points))
+        self._graph_names_n_eplots.extend(self.build_tau_trajectories_graphs(results, matrices=tau_trajectories, save=save, nb_points=nb_points))
 
-    def build_tau_trajectories_graphs(self, results, matrices='all', save=True, nb_points=None, verbose=True):
-        return [self._save_lambdas[save](self._build_metric_graph(results, x, limit_iteration=nb_points, verbose=verbose)) for x in matrices]
+    def build_tau_trajectories_graphs(self, results, matrices='all', save=True, nb_points=None):
+        return [self._save_lambdas[save](self._build_graph(results, x, limit_iteration=nb_points)) for x in matrices]
 
-    def build_metrics_graphs(self, results, scores='all', save=True, nb_points=None, verbose=True):
+    def build_metrics_graphs(self, results, scores='all', save=True, nb_points=None):
         """
         Call this method to create and potentially save comparison plots between the tracked metrics (scores) of the given experimental results. Currently supported maximum 8 plots on the same figure\n.
         :param list of results.experimental_results.ExperimentalResults results:
         :param list or str scores: if 'all' then builds all admissible scores, else builds the custom selected scores
         :param bool save: whether to save figure on disk as .png files
         :param int nb_points: number of points to plot. Defaults to plotting all measurements found
-        :param bool verbose:
         """
-        return [self._save_lambdas[save](self._build_metric_graph(results, x, limit_iteration=nb_points, verbose=verbose)) for x in scores]
+        return [self._save_lambdas[save](self._build_graph(results, x, limit_iteration=nb_points)) for x in scores]
 
-    def _build_metric_graph(self, exp_results_list, metric, limit_iteration=None, verbose=True):
+    def _build_graph(self, exp_results_list, metric, limit_iteration=None):
         """Call this method to get a graph name (as a string) and a graph (as an Eplot object) tuple.\n
         :param list of results.experimental_results.ExperimentalResults exp_results_list:
         :param str metric: Supports unique metric definitions such as {'perplexity', 'sparsity-theta', 'sprasity-phi-d',
             'sparsity-phi-i', 'kernel-coherence-0.80', 'top-tokens-coherence-100', ..} as well as the 'phi-tau-trajectory' and 'theta-tau-trajectory' tracked values
         :param None or int limit_iteration: whether to limit the length at which it will plot along the x axis: if None, plots all available datapoint; if int value given limits plotting at a maximum of 'value' along the x axis
+        :rtype: tuple
         """
         assert len(exp_results_list) <= len(GraphMaker.LINES)
         labels = [_.scalars.model_label for _ in exp_results_list]
-        print('_BUILD METRIC', metric)
+        self._metric = metric
         if metric in ('phi', 'theta'):
             measure_name = 'τ_{}'.format(metric)
         else:
             measure_name = results_handler.get_abbreviation(metric).replace('-', '.')
-        extractor = self._tau_traj_extractor.get(metric, lambda x: results_handler.extract(x, metric, 'all'))
-        ys, xs = self._get_ys_n_xs(exp_results_list, extractor, nb_points=limit_iteration)
-        return '{}-{}'.format(self._model_label_joiner.join(labels), measure_name), \
-               GraphMaker.build_graph(xs, ys,
-                                      GraphMaker.LINES[:len(exp_results_list)],
-                                      labels,
-                                      title=measure_name,
-                                      xlabel='iteration',
-                                      ylabel='y')
+        try:
+            extractor = self._tau_traj_extractor.get(metric, lambda x: results_handler.extract(x, metric, 'all'))
 
-    def _save_plot_n_return(self, graph_type, eplot, verbose=True):
-        self._save_plot(graph_type, eplot, verbose=verbose)
-        return graph_type, eplot
+            ys, xs = self._get_ys_n_xs(exp_results_list, extractor, nb_points=limit_iteration)
+            return '{}-{}'.format(self._model_label_joiner.join(labels), measure_name), \
+                   GraphMaker.build_graph(xs, ys,
+                                          GraphMaker.LINES[:len(exp_results_list)],
+                                          labels,
+                                          title=measure_name,
+                                          xlabel='iteration',
+                                          ylabel='y')
+        except TypeError as e:
+            # print(e)
+            return None, None
 
-    def _save_plot(self, graph_type, eplot, verbose=True):
+    def _save_plot_n_return(self, graph_label, eplot, verbose=True):
+        save_path = self._save_plot(graph_label, eplot, verbose=verbose)
+        return save_path, eplot
+
+    def _save_plot(self, graph_label, eplot, verbose=True):
         """Call this method to save a graph on the disk as a .png file. The input graph type contributes to naming the file
         and appending any numbers for versioning and the plot object has a 'save' method."""
-        target_name = self._get_target_file_path(graph_type)
-        while os.path.exists(target_name): # while old graph files are found with the same name and version number, increment the plot 'version'
-            target_name = self._get_target_file_path(graph_type)
-        eplot.kwargs['fig'].savefig(target_name)
-        if verbose:
-            print('Saved figure as', target_name)
+        if eplot:
+            target_path = self._get_target_file_path(graph_label)
+            while os.path.exists(target_path): # while old graph files are found with the same name and version number, increment the plot 'version'
+                target_path = self._get_target_file_path(graph_label)
+            eplot.kwargs['fig'].savefig(target_path)
+            if verbose:
+                print("Saved '{}' figure".format(self._metric))
+            return target_path
+        elif verbose:
+            print("Failed to save '{}' figure".format(self._metric))
+            return None
 
     def _get_target_file_path(self, graph_type):
         self._plot_counter[graph_type] += 1
-        return os.path.join(self._output_dir_path, '{}_{}.png'.format(graph_type, self._iter_prepend(self._plot_counter[graph_type])))
+        return os.path.join(self._output_dir_path, '{}_v{}.png'.format(graph_type, self._iter_prepend(self._plot_counter[graph_type])))
 
     def _iter_prepend(self, int_num):
         nb_digits = len(str(int_num))
