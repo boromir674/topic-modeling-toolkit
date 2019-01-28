@@ -38,7 +38,8 @@ def write_vowpal(file_handler, doc_vector, doc_num, class_labels):
     """
     file_handler.write('doc{} {} {}\n'.format(
         doc_num,
-        ' '.join(map(lambda x: '{}{}'.format(x[0], freq2string.get(x[1], ':{}'.format(x[1]))), doc_vector)),
+        ' '.join(map(lambda x: '{}{}'.format(x[0].encode('utf-8'), freq2string.get(x[1], ':{}'.format(x[1]))), doc_vector)),
+        # ' '.join(map(lambda x: '{}{}'.format(x[0], freq2string.get(x[1], ':{}'.format(x[1]))), doc_vector)),
         ' '.join(map(lambda x: '|{} {}'.format(x[0], x[1]), class_labels.items()))
     ))
 freq2string = {1: ''}

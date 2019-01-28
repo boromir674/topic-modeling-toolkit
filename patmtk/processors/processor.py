@@ -92,9 +92,14 @@ class BaseDiskWriter(Processor, DiskWriterMetaProcessor):
         return type(self).__name__ + '(' + str(self.fname) + ')'
 
     def process(self, data):
-        _ = super(BaseDiskWriter, self).process(data)
-        self.doc_num += 1
-        return _
+        try:
+            _ = super(BaseDiskWriter, self).process(data)
+            self.doc_num += 1
+            return _
+        except UnicodeEncodeError as e:
+            print 'Document vector below, produced a UnicodeEncodeError:'
+            print 'count:', self.doc_num, data[0]
+            return None
 
     def initialize(self):
         self.file_handler = open(self.fname, 'w+')

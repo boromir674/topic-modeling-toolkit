@@ -1,3 +1,5 @@
+#!/home/kostas/software_and_libs/anaconda2/bin/python
+
 import os
 import re
 import sys
@@ -93,9 +95,16 @@ class PipeHandler(object):
         self.dct.compactify()
         print '\nnum_pos', self.dct.num_pos, '\nnum_nnz', self.dct.num_nnz, '\n{} items in dictionary'.format(len(self.dct.items()))
 
+        # self.corpus = filter(None, [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens])
         self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
         print 'total bow tuples in corpus: {}\n'.format(sum(len(_) for _ in self.corpus))
+        print 'corpus len (nb_docs):', len(self.corpus), 'empty docs', len([_ for _ in self.corpus if not _]), '\n'
+
+        # Remove empty docs
+        self.corpus = [_ for _ in self.corpus if _]
+        print 'total bow tuples in corpus: {}'.format(sum(len(_) for _ in self.corpus))
         print 'corpus len (nb_docs):', len(self.corpus), 'empty docs', len([_ for _ in self.corpus if not _])
+
 
         # DO SOME MANUAL FILE WRITING
         self._write_vocab()
@@ -157,7 +166,7 @@ class PipeHandler(object):
         assert isinstance(a_pipe, Pipeline)
         idd = get_id(a_pipe.settings)
         ri = idd.rfind('_')
-        return str(self.cat2textgen_proc.nb_processed) + '_' + idd[:ri] + '.' + idd[ri + 1:]
+        return str(len(self.corpus)) + '_' + idd[:ri] + '.' + idd[ri + 1:]
 
 
 def cfg2pipe_settings(config_path, section):
