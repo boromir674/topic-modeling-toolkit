@@ -44,7 +44,7 @@ def get_cli_arguments():
                         help='whether to use a concatenation of the (constants) static parameter names as part of the automatically generated labels that are used to name the artifacts of the training process')
     parser.add_argument('--include-explorables-to-label', '--i-e', action='store_true', default=False, dest='append_explorables',
                         help='whether to use a concatenation of the explorable parameter names as part of the automatically generated labels that are used to name the artifacts of the training process')
-    parser.add_argument('--verbose', '-v', type=int, default=3, help='controls the amount of outputing to stdout')
+    parser.add_argument('--verbose', '-v', type=int, default=3, help='controls the amount of outputing to stdout. Sensible values are {1,2,3,4,5}')
     return parser.parse_args()
 
 
@@ -52,17 +52,34 @@ if __name__ == '__main__':
     args = get_cli_arguments()
 
     tuner = Tuner(args.dataset)
-    tuning_definition = tdb.initialize().nb_topics(10).collection_passes(10, 20).document_passes(1, 2, 3)\
+    tuning_definition = tdb.initialize()\
+        .nb_topics(20)\
+        .collection_passes(100)\
+        .document_passes(1, 5)\
         .background_topics_pct(0.2)\
-        .ideology_class_weight(0, 5, 15)\
-        .sparse_phi().deactivate(2, 5).kind('linear').start(-1, -10).end(-20, -40)\
-        .sparse_theta().deactivate(2, 5).kind('linear').start(-5, -15).end(-30, -50)\
+        .ideology_class_weight(0, 5)\
         .build()
+        # .sparse_phi()\
+        #     .deactivate(10)\
+        #     .kind('linear')\
+        #     .start(-1)\
+        #     .end(-20)\
+        # .sparse_theta()\
+        #     .deactivate(10)\
+        #     .kind('linear')\
+        #     .start(-1)\
+        #     .end(-20)\
+
 
     tuner.activate_regularizers\
-        .smoothing.phi.theta\
-        .sparsing.phi.theta\
-        .done()
+        .smoothing\
+            .phi\
+            .theta\
+    .done()
+
+    # .sparsing\
+    #     .phi\
+    #     .theta\
 
     # tuner.static_regularization_specs = {'smooth-phi': {'tau': 1.0},
     #                                      'smooth-theta': {'tau': 1.0},
@@ -71,7 +88,7 @@ if __name__ == '__main__':
 
     tuner.tune(tuning_definition,
                prefix_label=args.prefix,
-               append_explorables=(lambda x: 'all' if x == True else [])(args.append_explorables),
-               append_static=(lambda x: 'all' if x == True else [])(args.append_static),
+               append_explorables=args.append_explorables,
+               append_static=args.append_static,
                force_overwrite=args.overwrite,
                verbose=args.verbose)

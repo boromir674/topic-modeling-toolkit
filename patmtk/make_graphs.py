@@ -11,7 +11,7 @@ def get_cl_arguments():
     parser.add_argument('collection', help='the name of the collection on which experiments were conducted')
     parser.add_argument('--models', dest='model_labels', type=str, nargs='*', help='the models to compare by plotting graphs; accepts list indices or model labels')
     parser.add_argument('--model-indices', '--m-i', dest='model_indices', type=int, nargs='*', help='whether to pick models specified by the given indices; it applies only if --models argument is not defined')
-    parser.add_argument('--sort', '-s', metavar='metric', help='whether to request models after sorting them on the given metric')
+    parser.add_argument('--sort', '-s', metavar='metric', default='perplexity', help='whether to request models after sorting them on the given metric')
     parser.add_argument('--top', '-t', type=int, help='request the first n models; it applies only if --models and -model-indices arguments are not defined')
     parser.add_argument('--range', '-r', nargs='*', type=int, help='request models defined by the range; applies only if --models, --model-indices and --top arguments are not defined')
     parser.add_argument('--metrics', metavar='metric_definitions', nargs='*', help='enable plotting for specific metrics tracked; i.e. "perplexity", "sparsity-phi-0.80", "top-tokens-coherence-10", etc. If --all-metrics flag is enabled it has no effect.')

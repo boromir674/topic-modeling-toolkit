@@ -93,17 +93,25 @@ class ResultsHandler(object):
         :rtype: list
         """
         result_paths = glob('{}/*.json'.format(os.path.join(self._collection_root_path, collection_name, self._results_dir_name)))
-        # print("GET exp results: selection '{}' of type {}".format(selection, type(selection)))
-        # print('All models are {}'.format(len(result_paths)))
-        if type(selection) == list and all([type(x) == 'str' for x in selection]):
-            self._list_selector = lambda y: ResultsHandler._label_selection(selection, y)
+        print("GET exp results: selection '{}' of type {}".format(selection, type(selection)))
+        print('All models are {}'.format(len(result_paths)))
+        # if type(selection) == list and all([type(x) == 'str' for x in selection]):
+        #     self._list_selector = lambda y: ResultsHandler._label_selection(selection, y)
         self._list_selector = lambda y: ResultsHandler._list_selector_hash[type(selection)]([y, selection])
+        print("SORT", sort)
         r = self._get_experimental_results(result_paths, callable_metric=self._get_metric(sort))
+        import sys
+        for i in r:
+            print(i.scalars.model_label, i.tracked.perplexity[-1])
+        sys.exit()
         assert len(result_paths) == len(r)
-        return self._list_selector(self._get_experimental_results(result_paths, callable_metric=self._get_metric(sort)))
+        return self._list_selector(r)
 
     def _get_experimental_results(self, results_paths, callable_metric=None):
+        print('Input metric', callable_metric)
         if callable_metric:
+            assert hasattr(callable_metric, '__call__')
+            print('Set metric:', callable_metric)
             return sorted([self._process_result_path(x) for x in results_paths], key=callable_metric, reverse=True)
         return [self._process_result_path(_) for _ in results_paths]
 
@@ -113,6 +121,7 @@ class ResultsHandler(object):
         return self._results_hash[result_path]
 
     def _get_metric(self, metric):
+        print("METRIC:", metric)
         if not metric:
             return None
         if metric not in self._fitness_function_hash:
@@ -188,8 +197,9 @@ class ResultsHandler(object):
 
     @staticmethod
     def _label_selection(labels, experimental_results_list):
-        _ = [x.scalars.model_label for x in experimental_results_list]
-        return [experimental_results_list.index(_.index(i)) for i in labels if i in _]
+        """Returns the indices of the input labels based on the input experimental results list"""
+        model_labels = [x.scalars.model_label for x in experimental_results_list]
+        return [experimental_results_list.index(model_labels.index(l)) for l in labels if l in model_labels]
 
 
 # class ModelSelector(object):

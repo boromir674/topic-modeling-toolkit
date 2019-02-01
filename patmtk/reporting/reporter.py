@@ -32,6 +32,7 @@ class ModelReporter:
         self._model_labels = [ModelReporter._get_label(x) for x in self._result_paths]
         self._max_label_len = max([len(x) for x in self._model_labels])
         self._columns_to_render, self._columns_failed = [], []
+        print('_initialize:', metric)
         self._maximal_renderable_columns = self._get_maximal_renderable_columns()
 
         if not columns:
@@ -42,7 +43,7 @@ class ModelReporter:
         if metric and metric not in self.columns_to_render:
             raise InvalidMetricException("Metric '{}' is not recognized within [{}]".format(metric, ', '.join(self.columns_to_render)))
         self._metric = metric
-
+        print('SELF.METRIC =', self._metric)
         if verbose:
             print('Using: [{}]'.format(', '.join(self.columns_to_render)))
             print('Ommiting: [{}]'.format(', '.join({_ for _ in self._maximal_renderable_columns if _ not in self.columns_to_render})))
@@ -78,6 +79,7 @@ class ModelReporter:
         if verbose:
             print('REPORTING ON:')
         self._initialize(collection_name, columns=columns, metric=metric, verbose=verbose)
+        print("frm-string: METRIC", metric)
         body = '\n'.join(self._compute_rows(metric=metric))
         head = '{}{} {} {}'.format(' '*self._max_label_len,
                                    ' '*len(self._label_separator),

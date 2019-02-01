@@ -1,11 +1,11 @@
-#!/usr/bin/python3
+#!/usr/bin/python3.5
 
 import argparse
 from reporting import model_reporter
 
 
 def get_cli_arguments():
-    parser = argparse.ArgumentParser(description='Reports on the trained models for the specified collection (dataset)', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(prog='report_models.py', description='Reports on the trained models for the specified collection (dataset)', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('dataset', metavar='collection_name', help='the collection to report models trained on')
     # parser.add_argument('--details', '-d', default=False, action='store_true', help='Switch to show details about the models')
     parser.add_argument('--sort', '-s', default='perplexity', help='Whether to sort the found experiments by checking the desired metric against the corresponding models')
@@ -28,6 +28,7 @@ if __name__ == '__main__':
 
     cli_args = get_cli_arguments()
 
+    print(cli_args)
 
     s = model_reporter.get_formatted_string(cli_args.dataset, columns=COLUMNS, metric=cli_args.sort, verbose=True)
 

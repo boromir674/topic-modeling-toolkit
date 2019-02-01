@@ -132,12 +132,19 @@ class Tuner(object):
         except ValueError:
             self._vb = 3
 
-    def tune(self, parameters_mixture, prefix_label='', append_explorables='all', append_static=True, static_regularizers_specs=None, force_overwrite=False, verbose=3):
+    def tune(self, parameters_mixture, prefix_label='', append_explorables=True, append_static=False, static_regularizers_specs=None, force_overwrite=False, verbose=3):
         """
         :param patm.tuning.building.TunerDefinition parameters_mixture: an object encapsulating a unique tuning process; constant parameters and parameters to tune on
         :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix used for the naming files (models, results) saved on disk
-        :param list or str append_explorables: if list is given will use these exact parameters' names as part of unique names used for files saved on disk. If 'all' is given then all possible parameter names will be used
-        :param bool append_static: indicates whether to use the values of the parameters remaining constant during space exploration, as part of the unique names used for files saved on disk
+        :param list or bool append_explorables: if list is given, then the naming scheme, for the path of the products of a training process
+            (model evaluation results and weight matrices saved on disk), will include the values used to do grid-search on,
+            corresponding to the specified explorable parameter names. If True, then all the values will be used. If False
+            the naming scheme will not use information from the (explorable) parameter value space
+        :param list or bool append_static: if list is given, then the naming scheme, for the path of the products of a training process
+            (model evaluation results and weight matrices saved on disk), will include the values corresponding to the
+            input subset of the parameters selected to remain constant during the grid-search. If True, then all the values
+            will be used. If False the naming scheme will not use any information from the parameters selected to remain
+            constant during the grid-search
         :param dict static_regularizers_specs: example input:\n
             {'smooth-phi': {'tau': 1.0},\n
             'smooth-theta': {'tau': 1.0, 'alpha_iter': 1.0},\n
@@ -213,13 +220,21 @@ class Tuner(object):
             - define the labeling scheme to use for naming the files created on disk\n
             - determine any potential naming collisions with existing files on disk and resolve by either overwritting or skipping them
         :param str prefix_label: an optional alphanumeric that serves as a constant prefix used for naming the files (models phi matrices dumped on disk, and results saved on disk as jsons)
-        :param list or str append_explorables: if list is given will use these exact parameters' names as part of unique names used for files saved on disk. If 'all' is given then all possible parameter names will be used
-        :param bool append_static: indicates whether to use the values of the parameters remaining constant during space exploration, as part of the unique names used for files saved on disk
+        :param list or bool append_explorables: if list is given, then the naming scheme, for the path of the products of a training process
+            (model evaluation results and weight matrices saved on disk), will include the values used to do grid-search on,
+            corresponding to the specified explorable parameter names. If True, then all the values will be used. If False
+            the naming scheme will not use information from the (explorable) parameter value space
+        :param list or bool append_static: if list is given, then the naming scheme, for the path of the products of a training process
+            (model evaluation results and weight matrices saved on disk), will include the values corresponding to the
+            input subset of the parameters selected to remain constant during the grid-search. If True, then all the values
+            will be used. If False the naming scheme will not use any information from the parameters selected to remain
+            constant during the grid-search
         """
         self._prefix = prefix_label
         self._experiments_saved = []
         self._label_groups = Counter()
-        self._define_labeling_scheme((lambda y: [] if y is None else y)(append_explorables), (lambda y: [] if y is None else y)(append_static))
+        # transform potential False boolean input to empty list
+        self._define_labeling_scheme((lambda y: [] if not y else y)(append_explorables), (lambda y: [] if not y else y)(append_static))
         if 1 < self._vb:
             print 'Automatically labeling files using parameter values: [{}]'.format(', '.join(self._labeling_params))
 
@@ -249,7 +264,7 @@ class Tuner(object):
             This method also determines if versioning is needed; whether to append strings like v001, v002 to the labels because
             of naming collisions
         """
-        assert all(map(lambda x: type(x) == list or x == 'all', [constants, explorables]))
+        assert all(map(lambda x: type(x) == list or (type(x) == bool and bool(x)), [constants, explorables]))
         explorables_labels = self._get_labels_extractor('explorables')(explorables)
         constants_labels = self._get_labels_extractor('constants')(constants)
         self._versioning_needed = not explorables_labels == self.explorables
@@ -257,7 +272,7 @@ class Tuner(object):
 
     def _get_labels_extractor(self, parameters_type):
         extractors_hash = {list: lambda x: [_ for _ in x if _ in self._allowed_labeling_params],
-                           str: lambda x: [_ for _ in getattr(self, parameters_type) if _ in self._allowed_labeling_params]}
+                           bool: lambda x: [_ for _ in getattr(self, parameters_type) if _ in self._allowed_labeling_params]}
         return lambda y: sorted(extractors_hash[type(y)](y))
 
     def _create_reg_specs(self, reg_settings, active_regularizers):
@@ -401,4 +416,4 @@ if __name__ == '__main__':
     #                                      'smooth-theta': {'tau': 1.0},
     #                                      'sparse-theta': {'alpha_iter': 1}}
                                          # 'sparse-theta': {'alpha_iter': 'linear_1_4'}}
-    tuner.tune(d2, prefix_label='tag1', append_explorables='all', append_static=True)
+    tuner.tune(d2, prefix_label='tag1', append_explorables=True, append_static=False)

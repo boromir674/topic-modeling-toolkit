@@ -7,6 +7,7 @@ from collections import Counter
 
 import matplotlib.pyplot as plt
 plt.ion()
+import easyplot
 from easyplot import EasyPlot
 
 from . import results_handler
@@ -60,7 +61,7 @@ class GraphMaker(object):
             - if selection == 'all', returns every experimental results object "extracted" from the jsons
             - if type(selection) == range, returns a "slice" of the experimental results based on the range
             - if type(selection) == int, returns the first n experimental results
-            - if type(selection) == list, then it represents specific indices to sample the list of experimental results from
+            - if type(selection) == list, then it returns the experimental results indexed by the list
         :param str metric:
         :param list or str score_definitions:
         :param list or str tau_trajectories:
