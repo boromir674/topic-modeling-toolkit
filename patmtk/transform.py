@@ -13,7 +13,8 @@ from gensim.models.tfidfmodel import TfidfModel
 
 from patm.modeling import get_posts_generator
 from patm import Pipeline, TextDataset, get_pipeline
-from patm.definitions import patm_root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, COLLECTIONS_DIR_PATH, poster_id2ideology_label, IDEOLOGY_CLASS_NAME, COOCURENCE_DICT_FILE_NAMES
+from patm.definitions import patm_root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, COLLECTIONS_DIR_PATH, \
+    poster_id2ideology_label, IDEOLOGY_CLASS_NAME, COOCURENCE_DICT_FILE_NAMES  # = ['cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
 
 
 class PipeHandler(object):
@@ -108,10 +109,13 @@ class PipeHandler(object):
 
         # DO SOME MANUAL FILE WRITING
         self._write_vocab()
-        self._write()
-        pr_lines = map(lambda x: str(x), [self.dct.num_docs, len(self.dct.items()), sum(len(_) for _ in self.corpus)])
-        # pr2 = ['a', 'b'] # self.pipeline.finalize([pr_lines, pr2])
-        self.pipeline.finalize([pr_lines])
+        self._write()  # write uci and vowpal formatted files
+
+        # the first 3 lines of a uci formatted file: correspond to nb_docs, vocab_size, sum of nb of tuples (representing the bow model) found in all documents.
+        # They should be written on the top
+        prologue_lines = map(lambda x: str(x), [self.dct.num_docs, len(self.dct.items()), sum(len(_) for _ in self.corpus)])
+        # pr2 = ['a', 'b'] # self.pipeline.finalize([prologue_lines, pr2])
+        self.pipeline.finalize([prologue_lines])
         self.dataset = TextDataset(self._collection, self.get_dataset_id(a_pipe),
                                    len(self.corpus), len(self.dct.items()), sum(len(_) for _ in self.corpus), self.uci_file, self.vocab_file, self.vowpal_file)
         self.dataset.save()
@@ -146,21 +150,27 @@ class PipeHandler(object):
             print 'File \'{}\' already exists'.format(self.vocab_file)
 
     def write_cooc_information(self, window, min_tf, min_df): # 'cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
-        """Assumes vocabulary and vowpal files have already been created"""
+        """
+        Assumes vocabulary and vowpal files have already been created\n
+        :param window:
+        :param min_tf:
+        :param min_df:
+        :return:
+        """
         d = {COOCURENCE_DICT_FILE_NAMES[0]: min_tf, COOCURENCE_DICT_FILE_NAMES[1]: min_df, COOCURENCE_DICT_FILE_NAMES[2]: min_tf, COOCURENCE_DICT_FILE_NAMES[3]: min_df}
         files = map(lambda x: os.path.join(self._col_dir, x+str(d[x])), COOCURENCE_DICT_FILE_NAMES)
         create_cooc_file(self.vowpal_file, self.vocab_file, window, files[0], files[1], files[2], files[3], min_tf=min_tf, min_df=min_df)
 
-    def get_words_file_name(self, a_pipe):
-        assert isinstance(a_pipe, Pipeline)
-        idd = re.sub('_weight-[a-zA-Z]+', '', get_id(a_pipe.settings))
-        return str(self.cat2textgen_proc.nb_processed) + '_' + idd.replace('_uci', '.words')
-
-    def get_bow_file_name(self, a_pipe):
-        assert isinstance(a_pipe, Pipeline)
-        idd = get_id(a_pipe.settings)
-        ri = idd.rfind('_')
-        return str(self.cat2textgen_proc.nb_processed) + '_' + idd[:ri] + '.' + idd[ri + 1:]
+    # def get_words_file_name(self, a_pipe):
+    #     assert isinstance(a_pipe, Pipeline)
+    #     idd = re.sub('_weight-[a-zA-Z]+', '', get_id(a_pipe.settings))
+    #     return str(self.cat2textgen_proc.nb_processed) + '_' + idd.replace('_uci', '.words')
+    #
+    # def get_bow_file_name(self, a_pipe):
+    #     assert isinstance(a_pipe, Pipeline)
+    #     idd = get_id(a_pipe.settings)
+    #     ri = idd.rfind('_')
+    #     return str(self.cat2textgen_proc.nb_processed) + '_' + idd[:ri] + '.' + idd[ri + 1:]
 
     def get_dataset_id(self, a_pipe):
         assert isinstance(a_pipe, Pipeline)
@@ -199,6 +209,13 @@ def get_cl_arguments():
     parser.add_argument('config', help='the .cfg file to use for constructing a pipeline')
     parser.add_argument('collection', help='a given name for the collection')
     parser.add_argument('--sample', metavar='nb_docs', default='all', help='the number of documents to consider. Defaults to all documents')
+    parser.add_argument('--window', '-w', default=10, type=int, help='number of tokens around specific token, which are used in calculation of cooccurrences')
+    parser.add_argument('--min_tf', default=0, type=int,
+                        help='Minimal value of cooccurrences of a pair of tokens that are saved in dictionary of cooccurrences.')
+                             # 'For each int value a file is built to be used for coherence computation. By default builds one with min_tf=0')
+    parser.add_argument('--min_df', default=0, type=int,
+                        help='Minimal value of documents in which a specific pair of tokens occurred together closely.')
+                             # 'For each int value a file is built to be used for coherence computation. By default builds one with min_df=0')
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
@@ -216,5 +233,6 @@ if __name__ == '__main__':
     uci_dt = ph.preprocess(pipe, args.collection)
     print uci_dt
 
-    print 'Building coocurences informtion'
-    ph.write_cooc_information(10, 5, 5)
+    print 'Building coocurences information'
+    ph.write_cooc_information(args.window, args.min_tf, args.min_df)
+
