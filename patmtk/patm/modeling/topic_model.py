@@ -1,7 +1,7 @@
 import warnings
 from collections import Counter
 
-from patm.modeling.regularization.regularizers import REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH
+from patm.modeling.regularization.regularizers_factory import REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH
 
 
 class TopicModel(object):
@@ -127,7 +127,7 @@ class TopicModel(object):
         return self.artm_model.regularizers[reg_name]
 
     def get_reg_name(self, reg_type):
-        return self._reg_type2name.get(reg_type, None)
+        return self._reg_type2name[reg_type]
 
     def get_evaluator(self, eval_name):
         return self._definition2evaluator[self._evaluator_name2definition[eval_name]]
@@ -171,9 +171,12 @@ class TopicModel(object):
                 self.set_parameter(reg_name, param, value)
 
     def get_regs_param_dict(self):
-        """
-        :return:
-        :rtype dict
+        """Returns a mapping between the model's regularizers (reg.type string from {'smooth-phi', 'sparse-theta', 'smooth-theta',
+            'sparse-phi', 'smooth-theta', 'sparse-theta', 'decorrelate-phi-domain', 'decorrelate-phi-background': decorrelation,
+            'label-regularization-phi'}) and their corresponding parameters that can be dynamically changed during training (eg 'tau', 'gamma').\n
+            See patm.modeling.regularization.regularizers.REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH\n
+        :return: the regularizer type (str) to parameters (list of strings) mapping (str => list)
+        :rtype: dict
         """
         d = {}
         for reg_type in self.regularizer_types:

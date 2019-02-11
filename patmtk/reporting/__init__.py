@@ -13,3 +13,6 @@ model_reporter = ModelReporter(COLLECTIONS_DIR_PATH, results_dir_name=RESULTS_DI
 
 from .graph_builder import GraphMaker
 graph_maker = GraphMaker(COLLECTIONS_DIR_PATH, plot_dir_name=PLOTS_DIR_NAME)
+
+from .topics import TopicsHandler
+topic_handler = TopicsHandler(COLLECTIONS_DIR_PATH, results_dir_name=RESULTS_DIR_NAME)

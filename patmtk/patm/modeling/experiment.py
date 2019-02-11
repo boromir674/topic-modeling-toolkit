@@ -1,6 +1,6 @@
 from .model_factory import get_model_factory
 from .persistence import ResultsWL, ModelWL
-from patm.modeling.regularization.regularizers import REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH as DYN_COEFS
+from patm.modeling.regularization.regularizers_factory import REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH as DYN_COEFS
 
 
 class Experiment:

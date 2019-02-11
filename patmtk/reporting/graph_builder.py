@@ -16,7 +16,7 @@ from . import results_handler
 class GraphMaker(object):
     SUPPORTED_GRAPHS = ['perplexity', 'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',
                         'sparsity-theta', 'background-tokens-ratio']
-    LINES = ['b', 'y', 'y', 'g', 'k', 'c', 'm', 'r']
+    LINES = ['b', 'm', 'y', 'g', 'k', 'c', 'r', '#4D79D1']
     # linestyle / ls: Plot linestyle['-', '--', '-.', ':', 'None', ' ', '']
     # marker: '+', 'o', '*', 's', 'D', ',', '.', '<', '>', '^', '1', '2'
     def __init__(self, collections_root_path, plot_dir_name='graphs'):

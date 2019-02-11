@@ -46,3 +46,4 @@ if __name__ == '__main__':
 
     if args.save:
         experiment.save_experiment(save_phi=True)
+        print "Saved results and model '{}'".format(args.label)
