@@ -5,9 +5,10 @@ from collections import OrderedDict
 from configparser import ConfigParser
 
 from patm.utils import cfg2model_settings
-from patm.definitions import REGULARIZERS_CFG, DEFAULT_CLASS_NAME
+from patm.definitions import REGULARIZERS_CFG, DEFAULT_CLASS_NAME  # this is the name of the default modality. it is irrelevant to class lebels or document lcassification
+from patm.definitions import CLASS_LABELS
 
-from base_regularizer import *
+from base_regularizer import ArtmRegularizerWrapper
 
 def cfg2regularizer_settings(cfg_file):
     config = ConfigParser()
@@ -75,10 +76,12 @@ class RegularizersFactory:
         self._wrappers = []
         self._col_passes = 0
         self._back_t, self._domain_t = [], []
-        self._regularizer_type2constructor = {'sparse-phi': lambda x: SparsePhiRegularizerWrapper(x['name'], x, self._domain_t, [DEFAULT_CLASS_NAME]),
-                                              'smooth-phi': lambda x: SmoothPhiRegularizerWrapper(x['name'], x, self._back_t, [DEFAULT_CLASS_NAME]),
-                                              'sparse-theta': lambda x: SparseThetaRegularizerWrapper(x['name'], x, self._domain_t),
-                                              'smooth-theta': lambda x: SmoothThetaRegularizerWrapper(x['name'], x, self._back_t)}
+        self._regularizer_type2constructor = \
+            {'sparse-phi': lambda x: ArtmRegularizerWrapper.create('sparse-phi', x, self._domain_t, [DEFAULT_CLASS_NAME]),
+             'smooth-phi': lambda x: ArtmRegularizerWrapper.create('smooth-phi', x, self._back_t, [DEFAULT_CLASS_NAME]),
+             'sparse-theta': lambda x: ArtmRegularizerWrapper.create('sparse-theta', x, self._domain_t),
+             'smooth-theta': lambda x: ArtmRegularizerWrapper.create('smooth-theta', x, self._back_t),
+             'document-classification': lambda x: ArtmRegularizerWrapper.create('document-classification', x, self._domain_t, CLASS_LABELS)}
 
     @property
     def collection_passes(self):
@@ -140,12 +143,14 @@ class RegularizersFactory:
         :return: the regularizer's wrapper object reference
         :rtype: ArtmRegularizerWrapper
         """
-        if reg_type not in self._regularizer_type2constructor:
+        # if reg_type not in self._regularizer_type2constructor:
+        if reg_type not in ArtmRegularizerWrapper.subclasses:
             warnings.warn("Requested to create '{}' regularizer, which is not supported".format(reg_type))
             return None
         if len(self._back_t) == 0 and reg_type.startswith('smooth'):
-            warnings.warn("Requested to create '{}' regularizer, but there are no 'background' topics defined".format(reg_type))
+            warnings.warn("Requested to create '{}' regularizer, which normally targets 'bakground' topicts, but there are not distinct 'background' topics defined".format(reg_type))
             return None
+        # return ArtmRegularizerWrapper.create(reg_type, settings)
         return self._regularizer_type2constructor[reg_type](settings)
 
 
