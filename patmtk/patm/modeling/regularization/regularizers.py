@@ -16,18 +16,18 @@ def cfg2regularizer_settings(cfg_file):
     return OrderedDict([(str(section), OrderedDict([(str(setting_name), parameter_name2encoder[str(setting_name)](value)) for setting_name, value in config.items(section) if value])) for section in config.sections()])
 
 
-smooth_sparse_phi = ('tau', 'gamma', 'class_ids', 'topic_names')
-smooth_sparse_theta = ('tau', 'topic_names', 'alpha_iter', 'doc_titles', 'doc_topic_coef')
+set1 = ('tau', 'gamma', 'class_ids', 'topic_names')
+set2 = ('tau', 'topic_names', 'alpha_iter', 'doc_titles', 'doc_topic_coef')
 decorrelation = ('tau', 'gamma', 'class_ids', 'topic_names', 'topic_pairs')
 
 regularizer2parameters = {
-    'smooth-phi': smooth_sparse_phi,
-    'sparse-phi': smooth_sparse_phi,
-    'smooth-theta': smooth_sparse_theta,
-    'sparse-theta': smooth_sparse_theta,
+    'smooth-phi': set1,
+    'sparse-phi': set1,
+    'smooth-theta': set2,
+    'sparse-theta': set2,
     'decorrelate-phi-domain': decorrelation,
     'decorrelate-phi-background': decorrelation,
-    'label-regularization-phi': ('tau', 'gamma', 'class_ids', 'topic_names'),
+    'label-regularization-phi': set1,
     # 'kl-function-info': ('function_type', 'power_value'),
     # 'specified-sparse-phi': ('tau', 'gamma', 'topic_names', 'class_id', 'num_max_elements', 'probability_threshold', 'sparse_by_column'),
     # 'improve-coherence-phi': ('tau', 'gamma', 'class_ids', 'topic_names'),

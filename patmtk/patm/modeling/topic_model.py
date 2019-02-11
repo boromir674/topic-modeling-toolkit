@@ -171,9 +171,12 @@ class TopicModel(object):
                 self.set_parameter(reg_name, param, value)
 
     def get_regs_param_dict(self):
-        """
-        :return:
-        :rtype dict
+        """Returns a mapping between the model's regularizers (reg.type string from {'smooth-phi', 'sparse-theta', 'smooth-theta',
+            'sparse-phi', 'smooth-theta', 'sparse-theta', 'decorrelate-phi-domain', 'decorrelate-phi-background': decorrelation,
+            'label-regularization-phi'}) and their corresponding parameters that can be dynamically changed during training (eg 'tau', 'gamma').\n
+            See patm.modeling.regularization.regularizers.REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH\n
+        :return: the regularizer type (str) to parameters (list of strings) mapping (str => list)
+        :rtype: dict
         """
         d = {}
         for reg_type in self.regularizer_types:
