@@ -29,6 +29,12 @@ def get_standard_regularization_definitions():
 
 def cfg2model_settings(cfg_file):
     """
+    Returns a mapping ie\n
+    {
+        'learning': OrderedDict({'nb_topics': 20, 'collection_passes': 50, 'document_passes': 1}),\n
+        'information': OrderedDict({'bakground-topics-percentage': 0.1}),\n
+        'regularizers': OrderedDict({'smooth-phi': 'smp', 'sparse-theta': 'spt'}),\n
+        'scores': OrderedDict({'perplexity': 'per', 'topic-kernel-0.80': 'tk80', 'topic-kernel-0.25': 'tk1'})}\n
     :param str cfg_file: full path
     :return: the parsed settings
     :rtype: OrderedDict
