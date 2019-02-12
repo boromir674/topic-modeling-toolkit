@@ -71,7 +71,9 @@ class ModelFactory(object):
 
     def create_model(self, label, train_cfg, reg_cfg=None):
         _ = cfg2model_settings(train_cfg)
-        return self.construct_model(label, _['learning']['nb_topics'], _['learning']['collection_passes'], _['learning']['document_passes'], float(_['information'].get('background-topics-percentage', 0)), self._parse_modalities(_['information']), _['scores'], _['regularizers'], reg_settings=reg_cfg)
+        return self.construct_model(label, _['learning']['nb_topics'], _['learning']['collection_passes'], _['learning']['document_passes'],
+                                    float(_['information'].get('background-topics-percentage', 0)), self._parse_modalities(_['information']),
+                                    _['scores'], _['regularizers'], reg_settings=reg_cfg)
 
     def create_model11(self, label, nb_topics, document_passes, train_cfg, modality_weights=None, background_topics_pct=0.0):
         _ = cfg2model_settings(train_cfg)
@@ -136,16 +138,16 @@ class ModelFactory(object):
         Sets '\@ideology_class' weight to 0 if key not found.\n
         """
         assert all(map(lambda x: x in (DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME), modality_weights.keys()))
-        weight = modality_weights.get(DEFAULT_CLASS_NAME, 0)
+        weight = modality_weights.get(DEFAULT_CLASS_NAME, 1)
         if weight == 0:
             raise ZeroWeightedDefaultModalityException("Tried to set DEFAULT_CLASS_NAME weight to 0. Either the dictionary passed has a 0 value for the 'default-class-weight' key, or the key is missing.")
         else:
             self._modality_weights[DEFAULT_CLASS_NAME] = weight
         weight = modality_weights.get(IDEOLOGY_CLASS_NAME, 0)
-        if weight != 0:
-            self._modality_weights[IDEOLOGY_CLASS_NAME] = weight
+        self._modality_weights[IDEOLOGY_CLASS_NAME] = weight
 
     def _parse_modalities(self, information_dict):
+        """Default modality: default weight = 1, Ideology modality: default weight = 0"""
         return {DEFAULT_CLASS_NAME: float(information_dict.get('default-class-weight', 1)), IDEOLOGY_CLASS_NAME: float(information_dict.get('ideology-class-weight', 0))}
 
 

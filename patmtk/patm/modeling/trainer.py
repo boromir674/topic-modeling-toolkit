@@ -3,6 +3,7 @@ import os
 import re
 import abc
 import artm
+
 from .model_factory import get_model_factory
 from ..definitions import COLLECTIONS_DIR_PATH, COOCURENCE_DICT_FILE_NAMES
 from patm.modeling.parameters.trajectory import get_fit_iteration_chunks
@@ -53,13 +54,18 @@ class ModelTrainer(object):
         """
         trajectories_data = specs.tau_trajectory_list
         if not trajectories_data:
-            if effects:
-                print 'Training with constant tau coefficients'
-                from patm.utils import Spinner
-                self.spinner.start()
-            topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=specs.collection_passes)
-            if effects:
-                self.spinner.stop()
+            # if effects:
+            print 'Training with constant tau coefficients..'
+
+            from patm.utils import Spinner
+            spinner = Spinner(delay=0.2)
+            spinner.start()
+            try:
+                topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=specs.collection_passes)
+            except RuntimeError as e:
+                spinner.stop()
+                raise e
+            spinner.stop()
             self.update_observers(topic_model, specs.collection_passes)
         else:
             steady_iter_chunks = get_fit_iteration_chunks(map(lambda x: x[1], trajectories_data))
