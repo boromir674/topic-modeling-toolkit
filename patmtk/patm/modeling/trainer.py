@@ -54,18 +54,20 @@ class ModelTrainer(object):
         """
         trajectories_data = specs.tau_trajectory_list
         if not trajectories_data:
-            # if effects:
-            print 'Training with constant tau coefficients..'
+            if effects:
+                print 'Training with constant tau coefficients..'
 
-            from patm.utils import Spinner
-            spinner = Spinner(delay=0.2)
-            spinner.start()
-            try:
-                topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=specs.collection_passes)
-            except RuntimeError as e:
+                from patm.utils import Spinner
+                spinner = Spinner(delay=0.2)
+                spinner.start()
+                try:
+                    topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=specs.collection_passes)
+                except RuntimeError as e:
+                    spinner.stop()
+                    raise e
                 spinner.stop()
-                raise e
-            spinner.stop()
+            else:
+                topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=specs.collection_passes)
             self.update_observers(topic_model, specs.collection_passes)
         else:
             steady_iter_chunks = get_fit_iteration_chunks(map(lambda x: x[1], trajectories_data))
