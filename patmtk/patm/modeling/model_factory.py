@@ -30,7 +30,7 @@ class ModelFactory(object):
     def __init__(self, dictionary, cooc_dict):
         self.dict = dictionary
         self._eval_factory = EvaluationFactory(dictionary, cooc_dict, abbreviation2class_name=self.abbreviation2_class_name)
-        self._regularizers_factory = RegularizersFactory()
+        self._regularizers_factory = RegularizersFactory(dictionary)
         self._tm = None
         self._artm = None
         self._col_passes = 0

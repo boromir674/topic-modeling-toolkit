@@ -110,6 +110,13 @@ class SmoothSparseRegularizerWrapper(ArtmRegularizerWrapper):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, reg_type, name, params_dict, targeted_topics):
+        """
+
+        :param reg_type:
+        :param name:
+        :param params_dict:
+        :param targeted_topics:
+        """
         super(SmoothSparseRegularizerWrapper, self).__init__(reg_type, dict(params_dict, **{'name': name, 'topic_names': targeted_topics}))
 
 
@@ -145,10 +152,10 @@ class SmoothThetaRegularizerWrapper(SmoothSparseThetaRegularizerWrapper):
     def __init__(self, name, params_dict, topic_names):
         super(SmoothThetaRegularizerWrapper, self).__init__('smooth-theta', name, params_dict, topic_names)
 
-
+@ArtmRegularizerWrapper.register_subclass('document-classification')
 class DocumentClassificationRegularizerWrapper(ArtmRegularizerWrapper):
     _artm_constructor = artm.LabelRegularizationPhiRegularizer
-    def __init__(self, name, params_dict, topic_names, class_ids):
+    def __init__(self, name, params_dict, topic_names, dictionary=None, class_ids=None):
         """
 
         :param str name:
@@ -156,6 +163,8 @@ class DocumentClassificationRegularizerWrapper(ArtmRegularizerWrapper):
         :param list of str topic_names: list of names of topics to regularize, will regularize all topics if not specified.
             Should correspond to the domain topics
         :param list of str class_ids: class_ids to regularize, will regularize all classes if not specified
+        :param dictionary:
+        :param class_ids:
         """
         super(DocumentClassificationRegularizerWrapper, self).__init__(
-            'document-classification', dict(params_dict, **{'name': name, 'topic_names': topic_names, 'class_ids': class_ids}))
+            'document-classification', dict(params_dict, **{'name':name, 'topic_names':topic_names, 'dictionary':dictionary, 'class_ids':class_ids}))

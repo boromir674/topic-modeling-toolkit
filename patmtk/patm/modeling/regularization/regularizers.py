@@ -69,7 +69,11 @@ class RegularizersFactory:
                                          'OrderedDict': lambda x: x,
                                          'str': lambda x: cfg2regularizer_settings(x)}
 
-    def __init__(self):
+    def __init__(self, dictionary=None):
+        """
+        :param str artm.Dictionary dictionary:  BigARTM collection dictionary qon't use dictionary if None when creating regularizers that support using a dictionary
+        """
+        self._dictionary = dictionary
         self._registry = {}
         self._reg_settings = cfg2regularizer_settings(REGULARIZERS_CFG)
         self._reg_defs = {}
@@ -81,7 +85,7 @@ class RegularizersFactory:
              'smooth-phi': lambda x: ArtmRegularizerWrapper.create('smooth-phi', x, self._back_t, [DEFAULT_CLASS_NAME]),
              'sparse-theta': lambda x: ArtmRegularizerWrapper.create('sparse-theta', x, self._domain_t),
              'smooth-theta': lambda x: ArtmRegularizerWrapper.create('smooth-theta', x, self._back_t),
-             'document-classification': lambda x: ArtmRegularizerWrapper.create('document-classification', x, self._domain_t, CLASS_LABELS)}
+             'document-classification': lambda x: ArtmRegularizerWrapper.create('document-classification', x, self._domain_t, dictionary=self._dictionary)}  # targets all classes, since no CLASS_LABELS list is given
 
     @property
     def collection_passes(self):
