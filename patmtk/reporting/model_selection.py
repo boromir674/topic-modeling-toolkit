@@ -100,10 +100,10 @@ class ResultsHandler(object):
         self._list_selector = lambda y: ResultsHandler._list_selector_hash[type(selection)]([y, selection])
         print("SORT", sort)
         r = self._get_experimental_results(result_paths, callable_metric=self._get_metric(sort))
-        import sys
-        for i in r:
-            print(i.scalars.model_label, i.tracked.perplexity[-1])
-        sys.exit()
+        # import sys
+        # for i in r:
+        #     print(i.scalars.model_label, i.tracked.perplexity[-1])
+        # sys.exit()
         assert len(result_paths) == len(r)
         return self._list_selector(r)
 

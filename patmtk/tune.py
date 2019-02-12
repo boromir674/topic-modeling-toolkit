@@ -57,7 +57,7 @@ if __name__ == '__main__':
         .collection_passes(100)\
         .document_passes(1, 5)\
         .background_topics_pct(0.2)\
-        .ideology_class_weight(0, 5)\
+        .ideology_class_weight(0)\
         .build()
         # .sparse_phi()\
         #     .deactivate(10)\

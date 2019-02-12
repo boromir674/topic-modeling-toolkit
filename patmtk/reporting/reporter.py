@@ -26,6 +26,44 @@ class ModelReporter:
         self._max_label_len = 0
         self._max_col_lens = []
 
+    @property
+    def columns_to_render(self):
+        return self._columns_to_render
+
+    @columns_to_render.setter
+    def columns_to_render(self, column_definitions):
+        if not isinstance(column_definitions, Iterable):
+            raise InvalidColumnsException(
+                "Input column definitions are of type '{}' instead of iterable".format(type(column_definitions)))
+        if not column_definitions:
+            raise InvalidColumnsException('Input column definitions evaluates to None')
+        invalid_columns = ModelReporter._get_invalid_column_definitions(column_definitions,
+                                                                        self._maximal_renderable_columns)
+        if invalid_columns:
+            raise InvalidColumnsException(
+                'Input column definitions [{}] are not valid'.format(', '.join(invalid_columns)))
+        self._columns_to_render = column_definitions
+
+    def get_formatted_string(self, collection_name, columns=None, metric='', verbose=True):
+        """
+        :param str collection_name:
+        :param list columns:
+        :param str metric:
+        :param bool verbose:
+        :return:
+        :rtype: str
+        """
+        if verbose:
+            print('REPORTING ON:')
+        self._initialize(collection_name, columns=columns, metric=metric, verbose=verbose)
+        print("frm-string: METRIC", metric)
+        body = '\n'.join(self._compute_rows(metric=metric))
+        head = '{}{} {} {}'.format(' '*self._max_label_len,
+                                   ' '*len(self._label_separator),
+                                   ' '.join(['{}{}'.format(x[1], ' '*(self._max_col_lens[x[0]] - len(x[1]))) for x in enumerate(self._columns_titles[:-1])]),
+                                   self._columns_titles[-1])
+        return head + '\n' + body
+
     def _initialize(self, collection_name, columns=None, metric='', verbose=False):
         self._collection_name = collection_name
         self._result_paths = glob('{}/*.json'.format(os.path.join(self._collections_dir, collection_name, self._results_dir_name)))
@@ -52,40 +90,20 @@ class ModelReporter:
         self._max_col_lens = [len(x) for x in self._columns_titles]
         self.fitness_computer.highlightable_columns = [_ for _ in self.columns_to_render if ModelReporter._get_hash_key(_) in self._column_keys_to_highlight]
 
-    @property
-    def columns_to_render(self):
-        return self._columns_to_render
+    ########## COLUMNS DEFINITIONS ##########
+    def _get_maximal_renderable_columns(self):
+        """Call this method to get a list of all the inferred columns allowed to render."""
+        return ModelReporter._get_column_definitions(results_handler.DEFAULT_COLUMNS,
+                                                     ModelReporter.determine_maximal_set_of_renderable_columns(results_handler.get_experimental_results(self._collection_name)))
 
-    @columns_to_render.setter
-    def columns_to_render(self, column_definitions):
-        if not isinstance(column_definitions, Iterable):
-            raise InvalidColumnsException("Input column definitions are of type '{}' instead of iterable".format(type(column_definitions)))
-        if not column_definitions:
-            raise InvalidColumnsException('Input column definitions evaluates to None')
-        invalid_columns = ModelReporter._get_invalid_column_definitions(column_definitions, self._maximal_renderable_columns)
-        if invalid_columns:
-            raise InvalidColumnsException('Input column definitions [{}] are not valid'.format(', '.join(invalid_columns)))
-        self._columns_to_render = column_definitions
+    @staticmethod
+    def determine_maximal_set_of_renderable_columns(exp_results_list):
+        return reduce(lambda i, j: i.union(j),
+                      [set(results_handler.get_all_columns(x, results_handler.DEFAULT_COLUMNS)) for x in
+                       exp_results_list])
 
-    def get_formatted_string(self, collection_name, columns=None, metric='', verbose=True):
-        """
-        :param str collection_name:
-        :param list columns:
-        :param str metric:
-        :param bool verbose:
-        :return:
-        :rtype: str
-        """
-        if verbose:
-            print('REPORTING ON:')
-        self._initialize(collection_name, columns=columns, metric=metric, verbose=verbose)
-        print("frm-string: METRIC", metric)
-        body = '\n'.join(self._compute_rows(metric=metric))
-        head = '{}{} {} {}'.format(' '*self._max_label_len,
-                                   ' '*len(self._label_separator),
-                                   ' '.join(['{}{}'.format(x[1], ' '*(self._max_col_lens[x[0]] - len(x[1]))) for x in enumerate(self._columns_titles[:-1])]),
-                                   self._columns_titles[-1])
-        return head + '\n' + body
+
+
 
     def _compute_rows(self, metric=''):
         self._model_labels, values_lists = self._get_labels_n_values(sort_by=metric)
@@ -131,15 +149,6 @@ class ModelReporter:
         return [self._extract_all(x) for x in results_handler.get_experimental_results(self._collection_name, sort=self._metric, selection='all')]
     def _extract_all(self, exp_results):  # get a list (vector) of extracted values; it shall contain integers, floats, Nones (for metrics not tracked for the specific model) a single string for representing the regularization specifications and nan for the 'sparsity-phi-i' metric
         return [results_handler.extract(exp_results, x, 'last') for x in self.columns_to_render]
-
-    ########## COLUMNS DEFINITIONS ##########
-    def _get_maximal_renderable_columns(self):
-        """Call this method to get a list of all the inferred columns allowed to render."""
-        return ModelReporter._get_column_definitions(results_handler.DEFAULT_COLUMNS, ModelReporter.determine_maximal_set_of_renderable_columns(results_handler.get_experimental_results(self._collection_name)))
-
-    @staticmethod
-    def determine_maximal_set_of_renderable_columns(exp_results_list):
-        return reduce(lambda i, j: i.union(j), [set(results_handler.get_all_columns(x, results_handler.DEFAULT_COLUMNS)) for x in exp_results_list])
 
     ########## STATIC ##########
     @staticmethod
