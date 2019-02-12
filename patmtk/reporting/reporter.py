@@ -102,9 +102,6 @@ class ModelReporter:
                       [set(results_handler.get_all_columns(x, results_handler.DEFAULT_COLUMNS)) for x in
                        exp_results_list])
 
-
-
-
     def _compute_rows(self, metric=''):
         self._model_labels, values_lists = self._get_labels_n_values(sort_by=metric)
         return [self._to_row(y[0], y[1]) for y in zip(self._model_labels, [self._to_list_of_strings(x) for x in values_lists])]
@@ -138,7 +135,7 @@ class ModelReporter:
         return _
 
     def _length(self, a_string):
-        _ = re.search(r'm(\d+(?:\.\d+)?)', a_string)
+        _ = re.search(r'm(\d+(?:\.\d+)?)', a_string)  # !! this regex assumes that the string represents a number (eg will fail if input belongs to 'regularizers' column)
         if _: # if string is wrapped arround rendering decorators
             return len(_.group(1))
         return len(a_string)

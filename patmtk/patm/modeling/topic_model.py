@@ -1,7 +1,7 @@
 import warnings
 from collections import Counter
 
-from patm.modeling.regularization.regularizers import REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH
+from patm.modeling.regularization.regularizers_factory import REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH
 
 
 class TopicModel(object):

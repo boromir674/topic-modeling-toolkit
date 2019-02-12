@@ -36,7 +36,7 @@ class Tuner(object):
     - decorrelate_topics_reg_coef        eg: 1e+5\n
     """
 
-    def __init__(self, collection, evaluation_definitions=None):
+    def __init__(self, collection, evaluation_definitions=None, verbose=3):
         """
 
         :param str collection: the name of the 'dataset'/collection to target the tuning process on
@@ -47,6 +47,7 @@ class Tuner(object):
         :param bool enable_ideology_labels: Enable using the 'vowpal_wabbit' format to exploit extra modalities modalities. A modalitity is a disctreet space of values (tokens, class_labels, ..)
 
         """
+        self._set_verbosity_level(verbose)
         self._required_parameters = ('nb_topics', 'document_passes', 'collection_passes')
         self._dir = os.path.join(COLLECTIONS_DIR_PATH, collection)
         if evaluation_definitions:
@@ -69,7 +70,8 @@ class Tuner(object):
         self._default_regularizer_parameters = {'smooth-phi': {'tau': 1.0},
                                                 'smooth-theta': {'tau': 1.0, 'alpha_iter': 1.0},
                                                 'sparse-phi': {'tau': 'linear_-5_-15', 'start': 4},
-                                                'sparse-theta': {'alpha_iter': 1, 'tau': 'linear_-3_-13', 'start': 4}}
+                                                'sparse-theta': {'alpha_iter': 1, 'tau': 'linear_-3_-13', 'start': 4},
+                                                'label-regularization-phi': {'tau': 1.0}}
     @staticmethod
     def _create_active_regs_with_default_names(reg_types_list):
         """
@@ -113,6 +115,8 @@ class Tuner(object):
             self._active_regs = active_regularizers
         else:
             raise TypeError
+        if 2 < self._vb:
+            print "Tuner: activated regs: [{}]".format(', '.join(sorted([_ for _ in self._active_regs.keys()])))
 
     @property
     def static_regularization_specs(self):
@@ -132,7 +136,7 @@ class Tuner(object):
         except ValueError:
             self._vb = 3
 
-    def tune(self, parameters_mixture, prefix_label='', append_explorables=True, append_static=False, static_regularizers_specs=None, force_overwrite=False, verbose=3):
+    def tune(self, parameters_mixture, prefix_label='', append_explorables=True, append_static=False, static_regularizers_specs=None, force_overwrite=False, verbose=None):
         """
         :param patm.tuning.building.TunerDefinition parameters_mixture: an object encapsulating a unique tuning process; constant parameters and parameters to tune on
         :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix used for the naming files (models, results) saved on disk
@@ -154,7 +158,8 @@ class Tuner(object):
             with the newly created files
         :param int verbose: the verbosity level on the stdout
         """
-        self._set_verbosity_level(verbose)
+        if verbose:
+            self._set_verbosity_level(verbose)
         self._initialize_parameters(parameters_mixture, static_regularizers_specifications=static_regularizers_specs)
         self._initialize_labeling_functionality(prefix_label=prefix_label,
                                                 append_explorables=append_explorables,
@@ -316,6 +321,7 @@ class Tuner(object):
         return tm, tr_specs
 
     def _replace_settings_with_supported_explorable(self, settings):
+        """Gets all regularizers' settings and for each, if it supports a trajectory for 'tau' coefficient value, adds the trajectory definition string to its settings"""
             # _ = map(lambda y: y(1), filter(None, map(lambda x: getattr(re.match('^(sparse_\w+)$', x), 'group', None), self._tau_traj_to_build)))
         # for reg_type in map(lambda x: x.replace('_', '-'), self._tau_traj_to_build):
         #     settings[reg_type] = dict(settings[reg_type], **self._get_tau_trajectory_definition_dict(reg_type.replace('-', '_')))
@@ -323,6 +329,7 @@ class Tuner(object):
         return dict(map(lambda x: (x[0], self._get_settings_dict(x[0], x[1])), settings.items()))
 
     def _get_settings_dict(self, reg_type, settings_dict):
+        """Gets a regularizer's settings and if it supports a trajectory for 'tau' coefficient value, add trajectory definition string in settings"""
         if reg_type.replace('-', '_') in self._tau_traj_to_build:
             return dict(settings_dict, **self._get_tau_trajectory_definition_dict(reg_type.replace('-', '_')))
         return settings_dict

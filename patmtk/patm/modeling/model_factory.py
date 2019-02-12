@@ -5,7 +5,7 @@ from ..evaluation.scorer_factory import EvaluationFactory
 from patm.definitions import DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 from patm.utils import cfg2model_settings
 from patm.utils import generic_topic_names_builder as tn_builder
-from patm.modeling.regularization.regularizers import RegularizersFactory, cfg2regularizer_settings
+from patm.modeling.regularization.regularizers_factory import RegularizersFactory, cfg2regularizer_settings
 
 
 dicts2model_factory = {}

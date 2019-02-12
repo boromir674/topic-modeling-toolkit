@@ -54,9 +54,9 @@ if __name__ == '__main__':
     tuner = Tuner(args.dataset)
     tuning_definition = tdb.initialize()\
         .nb_topics(20)\
-        .collection_passes(100)\
-        .document_passes(1, 5)\
-        .background_topics_pct(0.2)\
+        .collection_passes(50)\
+        .document_passes(1, 2, 3)\
+        .background_topics_pct(0.1)\
         .ideology_class_weight(0)\
         .build()
         # .sparse_phi()\
@@ -70,12 +70,13 @@ if __name__ == '__main__':
         #     .start(-1)\
         #     .end(-20)\
 
-
     tuner.activate_regularizers\
         .smoothing\
             .phi\
             .theta\
-    .done()
+        .done()
+        # .label_regularization\
+    # .done()
 
     # .sparsing\
     #     .phi\

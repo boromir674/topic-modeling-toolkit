@@ -17,8 +17,9 @@ if __name__ == '__main__':
     COLUMNS = ['nb-topics', 'collection-passes', 'document-passes', 'total-phi-updates', 'perplexity',
                'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',
                'sparsity-theta',
-               'background-tokens-ratio',]
-               # 'regularizers']
+               # 'background-tokens-ratio',]
+               'background-tokens-ratio',
+               'regularizers']
 
     # COLUMNS = ['nb-topics', 'collection-passes', 'perplexity']
                # 'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',

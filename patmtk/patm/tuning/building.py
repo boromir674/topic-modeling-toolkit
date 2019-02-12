@@ -211,6 +211,12 @@ class RegularizersActivationDefinitionBuilder(object):
         return self
 
     @property
+    def label_regularization(self):
+        """DxWxTxC"""
+        self._reg_types.append('label-regularization-phi')
+        return self
+
+    @property
     def phi(self):
         self._reg_types.append(self._key + '-phi')
         return self
