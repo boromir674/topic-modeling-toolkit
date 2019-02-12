@@ -169,7 +169,8 @@ class ExperimentalResults(object):
                  list(experiment.trackables.items()) if kernel_definition.startswith('topic-kernel')},
                 {top_tokens_definition: [value[0], value[1]] for top_tokens_definition, value in
                  list(experiment.trackables.items()) if top_tokens_definition.startswith('top-tokens-')},
-                {'tau-trajectories': {matrix_name: experiment.reg_params['sparse-' + matrix_name]['tau'] for matrix_name in ['theta', 'phi']}},
+                # {'tau-trajectories': {matrix_name: experiment.reg_params['sparse-' + matrix_name]['tau'] for matrix_name in ['theta', 'phi']}},
+                {'tau-trajectories': {matrix_name: experiment.reg_params.get('sparse-'+matrix_name, {}).get('tau', []) for matrix_name in ['theta', 'phi']}},
                 {key: v for key, v in list(experiment.trackables.items()) if key.startswith('sparsity-phi-@')},
                 {key: v for key, v in list(experiment.trackables.items()) if key.startswith('background-tokens-ratio')}]
         final_kernel_tokens = {eval_def: cls._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('topic-kernel-')}
