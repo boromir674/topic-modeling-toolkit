@@ -6,35 +6,6 @@ from patm.tuning import Tuner
 from patm.tuning.building import tuner_definition_builder as tdb
 
 
-# def get_model_settings(label, dataset):
-#     results = load_results(os.path.join(collection_dir, dataset, '/results', label + '-train.json'))
-#     reg_set = results['reg_parameters'][-1][1]
-#     back_topics = {}
-#     domain_topics = {}
-#     reg_tau_trajectories = {}
-#     reg_specs = [0, {}]
-#     for k,v  in reg_set.items():
-#         print k
-#         reg_specs[1][k] = v
-#         if re.match('^smooth-(?:phi|theta)|^decorrelator-phi', k):
-#             print 'm1', reg_set[k].keys()
-#             back_topics[k] = reg_set[k]['topic_names']
-#         if re.match('^sparse-(?:phi|theta)', k):
-#             print 'm2', reg_set[k].keys()
-#             domain_topics[k] = reg_set[k]['topic_names']
-#             reg_tau_trajectories[k] = [_ for sublist in map(lambda x: [x[1][k]['tau']] * x[0], results['reg_parameters']) for _ in sublist]
-#     for k in sorted(back_topics.keys()):
-#         print k, back_topics[k]
-#     for k in sorted(domain_topics.keys()):
-#         print k, domain_topics[k]
-#     if back_topics:
-#         assert len(set(map(lambda x: '.'.join(x), back_topics.values()))) == 1  # assert that all sparsing adn smoothing regularizers
-#         # have the same domain and background topics respectively to comply with the restriction in 'tune' method that all regularizers "share" the same domain and background topics.
-#         assert len(set(map(lambda x: '.'.join(x), domain_topics.values()))) == 1
-#         reg_specs[0] = float(len(back_topics.values()[0])) / (len(back_topics.values()[0]) + len(domain_topics.values()[0]))
-#         return reg_specs, reg_tau_trajectories
-#     return None
-
 def get_cli_arguments():
     parser = argparse.ArgumentParser(description='Performs grid-search over the parameter space by creating and training topic models', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('dataset', metavar='collection_name', help='the collection to report models trained on')
@@ -93,3 +64,33 @@ if __name__ == '__main__':
                append_static=args.append_static,
                force_overwrite=args.overwrite,
                verbose=args.verbose)
+
+
+# def get_model_settings(label, dataset):
+#     results = load_results(os.path.join(collection_dir, dataset, '/results', label + '-train.json'))
+#     reg_set = results['reg_parameters'][-1][1]
+#     back_topics = {}
+#     domain_topics = {}
+#     reg_tau_trajectories = {}
+#     reg_specs = [0, {}]
+#     for k,v  in reg_set.items():
+#         print k
+#         reg_specs[1][k] = v
+#         if re.match('^smooth-(?:phi|theta)|^decorrelator-phi', k):
+#             print 'm1', reg_set[k].keys()
+#             back_topics[k] = reg_set[k]['topic_names']
+#         if re.match('^sparse-(?:phi|theta)', k):
+#             print 'm2', reg_set[k].keys()
+#             domain_topics[k] = reg_set[k]['topic_names']
+#             reg_tau_trajectories[k] = [_ for sublist in map(lambda x: [x[1][k]['tau']] * x[0], results['reg_parameters']) for _ in sublist]
+#     for k in sorted(back_topics.keys()):
+#         print k, back_topics[k]
+#     for k in sorted(domain_topics.keys()):
+#         print k, domain_topics[k]
+#     if back_topics:
+#         assert len(set(map(lambda x: '.'.join(x), back_topics.values()))) == 1  # assert that all sparsing adn smoothing regularizers
+#         # have the same domain and background topics respectively to comply with the restriction in 'tune' method that all regularizers "share" the same domain and background topics.
+#         assert len(set(map(lambda x: '.'.join(x), domain_topics.values()))) == 1
+#         reg_specs[0] = float(len(back_topics.values()[0])) / (len(back_topics.values()[0]) + len(domain_topics.values()[0]))
+#         return reg_specs, reg_tau_trajectories
+#     return None
