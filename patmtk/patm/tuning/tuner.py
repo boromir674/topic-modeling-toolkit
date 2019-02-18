@@ -135,6 +135,20 @@ class Tuner(object):
         except ValueError:
             self._vb = 3
 
+    def _all(self, tm):
+        """
+        :param patm.modeling.topic_model.TopicModel tm:
+        :param reg_name:
+        :return:
+        """
+        return {k: dict(v, **self._reg_settings(tm, k)) for k, v in self.static_regularization_specs.items()}
+
+    def _reg_settings(self, tm, reg_type):
+
+        target_topics = tm.get_reg_obj(tm.get_reg_name(reg_type)).topic_names
+        target_modalities = getattr(tm.get_reg_obj(tm.get_reg_name(reg_type)), 'class_ids', None)
+        return {k:v for k,v in {'target topics': (lambda x: 'all' if len(x) == 0 else x)(target_topics), 'mods': target_modalities}.items()}
+
     def tune(self, parameters_mixture, prefix_label='', append_explorables=True, append_static=False, static_regularizers_specs=None, force_overwrite=False, verbose=None):
         """
         :param patm.tuning.building.TunerDefinition parameters_mixture: an object encapsulating a unique tuning process; constant parameters and parameters to tune on
@@ -177,11 +191,11 @@ class Tuner(object):
         self._label_groups = Counter()
         for i, self.parameter_vector in enumerate(generator):
             self._cur_label = self._labeler(i)
-            if 4 < self._vb:
-                tqdm.write(pprint.pformat(self.static_regularization_specs))
             tm, specs = self._create_model_n_specs()
-            if 3 < self._vb:
-                tqdm.write(pprint.pformat(tm.modalities_dictionary))
+            if 4 < self._vb:
+                tqdm.write(pprint.pformat(self._all(tm)))
+            # if 3 < self._vb:
+                # tqdm.write(pprint.pformat(tm.modalities_dictionary))
             self.experiment.init_empty_trackables(tm)
             self.trainer.train(tm, specs)
             self.experiment.save_experiment(save_phi=True)
