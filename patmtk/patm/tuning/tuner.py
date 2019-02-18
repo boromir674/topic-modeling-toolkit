@@ -181,7 +181,7 @@ class Tuner(object):
         if 1 < self._vb:
             print 'Taking {} samples for grid-search'.format(len(self._parameter_grid_searcher))
         if force_overwrite:
-            print 'Overiding any existing results and phi matrices found'
+            print 'Overwritting any existing results and phi matrices found'
         if self._vb:
             print 'Tuning..'
             generator = tqdm(self._parameter_grid_searcher, total=len(self._parameter_grid_searcher), unit='model')

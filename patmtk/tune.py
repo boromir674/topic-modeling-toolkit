@@ -27,7 +27,7 @@ if __name__ == '__main__':
         .nb_topics(10, 20, 40)\
         .collection_passes(100)\
         .document_passes(1, 2, 3)\
-        .background_topics_pct(0.1, 0.2)\
+        .background_topics_pct(0.1)\
         .ideology_class_weight(0)\
         .build()
         # .sparse_phi()\
@@ -45,12 +45,14 @@ if __name__ == '__main__':
         .smoothing\
             .phi\
             .theta\
-        .label_regularization\
+        .sparsing\
+            .phi\
+            .theta\
     .done()
 
-    # .sparsing\
-    #     .phi\
-    #     .theta\
+    #     .label_regularization\
+    # .done()
+
 
     # tuner.static_regularization_specs = {'smooth-phi': {'tau': 1.0},
     #                                      'smooth-theta': {'tau': 1.0},

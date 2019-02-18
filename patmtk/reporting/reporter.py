@@ -109,20 +109,8 @@ class ModelReporter:
         """Call this method to get a list of model labels and a list of lists of reportable values that correspond to each label
         Fitness_computer finds the maximum values per eligible column definition that need to be highlighted."""
         if self._metric:
-            # self._fitness_function = FitnessFunction.single_metric(self._metric)
-            # self.fitness_computer.initialize(self._fitness_function, self.columns_to_render)
-
             self.fitness_computer.__init__(single_metric=self._metric, column_definitions=self.columns_to_render)
-            # edw xalaei to prama (apo katw)
-            print("SHOULD BE SEEN")
-            print('PER B:\n', [_[4] for _ in self._results_value_vectors])
-            fits = [self.fitness_computer(_) for _ in self._results_value_vectors]
-            print("FITS:\n", fits)
-            print("SORTED FITS:\n", sorted(fits, reverse=True))
-            c = [list(t) for t in zip(*sorted(zip(self._model_labels, self._results_value_vectors), key=lambda y: self.fitness_computer(y[1]), reverse=True))]
-            print('PER A:\n', [_[1][4] for _ in c])
-            return c
-        print("SHOULD NOT BE SEEN")
+            return [list(t) for t in zip(*sorted(zip(self._model_labels, self._results_value_vectors), key=lambda y: self.fitness_computer(y[1]), reverse=True))]
         return self._model_labels, [self.fitness_computer.pass_vector(x) for x in self._results_value_vectors]
 
     ########## STRING OPERATIONS ##########
@@ -153,11 +141,7 @@ class ModelReporter:
     ########## EXTRACTION ##########
     @property
     def _results_value_vectors(self):
-        # r = [self._extract_all(x) for x in results_handler.get_experimental_results(self._collection_name, sort=self._metric, selection='all')]
-        r = [self._extract_all(x) for x in results_handler.get_experimental_results(self._collection_name, selection='all')]
-        # print('\nRVC: perplexity:', [_[4] for _ in r])
-        return r
-        # return [self._extract_all(x) for x in r]
+        return [self._extract_all(x) for x in results_handler.get_experimental_results(self._collection_name, selection='all')]
 
     def _extract_all(self, exp_results):  # get a list (vector) of extracted values; it shall contain integers, floats, Nones
         # (for metrics not tracked for the specific model) a single string for representing the regularization specifications and nan for the 'sparsity-phi-i' metric
@@ -186,7 +170,6 @@ class ModelReporter:
         elif requested_column in results_handler.DYNAMIC_COLUMNS:
             return sorted([_ for _ in allowed_renderable if _.startswith(requested_column)]), [None]
         elif requested_column in results_handler.DEFAULT_COLUMNS:  # if c is one of the columns that map to exactly one column to render; ie 'perplexity'
-            # print("DEBUG: '{}' not in {} but in DEFAULT COLUMNS".format(requested_column, allowed_renderable, results_handler.DEFAULT_COLUMNS))
             return [requested_column], [None]
         else: # requested column is invalid: is not on of the allowed renderable columns
             return [None], [requested_column]

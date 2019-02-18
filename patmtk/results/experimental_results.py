@@ -253,6 +253,10 @@ class AbstractValueTracker(object):
 
     @property
     def kernel_thresholds(self):
+        """
+
+        :return: list of strings eg ['0.60', '0.80', '0.25']
+        """
         return sorted(_.split('-')[-1] for _ in list(self._groups.keys()) if _.startswith('topic-kernel'))
 
     @property

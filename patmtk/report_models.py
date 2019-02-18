@@ -2,6 +2,7 @@
 
 import argparse
 from reporting import model_reporter
+from reporting.reporter import InvalidMetricException
 
 
 def get_cli_arguments():
@@ -18,7 +19,7 @@ if __name__ == '__main__':
                'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',
                'sparsity-theta',
                'background-tokens-ratio',
-               'regularizers'
+               # 'regularizers'
                ]
 
     # COLUMNS = ['nb-topics', 'collection-passes', 'perplexity']
@@ -30,10 +31,16 @@ if __name__ == '__main__':
     cli_args = get_cli_arguments()
 
     print(cli_args)
+    sort_metric = cli_args.sort
 
-    s = model_reporter.get_formatted_string(cli_args.dataset, columns=COLUMNS, metric=cli_args.sort, verbose=True)
-
-    print('\n{}'.format(s))
+    while 1:
+        try:
+            s = model_reporter.get_formatted_string(cli_args.dataset, columns=COLUMNS, metric=sort_metric, verbose=True)
+            print('\n{}'.format(s))
+            break
+        except InvalidMetricException as e:
+            print(e)
+            sort_metric = input("Please input another metric to sort (blank for 'perplexity'): ")
 
     # from pprint import pprint
     # print '\n', pprint(dict(zip(reporter._columns_titles, reporter._max_col_lens)))
