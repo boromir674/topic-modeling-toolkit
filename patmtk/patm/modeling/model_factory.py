@@ -42,6 +42,12 @@ class ModelFactory(object):
         self._eval_def2name = {}
         self._reg_types2names = {}
 
+    def create_model(self, label, train_cfg, reg_cfg=None):
+        _ = cfg2model_settings(train_cfg)
+        return self.construct_model(label, _['learning']['nb_topics'], _['learning']['collection_passes'], _['learning']['document_passes'],
+                                    float(_['information'].get('background-topics-percentage', 0)), self._parse_modalities(_['information']),
+                                    _['scores'], _['regularizers'], reg_settings=reg_cfg)
+
     def construct_model(self, label, nb_topics, nb_collection_passes, nb_document_passes, background_topics_pct, modality_weights, scores, regularizers, reg_settings=None):
         """
         :param str label:
@@ -59,29 +65,17 @@ class ModelFactory(object):
         self._col_passes, self._nb_topics, self._nb_document_passes = nb_collection_passes, nb_topics, nb_document_passes
         self.modalities, self._eval_def2name, self._reg_types2names = modality_weights, scores, regularizers
         return self._create_model(label,
-                                  *tn_builder.define_nb_topics(self._nb_topics).define_background_pct(background_topics_pct).get_background_n_domain_topics(),
+                                  *tn_builder.define_nb_topics(self._nb_topics).define_background_pct(background_topics_pct)
+                                  .get_background_n_domain_topics(),
                                   reg_cfg=reg_settings)
 
-    def create_train_specs(self, collection_passes=None):
-        """Creates Train Specs according to the latest TopicModel instance created."""
-        if not collection_passes:
-            collection_passes = self._col_passes
-        self._tm.initialize_regularizers(collection_passes, self._nb_document_passes)
-        return TrainSpecs(collection_passes, list(map(lambda x: x[0], self._tm.tau_trajectories)), list(map(lambda x: x[1], self._tm.tau_trajectories)))
-
-    def create_model(self, label, train_cfg, reg_cfg=None):
-        _ = cfg2model_settings(train_cfg)
-        return self.construct_model(label, _['learning']['nb_topics'], _['learning']['collection_passes'], _['learning']['document_passes'],
-                                    float(_['information'].get('background-topics-percentage', 0)), self._parse_modalities(_['information']),
-                                    _['scores'], _['regularizers'], reg_settings=reg_cfg)
-
-    def create_model11(self, label, nb_topics, document_passes, train_cfg, modality_weights=None, background_topics_pct=0.0):
-        _ = cfg2model_settings(train_cfg)
-        return self.construct_model(label, nb_topics, _['learning']['collection_passes'], document_passes, background_topics_pct, modality_weights, _['scores'], _['regularizers'])
-
-    def create_model00(self, label, train_cfg, reg_cfg=None, modality_weights=None, background_topics_pct=0.0):
-        _ = cfg2model_settings(train_cfg)
-        return self.construct_model(label, _['learning']['nb_topics'], _['learning']['collection_passes'], _['learning']['document_passes'], background_topics_pct, modality_weights, _['scores'], _['regularizers'], reg_settings=reg_cfg)
+    # def create_model11(self, label, nb_topics, document_passes, train_cfg, modality_weights=None, background_topics_pct=0.0):
+    #     _ = cfg2model_settings(train_cfg)
+    #     return self.construct_model(label, nb_topics, _['learning']['collection_passes'], document_passes, background_topics_pct, modality_weights, _['scores'], _['regularizers'])
+    #
+    # def create_model00(self, label, train_cfg, reg_cfg=None, modality_weights=None, background_topics_pct=0.0):
+    #     _ = cfg2model_settings(train_cfg)
+    #     return self.construct_model(label, _['learning']['nb_topics'], _['learning']['collection_passes'], _['learning']['document_passes'], background_topics_pct, modality_weights, _['scores'], _['regularizers'], reg_settings=reg_cfg)
 
     # def create_model_with_phi_from_disk(self, phi_file_path, results):
     #     """
@@ -106,8 +100,17 @@ class ModelFactory(object):
         self._build_artm(background_topics, domain_topics, modalities_dict=self._modality_weights, phi_path=phi_path)
         self._add_scorers()
         self._tm = TopicModel(label, self._artm, self.topic_model_evaluators)
-        self._tm.add_regularizer_wrappers(self._regularizers_factory.set_regularizers_definitions(self._reg_types2names, background_topics, domain_topics, reg_cfg=reg_cfg).create_reg_wrappers())
+        self._tm.add_regularizer_wrappers(self._regularizers_factory.set_regularizers_definitions(self._reg_types2names,
+                                                                                                  background_topics, domain_topics,
+                                                                                                  reg_cfg=reg_cfg).create_reg_wrappers())
         return self._tm
+
+    def create_train_specs(self, collection_passes=None):
+        """Creates Train Specs according to the latest TopicModel instance created."""
+        if not collection_passes:
+            collection_passes = self._col_passes
+        self._tm.initialize_regularizers(collection_passes, self._nb_document_passes)
+        return TrainSpecs(collection_passes, list(map(lambda x: x[0], self._tm.tau_trajectories)), list(map(lambda x: x[1], self._tm.tau_trajectories)))
 
     def _build_artm(self, background_topics, domain_topics, modalities_dict=None, phi_path=''):
         self._eval_factory.domain_topics = domain_topics
