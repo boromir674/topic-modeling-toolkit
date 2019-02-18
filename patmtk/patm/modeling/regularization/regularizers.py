@@ -1,8 +1,10 @@
 import abc
+from pprint import pprint
+from warnings import warn
+
+import artm
 
 from patm.modeling.parameters import trajectory_builder
-from pprint import pprint
-import artm
 
 
 class ArtmRegularizerWrapper(object):
@@ -121,6 +123,11 @@ class SmoothSparseRegularizerWrapper(ArtmRegularizerWrapper):
         :param params_dict:
         :param targeted_topics:
         """
+        if len(targeted_topics) == 0:
+            # T.O.D.O below: the warning should fire if smooth is active because then there must be defined
+            # non overlapping sets of 'domain' and 'background' topics
+            warn("Set Smooth regularizer to target all topics. This is valid only if you do use 'domain' topics for other regularizers; ie in case you emulate an LDA model because smoothing achieves this behaviour.")
+            targeted_topics = None
         super(SmoothSparseRegularizerWrapper, self).__init__(reg_type, dict(params_dict, **{'name': name, 'topic_names': targeted_topics}))
 
 
@@ -170,5 +177,9 @@ class DocumentClassificationRegularizerWrapper(ArtmRegularizerWrapper):
         :param dictionary:
         :param class_ids:
         """
+        if len(topic_names) == 0: # T.O.D.O below: the warning should fire if smooth is active because then there must be defined
+            # non overlapping sets of 'domain' and 'background' topics
+            warn("Set DocumentClassificationRegularizer to target all topics. This is valid only if you do use 'background topics'.")
+            topic_names = None
         super(DocumentClassificationRegularizerWrapper, self).__init__(
             'label-regularization-phi', dict(params_dict, **{'name':name, 'topic_names':topic_names, 'dictionary':dictionary, 'class_ids':class_ids}))

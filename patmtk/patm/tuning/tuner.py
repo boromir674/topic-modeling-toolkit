@@ -38,7 +38,6 @@ class Tuner(object):
 
     def __init__(self, collection, evaluation_definitions=None, verbose=3):
         """
-
         :param str collection: the name of the 'dataset'/collection to target the tuning process on
         :param str train_config: full path to 'the' train.cfg file used here only for initializing tracking evaluation scoring capabilities. Namely the necessary BaseScore objects of ARTM lib and the custom ArtmEvaluator objects are initialized
         :param list_of_tuples static_parameters: definition of parameters that will remain constant while exploring the parameter space. The order of this affects the order in which vectors of the parameter space are generated

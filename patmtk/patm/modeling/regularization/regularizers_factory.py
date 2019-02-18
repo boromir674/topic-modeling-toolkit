@@ -110,8 +110,6 @@ class RegularizersFactory:
         :rtype: RegularizersFactory
         """
         self._back_t, self._domain_t = background_topics, domain_topics
-        if len(background_topics) == 0:
-            warnings.warn("Empty list passed as designated 'background' topics. Will not construct 'smooth' 'phi' and 'theta' regularizers")
         reg_types_n_names = self.active_regularizers_type2tuples_enlister[type(train_cfg).__name__](train_cfg)
         if reg_cfg is not None:
             reg_settings_dict =self.reg_initialization_type2_enlister[type(reg_cfg).__name__](reg_cfg)
@@ -151,9 +149,9 @@ class RegularizersFactory:
         if reg_type not in ArtmRegularizerWrapper.subclasses:
             warnings.warn("Requested to create '{}' regularizer, which is not supported".format(reg_type))
             return None
-        if len(self._back_t) == 0 and reg_type.startswith('smooth'):
-            warnings.warn("Requested to create '{}' regularizer, which normally targets 'bakground' topicts, but there are not distinct 'background' topics defined".format(reg_type))
-            return None
+        if (self._back_t is None or len(self._back_t) == 0) and reg_type.startswith('smooth'):
+            warnings.warn("Requested to create '{}' regularizer, which normally targets 'bakground' topicts, but there are "
+                          "not distinct 'background' topics defined. The constructed regularizer will target all topics instead.".format(reg_type))
         # return ArtmRegularizerWrapper.create(reg_type, settings)
         return self._regularizer_type2constructor[reg_type](settings)
 
