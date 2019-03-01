@@ -17,6 +17,10 @@ class FitnessValue:
         return self.value == other.value
     def __ne__(self, other):
         return not self.__ne__(other)
+    def __str__(self):
+        return "{:.2f}".format(self.value)
+    def __repr__(self):
+        return "{:.2f}".format(self.value)
 class NaturalFitnessValue(FitnessValue):
     def __init__(self, value):
         super().__init__(value)
@@ -57,7 +61,7 @@ class FitnessFunctionBuilder:
     def _create_extractor(self, column_definition):
         return lambda x: x[self._column_definitions.index(column_definition)]
 
-    def new(self, column_definitions, ordering='natural'):
+    def start(self, column_definitions, ordering='natural'):
         self._column_definitions = column_definitions
         self._extractors = []
         self._coeff_values = []
@@ -89,14 +93,22 @@ class FitnessFunction:
 
     @classmethod
     def single_metric(cls, metric_definition):
-        return function_builder.new([metric_definition], ordering=_ORDERING_HASH[metric_definition]).coefficient(metric_definition, 1).build()
+        return function_builder.start([metric_definition], ordering=_ORDERING_HASH[metric_definition]).coefficient(metric_definition, 1).build()
 
     @property
     def ordering(self):
         return self._order
 
     def compute(self, individual):
-        return _FITNESS_VALUE_CONSTRUCTORS_HASH[self._order](reduce(lambda i, j: i + j, [x[0] * self._wrap(x[1](individual)) for x in zip(self._coeff, self._extr)]))
+        c = [x(individual) for x in self._extr]
+        c1 = [self._wrap(x) for x in c]
+        c2 = [self._coeff[i] * x for i,x in enumerate(c1)]
+        c3 = reduce(lambda i,j: i+j, c2)
+        c4 = _FITNESS_VALUE_CONSTRUCTORS_HASH[self._order]
+        r = c4(c3)
+        return r
+        # return _FITNESS_VALUE_CONSTRUCTORS_HASH[self._order](
+        #     reduce(lambda i, j: i + j, [x[0] * self._wrap(x[1](individual)) for x in zip(self._coeff, self._extr)]))
 
     def _wrap(self, value):
         if value is None:
@@ -108,19 +120,29 @@ class FitnessFunction:
 
 
 class FitnessCalculator:
-    def __init__(self):
-        self._func = None
-        self._column_defs, self._best = [], []
-        self._highlightable_columns = []
+    def __new__(cls, *args, **kwargs):
+        x = super().__new__(cls)
+        x._func = None
+        x._column_defs, x._best = [], []
+        x._highlightable_columns = []
+        return x
 
-    def initialize(self, fitness_function, column_definitions):
-        """
-        :param FitnessFunction fitness_function:
-        :param list column_definitions: i.e. ['perplexity', 'kernel-coherence-0.8', 'kernel-contrast-0.8', 'top-tokens-coherence-10', 'top-tokens-coherence-100']
-        """
-        assert isinstance(fitness_function, FitnessFunction)
-        self.function = fitness_function
-        self._column_defs = column_definitions
+    def __init__(self, single_metric=None, column_definitions=None):
+        if type(single_metric) == str and type(column_definitions) == list:
+        # FitnessFunctionBuilder.start(column_definitions).coefficient(single_metric, 1).build()
+            ff = function_builder.start(column_definitions, ordering=_ORDERING_HASH[single_metric]).coefficient(single_metric, 1).build()
+            assert isinstance(ff, FitnessFunction)
+            self.function = ff
+            self._column_defs = column_definitions
+
+    # def initialize(self, fitness_function, column_definitions):
+    #     """
+    #     :param FitnessFunction fitness_function:
+    #     :param list column_definitions: i.e. ['perplexity', 'kernel-coherence-0.8', 'kernel-contrast-0.8', 'top-tokens-coherence-10', 'top-tokens-coherence-100']
+    #     """
+    #     assert isinstance(fitness_function, FitnessFunction)
+    #     self.function = fitness_function
+    #     self._column_defs = column_definitions
 
     @property
     def highlightable_columns(self):
@@ -154,7 +176,8 @@ class FitnessCalculator:
     def _update_best(self, values_vector):
         self._best.update([(column_def, value) for column_key, column_def, value in
                            [(FitnessCalculator._get_column_key(x[0]), x[0], x[1]) for x in zip(self._column_defs, values_vector)]
-                           if column_def in self._best and FitnessCalculator._fitness(column_key, value) > FitnessCalculator._fitness(column_key, self._best[column_def])])
+                           if column_def in self._best and
+                           FitnessCalculator._fitness(column_key, value) > FitnessCalculator._fitness(column_key, self._best[column_def])])
 
     def __call__(self, *args, **kwargs):
         return self.compute_fitness(args[0])
