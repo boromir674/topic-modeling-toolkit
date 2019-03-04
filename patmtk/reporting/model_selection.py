@@ -93,25 +93,25 @@ class ResultsHandler(object):
         :rtype: list
         """
         result_paths = glob('{}/*.json'.format(os.path.join(self._collection_root_path, collection_name, self._results_dir_name)))
-        print("GET exp results: selection '{}' of type {}".format(selection, type(selection)))
-        print('All models are {}'.format(len(result_paths)))
+        import sys
+        print("get_exp_res called from '{}' which was called from '{}'. selection of type {}: {}".format(sys._getframe(1).f_code.co_name, sys._getframe(2).f_code.co_name, type(selection), selection))
+        print(' nb models: {}'.format(len(result_paths)))
         # if type(selection) == list and all([type(x) == 'str' for x in selection]):
         #     self._list_selector = lambda y: ResultsHandler._label_selection(selection, y)
         self._list_selector = lambda y: ResultsHandler._list_selector_hash[type(selection)]([y, selection])
-        print("SORT", sort)
+        print("sort: '{}'".format( sort))
         r = self._get_experimental_results(result_paths, callable_metric=self._get_metric(sort))
-        import sys
-        for i in r:
-            print(i.scalars.model_label, i.tracked.perplexity[-1])
-        sys.exit()
         assert len(result_paths) == len(r)
-        return self._list_selector(r)
+        print('\nB', [_.tracked.perplexity.last for _ in r])
+        g = self._list_selector(r)
+        print('\nA', [_.tracked.perplexity.last for _ in g])
+        return g
 
     def _get_experimental_results(self, results_paths, callable_metric=None):
-        print('Input metric', callable_metric)
+        print('_get_experimental_results.callable_metric: {}'.format(callable_metric))
         if callable_metric:
             assert hasattr(callable_metric, '__call__')
-            print('Set metric:', callable_metric)
+            print(' Metric function:', callable_metric.__name__)
             return sorted([self._process_result_path(x) for x in results_paths], key=callable_metric, reverse=True)
         return [self._process_result_path(_) for _ in results_paths]
 
@@ -121,7 +121,7 @@ class ResultsHandler(object):
         return self._results_hash[result_path]
 
     def _get_metric(self, metric):
-        print("METRIC:", metric)
+        print("ModelSelection.input_metric: '{}'".format(metric))
         if not metric:
             return None
         if metric not in self._fitness_function_hash:

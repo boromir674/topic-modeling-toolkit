@@ -204,7 +204,7 @@ def create_cooc_file(vowpal_file, vocab_file, cooc_window, tf_f, df_f, ppmi_tf, 
     os.system(cmd)
 
 def get_cl_arguments():
-    parser = argparse.ArgumentParser(prog='transform.py', description='Transforms pickled panda.DataFrame\'s into Vowpal Wabbit format', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(prog='transform.py', description='Extracts from pickled data, preprocesses text and saves all necessary files to train an artm model', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('category', help='the category of data to use')
     parser.add_argument('config', help='the .cfg file to use for constructing a pipeline')
     parser.add_argument('collection', help='a given name for the collection')

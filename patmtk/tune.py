@@ -6,6 +6,65 @@ from patm.tuning import Tuner
 from patm.tuning.building import tuner_definition_builder as tdb
 
 
+def get_cli_arguments():
+    parser = argparse.ArgumentParser(description='Performs grid-search over the parameter space by creating and training topic models', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('dataset', metavar='collection_name', help='the collection to report models trained on')
+    parser.add_argument('--prefix', '-p', default='', help='a custom label to prepend to every model created; useful to indicate same grouping')
+    parser.add_argument('--force-overwrite', '--f-o', action='store_true', dest='overwrite', help='whether to overwrite existing files in case of name colision happens with the newly generated ones')
+    parser.add_argument('--include-constants-to-label', '--i-c', action='store_true', default=False, dest='append_static',
+                        help='whether to use a concatenation of the (constants) static parameter names as part of the automatically generated labels that are used to name the artifacts of the training process')
+    parser.add_argument('--include-explorables-to-label', '--i-e', action='store_true', default=False, dest='append_explorables',
+                        help='whether to use a concatenation of the explorable parameter names as part of the automatically generated labels that are used to name the artifacts of the training process')
+    parser.add_argument('--verbose', '-v', type=int, default=3, help='controls the amount of outputing to stdout. Sensible values are {1,2,3,4,5}')
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    args = get_cli_arguments()
+
+    tuner = Tuner(args.dataset)
+    tuning_definition = tdb.initialize()\
+        .nb_topics(10, 20, 40)\
+        .collection_passes(100)\
+        .document_passes(1, 2, 3)\
+        .background_topics_pct(0.1, 0.2)\
+        .ideology_class_weight(0)\
+        .build()
+        # .sparse_phi()\
+        #     .deactivate(10)\
+        #     .kind('linear')\
+        #     .start(-1)\
+        #     .end(-20)\
+        # .sparse_theta()\
+        #     .deactivate(10)\
+        #     .kind('linear')\
+        #     .start(-1)\
+        #     .end(-20)\
+
+    tuner.activate_regularizers\
+        .smoothing\
+            .phi\
+            .theta\
+        .label_regularization\
+    .done()
+
+    # .sparsing\
+    #     .phi\
+    #     .theta\
+
+    # tuner.static_regularization_specs = {'smooth-phi': {'tau': 1.0},
+    #                                      'smooth-theta': {'tau': 1.0},
+    #                                      'sparse-theta': {'alpha_iter': 1}}
+    # 'sparse-theta': {'alpha_iter': 'linear_1_4'}}
+
+    tuner.tune(tuning_definition,
+               prefix_label=args.prefix,
+               append_explorables=args.append_explorables,
+               append_static=args.append_static,
+               force_overwrite=args.overwrite,
+               verbose=args.verbose)
+
+
 # def get_model_settings(label, dataset):
 #     results = load_results(os.path.join(collection_dir, dataset, '/results', label + '-train.json'))
 #     reg_set = results['reg_parameters'][-1][1]
@@ -34,61 +93,3 @@ from patm.tuning.building import tuner_definition_builder as tdb
 #         reg_specs[0] = float(len(back_topics.values()[0])) / (len(back_topics.values()[0]) + len(domain_topics.values()[0]))
 #         return reg_specs, reg_tau_trajectories
 #     return None
-
-def get_cli_arguments():
-    parser = argparse.ArgumentParser(description='Performs grid-search over the parameter space by creating and training topic models', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('dataset', metavar='collection_name', help='the collection to report models trained on')
-    parser.add_argument('--prefix', '-p', default='', help='a custom label to prepend to every model created; useful to indicate same grouping')
-    parser.add_argument('--force-overwrite', '--f-o', action='store_true', dest='overwrite', help='whether to overwrite existing files in case of name colision happens with the newly generated ones')
-    parser.add_argument('--include-constants-to-label', '--i-c', action='store_true', default=False, dest='append_static',
-                        help='whether to use a concatenation of the (constants) static parameter names as part of the automatically generated labels that are used to name the artifacts of the training process')
-    parser.add_argument('--include-explorables-to-label', '--i-e', action='store_true', default=False, dest='append_explorables',
-                        help='whether to use a concatenation of the explorable parameter names as part of the automatically generated labels that are used to name the artifacts of the training process')
-    parser.add_argument('--verbose', '-v', type=int, default=3, help='controls the amount of outputing to stdout. Sensible values are {1,2,3,4,5}')
-    return parser.parse_args()
-
-
-if __name__ == '__main__':
-    args = get_cli_arguments()
-
-    tuner = Tuner(args.dataset)
-    tuning_definition = tdb.initialize()\
-        .nb_topics(20)\
-        .collection_passes(100)\
-        .document_passes(1, 5)\
-        .background_topics_pct(0.2)\
-        .ideology_class_weight(0, 5)\
-        .build()
-        # .sparse_phi()\
-        #     .deactivate(10)\
-        #     .kind('linear')\
-        #     .start(-1)\
-        #     .end(-20)\
-        # .sparse_theta()\
-        #     .deactivate(10)\
-        #     .kind('linear')\
-        #     .start(-1)\
-        #     .end(-20)\
-
-
-    tuner.activate_regularizers\
-        .smoothing\
-            .phi\
-            .theta\
-    .done()
-
-    # .sparsing\
-    #     .phi\
-    #     .theta\
-
-    # tuner.static_regularization_specs = {'smooth-phi': {'tau': 1.0},
-    #                                      'smooth-theta': {'tau': 1.0},
-    #                                      'sparse-theta': {'alpha_iter': 1}}
-    # 'sparse-theta': {'alpha_iter': 'linear_1_4'}}
-
-    tuner.tune(tuning_definition,
-               prefix_label=args.prefix,
-               append_explorables=args.append_explorables,
-               append_static=args.append_static,
-               force_overwrite=args.overwrite,
-               verbose=args.verbose)

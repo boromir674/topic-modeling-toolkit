@@ -3,7 +3,7 @@ import os
 from glob import glob
 from collections import Iterable
 
-from .fitness import FitnessCalculator, FitnessFunction
+from .fitness import FitnessCalculator
 from . import results_handler
 from functools import reduce
 
@@ -26,13 +26,32 @@ class ModelReporter:
         self._max_label_len = 0
         self._max_col_lens = []
 
+    def get_formatted_string(self, collection_name, columns=None, metric='', verbose=True):
+        """
+        :param str collection_name:
+        :param list columns:
+        :param str metric:
+        :param bool verbose:
+        :return:
+        :rtype: str
+        """
+        if verbose:
+            print('REPORTING ON:')
+        self._initialize(collection_name, columns=columns, metric=metric, verbose=verbose)
+        print("frm-string: METRIC", metric)
+        body = '\n'.join(self._compute_rows())
+        head = '{}{} {} {}'.format(' '*self._max_label_len,
+                                   ' '*len(self._label_separator),
+                                   ' '.join(['{}{}'.format(x[1], ' '*(self._max_col_lens[x[0]] - len(x[1]))) for x in enumerate(self._columns_titles[:-1])]),
+                                   self._columns_titles[-1])
+        return head + '\n' + body
+
     def _initialize(self, collection_name, columns=None, metric='', verbose=False):
         self._collection_name = collection_name
         self._result_paths = glob('{}/*.json'.format(os.path.join(self._collections_dir, collection_name, self._results_dir_name)))
         self._model_labels = [ModelReporter._get_label(x) for x in self._result_paths]
         self._max_label_len = max([len(x) for x in self._model_labels])
         self._columns_to_render, self._columns_failed = [], []
-        print('_initialize:', metric)
         self._maximal_renderable_columns = self._get_maximal_renderable_columns()
 
         if not columns:
@@ -43,7 +62,7 @@ class ModelReporter:
         if metric and metric not in self.columns_to_render:
             raise InvalidMetricException("Metric '{}' is not recognized within [{}]".format(metric, ', '.join(self.columns_to_render)))
         self._metric = metric
-        print('SELF.METRIC =', self._metric)
+        print("Input metric to sort on: '{}'".format(self._metric))
         if verbose:
             print('Using: [{}]'.format(', '.join(self.columns_to_render)))
             print('Ommiting: [{}]'.format(', '.join({_ for _ in self._maximal_renderable_columns if _ not in self.columns_to_render})))
@@ -59,45 +78,51 @@ class ModelReporter:
     @columns_to_render.setter
     def columns_to_render(self, column_definitions):
         if not isinstance(column_definitions, Iterable):
-            raise InvalidColumnsException("Input column definitions are of type '{}' instead of iterable".format(type(column_definitions)))
+            raise InvalidColumnsException(
+                "Input column definitions are of type '{}' instead of iterable".format(type(column_definitions)))
         if not column_definitions:
             raise InvalidColumnsException('Input column definitions evaluates to None')
-        invalid_columns = ModelReporter._get_invalid_column_definitions(column_definitions, self._maximal_renderable_columns)
+        invalid_columns = ModelReporter._get_invalid_column_definitions(column_definitions,
+                                                                        self._maximal_renderable_columns)
         if invalid_columns:
-            raise InvalidColumnsException('Input column definitions [{}] are not valid'.format(', '.join(invalid_columns)))
+            raise InvalidColumnsException(
+                'Input column definitions [{}] are not valid'.format(', '.join(invalid_columns)))
         self._columns_to_render = column_definitions
 
-    def get_formatted_string(self, collection_name, columns=None, metric='', verbose=True):
-        """
-        :param str collection_name:
-        :param list columns:
-        :param str metric:
-        :param bool verbose:
-        :return:
-        :rtype: str
-        """
-        if verbose:
-            print('REPORTING ON:')
-        self._initialize(collection_name, columns=columns, metric=metric, verbose=verbose)
-        print("frm-string: METRIC", metric)
-        body = '\n'.join(self._compute_rows(metric=metric))
-        head = '{}{} {} {}'.format(' '*self._max_label_len,
-                                   ' '*len(self._label_separator),
-                                   ' '.join(['{}{}'.format(x[1], ' '*(self._max_col_lens[x[0]] - len(x[1]))) for x in enumerate(self._columns_titles[:-1])]),
-                                   self._columns_titles[-1])
-        return head + '\n' + body
+    ########## COLUMNS DEFINITIONS ##########
+    def _get_maximal_renderable_columns(self):
+        """Call this method to get a list of all the inferred columns allowed to render."""
+        return ModelReporter._get_column_definitions(results_handler.DEFAULT_COLUMNS,
+                                                     ModelReporter.determine_maximal_set_of_renderable_columns(results_handler.get_experimental_results(self._collection_name)))
 
-    def _compute_rows(self, metric=''):
-        self._model_labels, values_lists = self._get_labels_n_values(sort_by=metric)
+    @staticmethod
+    def determine_maximal_set_of_renderable_columns(exp_results_list):
+        return reduce(lambda i, j: i.union(j),
+                      [set(results_handler.get_all_columns(x, results_handler.DEFAULT_COLUMNS)) for x in
+                       exp_results_list])
+
+    def _compute_rows(self):
+        self._model_labels, values_lists = self._get_labels_n_values()
         return [self._to_row(y[0], y[1]) for y in zip(self._model_labels, [self._to_list_of_strings(x) for x in values_lists])]
 
-    def _get_labels_n_values(self, sort_by=''):
+    def _get_labels_n_values(self):
         """Call this method to get a list of model labels and a list of lists of reportable values that correspond to each label
         Fitness_computer finds the maximum values per eligible column definition that need to be highlighted."""
-        if sort_by:
-            self._fitness_function = FitnessFunction.single_metric(sort_by)
-            self.fitness_computer.initialize(self._fitness_function, self.columns_to_render)
-            return [list(t) for t in zip(*sorted(zip(self._model_labels, self._results_value_vectors), key=lambda y: self.fitness_computer(y[1]), reverse=True))]
+        if self._metric:
+            # self._fitness_function = FitnessFunction.single_metric(self._metric)
+            # self.fitness_computer.initialize(self._fitness_function, self.columns_to_render)
+
+            self.fitness_computer.__init__(single_metric=self._metric, column_definitions=self.columns_to_render)
+            # edw xalaei to prama (apo katw)
+            print("SHOULD BE SEEN")
+            print('PER B:\n', [_[4] for _ in self._results_value_vectors])
+            fits = [self.fitness_computer(_) for _ in self._results_value_vectors]
+            print("FITS:\n", fits)
+            print("SORTED FITS:\n", sorted(fits, reverse=True))
+            c = [list(t) for t in zip(*sorted(zip(self._model_labels, self._results_value_vectors), key=lambda y: self.fitness_computer(y[1]), reverse=True))]
+            print('PER A:\n', [_[1][4] for _ in c])
+            return c
+        print("SHOULD NOT BE SEEN")
         return self._model_labels, [self.fitness_computer.pass_vector(x) for x in self._results_value_vectors]
 
     ########## STRING OPERATIONS ##########
@@ -120,7 +145,7 @@ class ModelReporter:
         return _
 
     def _length(self, a_string):
-        _ = re.search(r'm(\d+(?:\.\d+)?)', a_string)
+        _ = re.search(r'm(\d+(?:\.\d+)?)', a_string)  # !! this regex assumes that the string represents a number (eg will fail if input belongs to 'regularizers' column)
         if _: # if string is wrapped arround rendering decorators
             return len(_.group(1))
         return len(a_string)
@@ -128,18 +153,15 @@ class ModelReporter:
     ########## EXTRACTION ##########
     @property
     def _results_value_vectors(self):
-        return [self._extract_all(x) for x in results_handler.get_experimental_results(self._collection_name, sort=self._metric, selection='all')]
-    def _extract_all(self, exp_results):  # get a list (vector) of extracted values; it shall contain integers, floats, Nones (for metrics not tracked for the specific model) a single string for representing the regularization specifications and nan for the 'sparsity-phi-i' metric
+        # r = [self._extract_all(x) for x in results_handler.get_experimental_results(self._collection_name, sort=self._metric, selection='all')]
+        r = [self._extract_all(x) for x in results_handler.get_experimental_results(self._collection_name, selection='all')]
+        # print('\nRVC: perplexity:', [_[4] for _ in r])
+        return r
+        # return [self._extract_all(x) for x in r]
+
+    def _extract_all(self, exp_results):  # get a list (vector) of extracted values; it shall contain integers, floats, Nones
+        # (for metrics not tracked for the specific model) a single string for representing the regularization specifications and nan for the 'sparsity-phi-i' metric
         return [results_handler.extract(exp_results, x, 'last') for x in self.columns_to_render]
-
-    ########## COLUMNS DEFINITIONS ##########
-    def _get_maximal_renderable_columns(self):
-        """Call this method to get a list of all the inferred columns allowed to render."""
-        return ModelReporter._get_column_definitions(results_handler.DEFAULT_COLUMNS, ModelReporter.determine_maximal_set_of_renderable_columns(results_handler.get_experimental_results(self._collection_name)))
-
-    @staticmethod
-    def determine_maximal_set_of_renderable_columns(exp_results_list):
-        return reduce(lambda i, j: i.union(j), [set(results_handler.get_all_columns(x, results_handler.DEFAULT_COLUMNS)) for x in exp_results_list])
 
     ########## STATIC ##########
     @staticmethod

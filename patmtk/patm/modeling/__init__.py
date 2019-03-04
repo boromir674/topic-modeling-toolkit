@@ -6,4 +6,4 @@ from .trainer import TrainerFactory
 
 trainer_factory = TrainerFactory()
 
-from .regularization.regularizers import regularizers_factory
+from .regularization.regularizers_factory import regularizers_factory
