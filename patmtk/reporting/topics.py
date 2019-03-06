@@ -29,12 +29,17 @@ class Metric:
     def __new__(cls, *args, **kwargs):
         x = super().__new__(cls)
         x._attr_getter = None
+        x._reverse = True
         return x
     def __call__(self, *args, **kwargs):
         return self._attr_getter(args[0])
+    def sort(self, topics):
+        return sorted(topics, key=self._attr_getter, reverse=self._reverse)
 class AlphabeticalOrder(Metric):
     def __init__(self):
         self._attr_getter = lambda x: x.name
+        self._reverse = False
+
 class KernelMetric(Metric):
     def __init__(self, threshold, metric_attribute, str_format='{:.1f}'):
         assert 0 < threshold < 1
@@ -185,9 +190,7 @@ class TopicsHandler:
         if th is not None:
             th = float(self._threshold)
         callable_metric = self.metrics(sort_info['type'], th)
-        print([_.name for _ in list(topics_set)])
-        topics = sorted(list(topics_set), key=callable_metric, reverse=True)[:-trim or None]
-        print([_.name for _ in topics])
+        topics = callable_metric.sort(list(topics_set))
         if len(topics) < columns:
             self._columns = len(topics)
 
@@ -197,7 +200,6 @@ class TopicsHandler:
                                                   for topic in topics[i::self._columns]]) for i in range(self._columns)]
         self._topic_headers = list(self._gen_headers(topics, prefix='t', topic_info=topic_info))
         assert len(self._topic_headers) == len(topics)
-        # print(self._topic_headers)
         self._max_headers = [max(max(len(_) for _ in thd) for thd in self._topic_headers[c::self._columns]) for c in range(self._columns)]
 
         self._max_token_length_per_column = [max(x[0], x[1]) for x in zip(self._max_token_length_per_column, self._max_headers)]
