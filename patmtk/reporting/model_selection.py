@@ -93,12 +93,13 @@ class ResultsHandler(object):
         :rtype: list
         """
         result_paths = glob('{}/*.json'.format(os.path.join(self._collection_root_path, collection_name, self._results_dir_name)))
-        # import sys
-        # print("get_exp_res called from '{}' which was called from '{}'. selection of type {}: {}".format(sys._getframe(1).f_code.co_name, sys._getframe(2).f_code.co_name, type(selection), selection))
-
+        if type(selection) == list and all(type(x) == str for x in selection):  # if input list contains model labels
+            e = self._get_experimental_results([_ for _ in result_paths if re.search('(?:{})'.format('|'.join(selection)), _)])
+            assert len(e) == len(selection)
+            return e
         self._list_selector = lambda y: ResultsHandler._list_selector_hash[type(selection)]([y, selection])
-        print("sort: '{}'".format( sort))
         r = self._get_experimental_results(result_paths, callable_metric=self._get_metric(sort))
+
         assert len(result_paths) == len(r)
         return self._list_selector(r)
 
