@@ -86,7 +86,7 @@ class TopicsHandler:
         self._res, self._top_tokens_def = None, ''
         self._warn = []
         self._groups_type = ''
-        self._threshold = ''
+        self._model_label, self._threshold = '', ''
         # self._path2res = {}
         self._max_token_length_per_column = []
         self._model_topics_hash = {}
@@ -101,7 +101,9 @@ class TopicsHandler:
         """If 1 argument is given it is assumed to be a full path to results json file. If 2 arguments are given it is
         assumed that the 1st is a dataset label and the second a model label (eg 'plsa_1_3' not 'plsa_1_3.json')"""
         if os.path.isfile(args[0]):
+            self._model_label = os.path.basename(args[0]).replace('.json', '')
             return args[0]
+        self._model_label = args[1]
         return os.path.join(self._cols, args[0], 'results', '{}.json'.format(args[1]))
 
     def _model_topics(self, results_path):
@@ -109,22 +111,24 @@ class TopicsHandler:
             self._model_topics_hash[results_path] = ModelTopics(ExperimentalResults.create_from_json_file(results_path))
         return self._model_topics_hash[results_path]
 
-    def pformat_background(self, model_results_path, columns=6, nb_tokens=100):
+    def pformat_background(self, model_results_path, columns=6, nb_tokens=100, show_title=False):
         """
         :param list model_results_path: if one element it should be a full path to a json file holding experimental results. If 2 elements, 1st i a dataset label and 2nd a model label (ie 'clda_1_2')
         :param int columns:
         :param int nb_tokens:
+        :param bool show_title:
         :return:
         :rtype: str
         """
-        all_bg_tokens = ExperimentalResults.create_from_json_file(self._result_path(*model_results_path)).final.background_tokens
-        return self._pformat2(all_bg_tokens[:nb_tokens], columns=columns)
+        _ = ExperimentalResults.create_from_json_file(self._result_path(*model_results_path))
+        all_bg_tokens = _.final.background_tokens
+        return self._pformat2(all_bg_tokens[:nb_tokens], columns=columns, title=(lambda x: _.scalars.model_label+' background tokens\n\n' if x else '')(show_title))
 
     @classmethod
-    def _pformat2(cls, elements_list, columns=8, lines=20):
+    def _pformat2(cls, elements_list, columns=8, lines=20, title=''):
         columns = min(columns, int(ceil(len(elements_list) / lines)))
         max_token_p_col = [max(map(len, cls.column_slice(c, elements_list, lines, columns))) for c in range(columns)]
-        b = ''
+        b = title
         for r in range(int(ceil(len(elements_list) / (columns*lines)))):
             for l in range(lines):
                 b += '{}\n'.format(cls.sep.join('{}{}'.format(tok_el, (max_token_p_col[i] - len(tok_el))*' ')
@@ -142,14 +146,15 @@ class TopicsHandler:
     def line_slice(r_index, l_index, all_bg_tokens, lines, columns):
         return all_bg_tokens[(r_index*lines*columns)+l_index:(r_index+1)*lines*columns:lines]
 
-    def pformat(self, model_results_path, topics_set, tokens_type, sort, nb_tokens, columns, trim=0, topic_info=True):
+    def pformat(self, model_results_path, topics_set, tokens_type, sort, nb_tokens, columns, trim=0, topic_info=True, show_title=False):
         """
-        :param str model_results_path:
+        :param list model_results_path:
         :param str topics_set:
         :param str tokens_type: accepts 'top-tokens' or 'kernel-|kernel' plus a threshold like '0.80', '0.6', '0.1234', '75', '5', '4321'
         :param str sort: {'name' (alphabetical), 'coherence-th', 'contrast-th', 'purity-th'} th i a \d\d pattern corresponding to kernel threshold
         :param int nb_tokens:
         :param int columns:
+        :param bool show_title:
         :return:
         :rtype: str
         """
@@ -172,39 +177,36 @@ class TopicsHandler:
         self._threshold = (lambda x: tokens_info['threshold'] if x is None else x)(sort_info['threshold'])
 
         model_topics = self._model_topics(self._result_path(*model_results_path))
+        assert topics_set == 'domain'
         topics_set = getattr(model_topics, topics_set)  # either domain or background topics
+        # self._available_thresolds = topics_set.thresholds
+
         th = self._threshold
         if th is not None:
             th = float(self._threshold)
         callable_metric = self.metrics(sort_info['type'], th)
+        print([_.name for _ in list(topics_set)])
         topics = sorted(list(topics_set), key=callable_metric, reverse=True)[:-trim or None]
-
+        print([_.name for _ in topics])
         if len(topics) < columns:
             self._columns = len(topics)
 
-        # duplicate check with the topic names, but ok.. return iter(cls.token_extractor[tokens_type]([topic, threshold]))
-        # self._max_token_length_per_column = [max([max(len(topic.name),
-        #                                               max(map(len,
-        #                                                       list(self._gen_tokens_(topic,
-        #                                                                              tokens_info['type'],
-        #                                                                              threshold=self._threshold))[:nb_tokens or None])))
-        #                                           for topic in topics[i::columns]]) for i in range(columns)]
         self._max_token_length_per_column = [max([max(len(topic.name),
                                                       max(map(len,
-                                                              list(self.token_extractor[tokens_type]([topic, self._threshold]))[:nb_tokens or None])))
-                                                  for topic in topics[i::columns]]) for i in range(columns)]
+                                                              list(self.token_extractor[tokens_info['type']]([topic, self._threshold]))[:nb_tokens or None])))
+                                                  for topic in topics[i::self._columns]]) for i in range(self._columns)]
         self._topic_headers = list(self._gen_headers(topics, prefix='t', topic_info=topic_info))
         assert len(self._topic_headers) == len(topics)
         # print(self._topic_headers)
-        self._max_headers = [max(max(len(_) for _ in thd) for thd in self._topic_headers[c::columns]) for c in range(columns)]
+        self._max_headers = [max(max(len(_) for _ in thd) for thd in self._topic_headers[c::self._columns]) for c in range(self._columns)]
 
         self._max_token_length_per_column = [max(x[0], x[1]) for x in zip(self._max_token_length_per_column, self._max_headers)]
         self._max_tokens_per_row = [max(self.length_extractor[tokens_info['type']]([t, self._threshold])
-                                        for t in topics[k*columns:(k+1)*columns]) for k in range(int(ceil(len(topics) / columns)))]
-        return self._pformat(topics, tokens_info['type'], nb_tokens)
+                                        for t in topics[k*self._columns:(k+1)*self._columns]) for k in range(int(ceil(len(topics) / self._columns)))]
+        return self._pformat(topics, tokens_info['type'], nb_tokens, title=(lambda x: 'model: {}, tokens:{}, sort:{}'.format(self._model_label, tokens_type, sort) + '\n\n' if x else '')(show_title))
 
-    def _pformat(self, topics, tokens_type, nb_tokens, prefix='t', topic_info=True):
-        b = ''
+    def _pformat(self, topics, tokens_type, nb_tokens, title=''):
+        b = title
         for r in range(int(ceil(len(topics) / self._columns))):
             row_topics = topics[r*self._columns:(r+1)*self._columns]
             b += self._build_headers(range(r*self._columns, (r+1)*self._columns)) + \
@@ -214,8 +216,8 @@ class TopicsHandler:
 
     def _gen_headers(self, topics, prefix='t', topic_info=True):
         it = iter([prefix + re.search('^\w+(\d{2,3})$', t.name).group(1)] for t in topics)
-        if topic_info:
-            return iter([next(it)[0], self._topic_metrics_header(t, float(self._threshold))] for t in topics)
+        if topic_info and self._threshold is not None: # strictly must check against None
+                return iter([next(it)[0], self._topic_metrics_header(t, float(self._threshold))] for t in topics)
         return it
 
     def _build_headers(self, indices):
@@ -297,6 +299,9 @@ class TopicsSet:
         """
         self._name = name
         self._topics = {t.name: t for t in topics}
+        if not all([topics[0].kernel_thresholds == x.kernel_thresholds for x in topics]):
+            raise RuntimeError("Unexpectedly topics with different kernels defined found; the thresholds differ.")
+        self._thresholds = topics[0].kernel_thresholds
 
     def __str__(self):
         return "{} Topics(nb_topics={})".format(self._name, len(self._topics))
@@ -310,7 +315,9 @@ class TopicsSet:
         return item in self._topics
     def __iter__(self):
         return iter(self._topics.values())
-
+    @property
+    def thresholds(self):
+        return self._thresholds
     @property
     def name(self):
         return self._name
@@ -394,8 +401,12 @@ class Topic:
         return self._kernel_info[_]
 
     @property
+    def kernel_thresholds(self):
+        return sorted(self._kernel_info.keys())
+
+    @property
     def kernel_names(self):
-        return map('kernel{}'.format, sorted(self._kernel_info.keys()))
+        return map('kernel{}'.format, self.kernel_thresholds)
 
     @property
     def kernel_objects(self):

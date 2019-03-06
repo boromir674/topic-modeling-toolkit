@@ -19,14 +19,22 @@ from reporting import topic_handler
               help="Reports back the list of topics sorted on the metric. 'name': alphabetically by name, 'coh': by kernel "
                    "coherence, 'con': by kernel contrast, 'pur': by kernel purity. The last 3 options require a threshold similar to the "
                    "'tokens-type' arguments. Example syntaxes are: 'coh-80', 'con-25', 'pur-90'.")
-@click.option('--columns', '-c', default=10, show_default=True, help="The number of columns (each corresponding to a topic's tokens group) to include per row'")
-@click.option('--number-of-tokens', '-nb-tokens', default=15, show_default=True, help="The maximum number of tokens to show per topic. If requested background tokens to report then this argument correspond to the total amount of bg tokens to show.")
-@click.option('--show_metrics/--no-show_metrics', show_default=True, default=True, help="Whether to print kernel coherence, contrast and purity for each individual topic.")
-def main(dataset, model_label, topics_set, tokens_type, sort, columns, number_of_tokens, show_metrics):
+@click.option('--columns', '-c', default=10, show_default=True,
+              help="The number of columns (each corresponding to a topic's tokens group) to include per row'")
+@click.option('--number-of-tokens', '-nb-tokens', default=15, show_default=True,
+              help="The maximum number of tokens to show per topic. If requested background tokens to report then this "
+                   "argument correspond to the total amount of bg tokens to show.")
+@click.option('--show_metrics/--no-show_metrics', show_default=True, default=True,
+              help="Whether to print kernel coherence, contrast and purity for each individual topic. It requires a kernel "
+                   "definition (threshold) to be inputted from '--tokens-type' or '--sort', else it has no effect.")
+@click.option('--show_title/--no-show_title', show_default=True, default=False,
+              help="Whether to print a title on top of the table of topics ")
+def main(dataset, model_label, topics_set, tokens_type, sort, columns, number_of_tokens, show_metrics, show_title):
     if topics_set == 'background':
         b = topic_handler.pformat_background([dataset, model_label],
                                              columns=columns,
-                                             nb_tokens=number_of_tokens)
+                                             nb_tokens=number_of_tokens,
+                                             show_title=show_title)
     else:
         b = topic_handler.pformat([dataset, model_label],
                                   topics_set,
@@ -34,7 +42,8 @@ def main(dataset, model_label, topics_set, tokens_type, sort, columns, number_of
                                   sort,
                                   number_of_tokens,
                                   columns,
-                                  topic_info=show_metrics)
+                                  topic_info=show_metrics,
+                                  show_title=show_title)
     print(b) # '--s_m/--no-s_m'
 
 if __name__ == '__main__':
