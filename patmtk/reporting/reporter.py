@@ -1,5 +1,6 @@
 import re
 import os
+import sys
 from glob import glob
 from collections import Iterable
 
@@ -50,6 +51,9 @@ class ModelReporter:
         self._collection_name = collection_name
         self._result_paths = glob('{}/*.json'.format(os.path.join(self._collections_dir, collection_name, self._results_dir_name)))
         self._model_labels = [ModelReporter._get_label(x) for x in self._result_paths]
+        if not self._model_labels:
+            print("Either wrong dataset label '{}' was given or the collection/dataset has no trained models".format(collection_name))
+            sys.exit(1)
         self._max_label_len = max([len(x) for x in self._model_labels])
         self._columns_to_render, self._columns_failed = [], []
         self._maximal_renderable_columns = self._get_maximal_renderable_columns()
