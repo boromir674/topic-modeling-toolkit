@@ -205,7 +205,7 @@ class TopicsHandler:
         self._max_token_length_per_column = [max(x[0], x[1]) for x in zip(self._max_token_length_per_column, self._max_headers)]
         self._max_tokens_per_row = [max(self.length_extractor[tokens_info['type']]([t, self._threshold])
                                         for t in topics[k*self._columns:(k+1)*self._columns]) for k in range(int(ceil(len(topics) / self._columns)))]
-        return self._pformat(topics, tokens_info['type'], nb_tokens, title=(lambda x: 'model: {}, tokens:{}, sort:{}'.format(self._model_label, tokens_type, sort) + '\n\n' if x else '')(show_title))
+        return self._pformat(topics, tokens_info['type'], nb_tokens, title=(lambda x: 'model: {}, tokens:{}, sort:{}\nrespective metrics: coherence, contrast, purity'.format(self._model_label, tokens_type, sort) + '\n\n' if x else '')(show_title))
 
     def _pformat(self, topics, tokens_type, nb_tokens, title=''):
         b = title
