@@ -39,7 +39,6 @@ class ModelReporter:
         if verbose:
             print('REPORTING ON:')
         self._initialize(collection_name, columns=columns, metric=metric, verbose=verbose)
-        print("frm-string: METRIC", metric)
         body = '\n'.join(self._compute_rows())
         head = '{}{} {} {}'.format(' '*self._max_label_len,
                                    ' '*len(self._label_separator),

@@ -1,12 +1,7 @@
-# from __future__ import division  # this emulates the old python2 '/' (division) operator; in python2 2/3 != 2.0/3. in python3 2/3 == 2.0/3
-# from builtins import str
-# from builtins import range
-# from builtins import object
 import sys
-from math import ceil
 import json
-# from abc import ABCMeta, abstractmethod
-# from future.utils import with_metaclass
+from math import ceil
+
 from functools import reduce
 
 
@@ -54,6 +49,9 @@ class ExperimentalResults(object):
         :param dict top_tokens_defs:
         :param list background_tokens: list of background tokens, p(t) and p(t | w) distributions \mathrm{KL}(p(t) | | p(t | w)) (or vice versa)
             for each token and counts the part of tokens that have this value greater than a given (non-negative) delta_threshold.
+        :param list regularizers_labels: a list of strings optimally the strings should contain all infromation about a regularizer component's settings ie tau coefficient, alpha coefficient, etc
+            an example input would be ["label-regularization-phi|t:1.0", "smooth-phi|t:1.0", "smooth-theta|a:1.0|t:1.0"]
+
         """
         assert len(background_topics) + len(domain_topics) == nb_topics
         assert sum(tracked['collection_passes']) == len(tracked['perplexity'])

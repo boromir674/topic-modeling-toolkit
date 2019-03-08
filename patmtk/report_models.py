@@ -19,7 +19,7 @@ if __name__ == '__main__':
                'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',
                'sparsity-theta',
                'background-tokens-ratio',
-               # 'regularizers'
+               'regularizers'
                ]
 
     # COLUMNS = ['nb-topics', 'collection-passes', 'perplexity']
@@ -30,7 +30,6 @@ if __name__ == '__main__':
 
     cli_args = get_cli_arguments()
 
-    print(cli_args)
     sort_metric = cli_args.sort
 
     while 1:

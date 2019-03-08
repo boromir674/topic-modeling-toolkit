@@ -55,9 +55,16 @@ COLUMNS_HASH = {
                                 'column-title': lambda x: 'btr.'+str(x)[2:],
                                 'to-string': '{:.2f}',
                                 'definitions': lambda x: ['background-tokens-ratio-{}'.format(y[:4]) for y in x.tracked.background_tokens_thresholds]},
-    'regularizers': {'scalar-extractor': lambda x: '[{}]'.format(', '.join(x.regularizers)),
+    'regularizers': {'scalar-extractor': lambda x: '[{}]'.format(', '.join(map(regularizers_format, x.regularizers))),
                      'column-title': lambda: 'regs'}
 }
+
+def regularizers_format(reg_def_string):
+    try:
+        return '-'.join(re.findall("(?:^|-)(\w{1,2})\w*", reg_def_string[:reg_def_string.index("|")])) + reg_def_string[reg_def_string.index("|"):]
+    except ValueError as e:
+        print(e)
+        return reg_def_string
 
 COLUMNS_HASH = reduce(lambda x, y: dict(y, **x), [COLUMNS_HASH] + [_get_kernel_sub_hash(z) for z in KERNEL_SUB_ENTITIES])
 
