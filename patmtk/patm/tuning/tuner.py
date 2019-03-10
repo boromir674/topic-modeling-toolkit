@@ -197,7 +197,7 @@ class Tuner(object):
             if 3 < self._vb:
                 tqdm.write(pprint.pformat(tm.modalities_dictionary))
             self.experiment.init_empty_trackables(tm)
-            self.trainer.train(tm, specs)
+            self.trainer.train(tm, specs, cache_theta=False)
             self.experiment.save_experiment(save_phi=True)
             if 2 < self._vb:
                 tqdm.write(self._cur_label)
@@ -277,6 +277,19 @@ class Tuner(object):
         else:
             self._labeler = lambda index: self._build_label(self.parameter_vector)
 
+    def _create_model_n_specs(self):
+        self.static_regularization_specs = self._replace_settings_with_supported_explorable(self._reg_specs)
+        tm = self.trainer.model_factory.construct_model(self._cur_label, self._val('nb_topics'),
+                                                              self._val('collection_passes'),
+                                                              self._val('document_passes'),
+                                                              self._val('background_topics_pct'),
+                                                              {DEFAULT_CLASS_NAME: self._val('default_class_weight'), IDEOLOGY_CLASS_NAME: self._val('ideology_class_weight')},
+                                                              self._score_defs,
+                                                              self._active_regs,
+                                                              reg_settings=self.static_regularization_specs)
+        tr_specs = self.trainer.model_factory.create_train_specs(self._val('collection_passes'))
+        return tm, tr_specs
+
     def _define_labeling_scheme(self, explorables, constants):
         """Call this method to define the values to use for labeling the artifacts of tuning from the mixture of explorable and constant parameters.
             This method also determines if versioning is needed; whether to append strings like v001, v002 to the labels because
@@ -320,19 +333,6 @@ class Tuner(object):
             return str(int_num)
         return '{}{}'.format((self._max_digits_version - nb_digits) * '0', int_num)
 
-    def _create_model_n_specs(self):
-        self.static_regularization_specs = self._replace_settings_with_supported_explorable(self._reg_specs)
-        tm = self.trainer.model_factory.construct_model(self._cur_label, self._val('nb_topics'),
-                                                              self._val('collection_passes'),
-                                                              self._val('document_passes'),
-                                                              self._val('background_topics_pct'),
-                                                              {DEFAULT_CLASS_NAME: self._val('default_class_weight'), IDEOLOGY_CLASS_NAME: self._val('ideology_class_weight')},
-                                                              self._score_defs,
-                                                              self._active_regs,
-                                                              reg_settings=self.static_regularization_specs)
-        tr_specs = self.trainer.model_factory.create_train_specs(self._val('collection_passes'))
-        return tm, tr_specs
-
     def _replace_settings_with_supported_explorable(self, settings):
         """Gets all regularizers' settings and for each, if it supports a trajectory for 'tau' coefficient value, adds the trajectory definition string to its settings"""
             # _ = map(lambda y: y(1), filter(None, map(lambda x: getattr(re.match('^(sparse_\w+)$', x), 'group', None), self._tau_traj_to_build)))
@@ -354,7 +354,8 @@ class Tuner(object):
         :rtype: dict
         """
         _ = self._val(tau_traj_type)
-        return {'tau': '_'.join(map(lambda x: str(x) ,(_['kind'], _['start'], _['end']))), 'start': _['deactivate']}
+        return {'tau': '_'.join(map(lambda x: str(x) ,(_['kind'], _['start'], _['end']))),
+                'start': _['deactivate']}
 
     def _val(self, parameter_name):
         return self._extract(self.parameter_vector, parameter_name)
@@ -412,11 +413,9 @@ class IndicesList(object):
     def msg(self):
         return lambda x: "Existing labels {} for '{}' files will overlap with the newly required ones by the tuner.".format(self.labels(x), self._label)
 
-
 class MissingRequiredParametersException(Exception):
     def __init__(self, msg):
         super(Exception, self).__init__(msg)
-
 class ParameterFoundInStaticAndExplorablesException(Exception):
     def __init__(self, msg):
         super(Exception, self).__init__(msg)

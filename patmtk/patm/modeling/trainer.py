@@ -43,7 +43,7 @@ class ModelTrainer(object):
     def model_factory(self):
         return get_model_factory(self.dictionary, self.cooc_dicts)
 
-    def train(self, topic_model, specs, effects=False):
+    def train(self, topic_model, specs, effects=False, cache_theta=False):
         """
         This method trains according to specifications the given topic model instance. Notifies accordingly any observer
         with the evalution metrics and potential dynamic parameters that change during training (i.e. a regularizer λ coefficient: tau value).\n
@@ -52,10 +52,10 @@ class ModelTrainer(object):
         :param bool effects:
         """
         trajectories_data = specs.tau_trajectory_list
+        topic_model.artm_model.cache_theta = cache_theta
         if not trajectories_data:
             if effects:
                 print 'Training with constant tau coefficients..'
-
                 from patm.utils import Spinner
                 spinner = Spinner(delay=0.2)
                 spinner.start()

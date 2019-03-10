@@ -27,8 +27,8 @@ if __name__ == '__main__':
         .nb_topics(10, 20, 40)\
         .collection_passes(100)\
         .document_passes(1, 2, 3)\
-        .background_topics_pct(0.1)\
-        .ideology_class_weight(0)\
+        .background_topics_pct(0.1, 0.2)\
+        .ideology_class_weight(1, 5)\
         .build()
         # .sparse_phi()\
         #     .deactivate(10)\
@@ -44,11 +44,13 @@ if __name__ == '__main__':
     tuner.activate_regularizers\
         .smoothing\
             .phi\
-            .theta\
-        .sparsing\
-            .phi\
-            .theta\
+            .theta \
+        .label_regularization \
     .done()
+        # .sparsing\
+        #     .phi\
+        #     .theta\
+    # .done()
 
     #     .label_regularization\
     # .done()

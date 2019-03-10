@@ -159,7 +159,7 @@ class PipeHandler(object):
         """
         d = {COOCURENCE_DICT_FILE_NAMES[0]: min_tf, COOCURENCE_DICT_FILE_NAMES[1]: min_df, COOCURENCE_DICT_FILE_NAMES[2]: min_tf, COOCURENCE_DICT_FILE_NAMES[3]: min_df}
         files = map(lambda x: os.path.join(self._col_dir, x+str(d[x])), COOCURENCE_DICT_FILE_NAMES)
-        create_cooc_file(self.vowpal_file, self.vocab_file, window, files[0], files[1], files[2], files[3], min_tf=min_tf, min_df=min_df)
+        create_cooc_file(self.vowpal_file, self.vocab_file, files[0], files[1], files[2], files[3], cooc_window=window, min_tf=min_tf, min_df=min_df)
 
     # def get_words_file_name(self, a_pipe):
     #     assert isinstance(a_pipe, Pipeline)
@@ -185,14 +185,14 @@ def cfg2pipe_settings(config_path, section):
     return OrderedDict([item for sublist in map(lambda x: [(x[0], encode_pipeline_cfg[x[0]](x[1]))] if x[0] != 'format' else [(x[0]+str(i+1), out_frmt) for i, out_frmt in enumerate(x[1].split(','))], config.items(section)) for item in sublist]) # [(setting_name, encode_pipeline_cfg[setting_name](value)) for setting_name, value in config.items(section)])
 
 
-def create_cooc_file(vowpal_file, vocab_file, cooc_window, tf_f, df_f, ppmi_tf, ppmi_df, min_tf=0, min_df=0):
+def create_cooc_file(vowpal_file, vocab_file, tf_f, df_f, ppmi_tf, ppmi_df, cooc_window=5, min_tf=0, min_df=0):
     """
 
     :param str vowpal_file: path to vowpal-formated bag-of-words file
     :param str vocab_file: path to uci-formated (list of unique tokens) vocabulary file
-    :param int cooc_window: number of tokens around specific token, which are used in calculation of cooccurrences
     :param int min_tf: minimal value of cooccurrences of a pair of tokens that are saved in dictionary of cooccurrences
     :param int min_df: minimal value of documents in which a specific pair of tokens occurred together closely
+    :param int cooc_window: number of tokens around specific token, which are used in calculation of cooccurrences
     :return:
     """
     # TF: save dictionary of co-occurrences with frequencies of co-occurrences of every specific pair of tokens in whole collection
@@ -209,7 +209,7 @@ def get_cl_arguments():
     parser.add_argument('config', help='the .cfg file to use for constructing a pipeline')
     parser.add_argument('collection', help='a given name for the collection')
     parser.add_argument('--sample', metavar='nb_docs', default='all', help='the number of documents to consider. Defaults to all documents')
-    parser.add_argument('--window', '-w', default=10, type=int, help='number of tokens around specific token, which are used in calculation of cooccurrences')
+    parser.add_argument('--window', '-w', default=5, type=int, help='number of tokens around specific token, which are used in calculation of cooccurrences')
     parser.add_argument('--min_tf', default=0, type=int,
                         help='Minimal value of cooccurrences of a pair of tokens that are saved in dictionary of cooccurrences.')
                              # 'For each int value a file is built to be used for coherence computation. By default builds one with min_tf=0')

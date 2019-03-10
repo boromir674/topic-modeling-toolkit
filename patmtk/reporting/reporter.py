@@ -189,7 +189,11 @@ class ModelReporter:
 
     @staticmethod
     def _get_label(json_path):
-        return re.search('/([\w\-.]+)\.json$', json_path).group(1)
+        try:
+            return re.search('/([\w\-\.\+@]+)\.json$', json_path).group(1)
+        except AttributeError as e:
+            print('PATH', json_path)
+            raise e
 
     @staticmethod
     def _get_hash_key(column_definition):

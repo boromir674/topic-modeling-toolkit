@@ -19,7 +19,7 @@ if __name__ == '__main__':
                'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',
                'sparsity-theta',
                'background-tokens-ratio',
-               'regularizers'
+               # 'regularizers'
                ]
 
     # COLUMNS = ['nb-topics', 'collection-passes', 'perplexity']
@@ -40,19 +40,3 @@ if __name__ == '__main__':
         except InvalidMetricException as e:
             print(e)
             sort_metric = input("Please input another metric to sort (blank for 'perplexity'): ")
-
-    # from pprint import pprint
-    # print '\n', pprint(dict(zip(reporter._columns_titles, reporter._max_col_lens)))
-
-    # spinner = Spinner(delay=0.2)
-    # spinner.start()
-    # try:
-    #     if cli_args.details:
-    #         b1 = model_reporter.get_highlighted_detailed_string(fitness_function, model_reporter.UNDERLINE)
-    #     else:
-    #         b1 = model_reporter.get_model_labels_string(fitness_function)
-    # except RuntimeError as e:
-    #     spinner.stop()
-    #     raise e
-    # spinner.stop()
-    # print(b1)

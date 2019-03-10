@@ -3,9 +3,10 @@
 import os
 import sys
 import argparse
-from patm.definitions import COLLECTIONS_DIR_PATH, REGULARIZERS_CFG
-from patm import get_model_factory, trainer_factory, Experiment, TrainSpecs
+
 from patm.utils import cfg2model_settings
+from patm import get_model_factory, trainer_factory, Experiment, TrainSpecs
+from patm.definitions import COLLECTIONS_DIR_PATH, REGULARIZERS_CFG
 
 
 def get_cl_arguments():
@@ -41,7 +42,7 @@ if __name__ == '__main__':
     train_specs = model_trainer.model_factory.create_train_specs()
     experiment.init_empty_trackables(topic_model)
     print 'Initialized new experiment and model'
-    model_trainer.train(topic_model, train_specs, effects=True)
+    model_trainer.train(topic_model, train_specs, effects=True, cache_theta=True)
     print 'Iterated {} times through the collection and {} times over each document: total phi updates = {}'.format(train_specs.collection_passes, topic_model.document_passes, train_specs.collection_passes * topic_model.document_passes)
 
     if args.save:
