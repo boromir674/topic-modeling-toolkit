@@ -152,7 +152,6 @@ class RegularizersFactory:
         if (self._back_t is None or len(self._back_t) == 0) and reg_type.startswith('smooth'):
             warnings.warn("Requested to create '{}' regularizer, which normally targets 'bakground' topicts, but there are "
                           "not distinct 'background' topics defined. The constructed regularizer will target all topics instead.".format(reg_type))
-        # return ArtmRegularizerWrapper.create(reg_type, settings)
         return self._regularizer_type2constructor[reg_type](settings)
 
 

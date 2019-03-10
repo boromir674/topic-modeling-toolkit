@@ -186,20 +186,6 @@ class TopicModel(object):
                 d[reg_type][attribute_name] = getattr(cur_reg_obj, attribute_name)
         return d
 
-    # def get_top_tokens(self, topic_names='all', nb_tokens=10):
-    #     if topic_names == 'all':
-    #         topic_names = self.artm_model.topic_names
-    #     toks = self.artm_model.score_tracker[self._evaluator_name2definition['top-tokens'].name].last_value
-    #     return [toks[topic_name] for topic_name in topic_names]
-    #
-    # def print_topics(self, topic_names='all'):
-    #     if topic_names == 'all':
-    #         topic_names = self.artm_model.topic_names
-    #     toks = self.artm_model.score_tracker[self._evaluator_name2definition['top-tokens'].name].last_value
-    #     body, max_lens = self._get_rows(toks)
-    #     header = self._get_header(max_lens, topic_names)
-    #     print(header + body)
-
     def _get_header(self, max_lens, topic_names):
         assert len(max_lens) == len(topic_names)
         return ' - '.join(map(lambda x: '{}{}'.format(x[1], ' ' * (max_lens[x[0]] - len(name))), (j, name in enumerate(topic_names))))

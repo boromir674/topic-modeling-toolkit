@@ -5,7 +5,7 @@ import abc
 import artm
 
 from .model_factory import get_model_factory
-from ..definitions import COLLECTIONS_DIR_PATH, COOCURENCE_DICT_FILE_NAMES
+from ..definitions import COLLECTIONS_DIR_PATH
 from patm.modeling.parameters.trajectory import get_fit_iteration_chunks
 
 
@@ -21,7 +21,6 @@ class ModelTrainer(object):
         self.dictionary = artm.Dictionary()
         self.cooc_dicts = {}  # ppmi: positive pmi (Point-Mutual Information)
         self.observers = []
-        self.bar = None
 
     def register(self, observer):
         if observer not in self.observers:
@@ -92,7 +91,7 @@ class TrainerFactory(object):
         """
         Creates an object that can train any topic model on a specific dataset/collection.\n
         :param str collection: the collection name which matches the root directory of all the files related to the collection
-        :param bool exploit_ideology_labels: whether to use the discretizd perspectives as labels for each document. If true then vowpal-formatted dataset has to be found (because it can encode label information per document) to create batches from
+        :param bool exploit_ideology_labels: whether to use the calss labels for each document. If true then vowpal-formatted dataset has to be found (because it can encode label information per document) to create batches from
         :param bool force_new_batches: whether to force the creation of new batches regardless of fiding any existing ones. Potentially overrides old batches found
         :return: the ready-to-train created object
         :rtype: ModelTrainer
@@ -111,21 +110,11 @@ class TrainerFactory(object):
         text_dict = os.path.join(self._root_dir, 'mydic.txt')
         vocab = os.path.join(self._root_dir, 'vocab.' + self._col + '.txt')
 
-        self._existing_batches = [_ for _ in os.listdir(self._batches_target_dir) if '.batch' in _]
-        if not force_new_batches and self._existing_batches:
-            self.load_batches()
+        existing_batches = [_ for _ in os.listdir(self._batches_target_dir) if '.batch' in _]
+        if not force_new_batches and existing_batches:
+            self.load_batches(existing_batches)
         else:
             self.create_batches(use_ideology_information=exploit_ideology_labels)
-
-        if os.path.exists(bin_dict):
-            self._mod_tr.dictionary.load(bin_dict)
-            print 'Loaded binary dictionary', bin_dict
-        else:
-            self._mod_tr.dictionary.gather(data_path=self._root_dir, vocab_file_path=vocab, symmetric_cooc_values=True)
-            self._mod_tr.dictionary.save(bin_dict)
-            self._mod_tr.dictionary.save_text(text_dict, encoding='utf-8')
-            print 'Saved binary dictionary as', bin_dict
-            print 'Saved textual dictionary as', text_dict
 
         # TODO replace with nested map/lambdas and regex
         for fname in os.listdir(self._root_dir):
@@ -135,6 +124,19 @@ class TrainerFactory(object):
                 self._mod_tr.cooc_dicts[matc.group(1)] = {'obj': artm.Dictionary(), 'min': int(matc.group(2))}
                 self._mod_tr.cooc_dicts[matc.group(1)]['obj'].gather(data_path=self._root_dir, cooc_file_path=os.path.join(self._root_dir, name), vocab_file_path=vocab, symmetric_cooc_values=True)
                 print "Loaded positive pmi '{}' dictionary from '{}' text file".format(matc.group(1), name)
+
+        assert 'tf' in self._mod_tr.cooc_dicts
+        self._mod_tr.dictionary = self._mod_tr.cooc_dicts['tf']['obj']
+
+        # if os.path.exists(bin_dict):
+        #     self._mod_tr.dictionary.load(bin_dict)
+        #     print 'Loaded binary dictionary', bin_dict
+        # else:
+        #     self._mod_tr.dictionary.save(bin_dict)
+        #     self._mod_tr.dictionary.save_text(text_dict, encoding='utf-8')
+        #     print 'Saved binary dictionary as', bin_dict
+        #     print 'Saved textual dictionary as', text_dict
+
         return self._mod_tr
 
     def create_batches(self, use_ideology_information=False):
@@ -144,11 +146,11 @@ class TrainerFactory(object):
                                                                target_folder=self._batches_target_dir)
         print "Vectorizer initialized from '{}' file".format(self.ideology_flag2data_format[use_ideology_information])
 
-    def load_batches(self):
+    def load_batches(self, batch_files_list):
         self._mod_tr.batch_vectorizer = artm.BatchVectorizer(collection_name=self._col,
                                                        data_path=self._batches_target_dir,
                                                        data_format='batches')
-        print "Vectorizer initialized from [{}] 'batch' files found in '{}'".format(', '.join(self._existing_batches), self._batches_target_dir)
+        print "Vectorizer initialized from [{}] 'batch' files found in '{}'".format(', '.join(batch_files_list), self._batches_target_dir)
 
 
 if __name__ == '__main__':

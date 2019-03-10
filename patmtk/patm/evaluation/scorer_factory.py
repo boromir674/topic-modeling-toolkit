@@ -17,7 +17,7 @@ class EvaluationFactory(object):
             self._abbr2class = {k: v for k, v in map(lambda x: tuple(['{}{}'.format(x[0], ''.join(map(lambda y: y[0], x[1:].split('_')))),
                                                                       x]), self.class_names)}
         self._dict = dictionary
-        self.cooc_df_dict = cooc_dict['df']['obj']
+        self.cooc_df_dict = cooc_dict['tf']['obj']
         self._domain_topics = []
         self._modality_weights = {}
         self.eval_constructor_hash = {
