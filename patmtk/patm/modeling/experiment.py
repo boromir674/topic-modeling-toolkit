@@ -54,7 +54,7 @@ class Experiment:
             if self._strip_parameters(evaluator_definition) in ('perplexity', 'sparsity-phi', 'sparsity-theta', 'background-tokens-ratio'):
                 self.trackables[Experiment._assert_max_decimals(evaluator_definition)] = []
             elif evaluator_definition.startswith('topic-kernel-'):
-                self.trackables[Experiment._assert_max_decimals(evaluator_definition)] = [[], [], [], {t_name: {'coherence': [], 'contrast': [], 'purity': []} for t_name in model.domain_topics}]
+                self.trackables[Experiment._assert_max_decimals(evaluator_definition)] = [[], [], [], [], {t_name: {'coherence': [], 'contrast': [], 'purity': [], 'size': []} for t_name in model.domain_topics}]
             elif evaluator_definition.startswith('top-tokens-'):
                 self.trackables[evaluator_definition] = [[], {t_name: [] for t_name in model.domain_topics}]
                 self.failed_top_tokens_coherence[evaluator_definition] = {t_name: [] for t_name in model.domain_topics}
@@ -130,10 +130,12 @@ class Experiment:
                 self.trackables[definition_with_max_decimals][0].extend(reportable_to_results['average_coherence'][-span:])
                 self.trackables[definition_with_max_decimals][1].extend(reportable_to_results['average_contrast'][-span:])
                 self.trackables[definition_with_max_decimals][2].extend(reportable_to_results['average_purity'][-span:])
-                for topic_name, topic_metrics in self.trackables[definition_with_max_decimals][3].items():
+                self.trackables[definition_with_max_decimals][3].extend(reportable_to_results['average_size'][-span:])
+                for topic_name, topic_metrics in self.trackables[definition_with_max_decimals][4].items():
                     topic_metrics['coherence'].extend(map(lambda x: x[topic_name], reportable_to_results['coherence'][-span:]))
                     topic_metrics['contrast'].extend(map(lambda x: x[topic_name], reportable_to_results['contrast'][-span:]))
                     topic_metrics['purity'].extend(map(lambda x: x[topic_name], reportable_to_results['purity'][-span:]))
+                    topic_metrics['size'].extend(map(lambda x: x[topic_name], reportable_to_results['size'][-span:]))
             elif evaluator_definition.startswith('top-tokens-'):
                 self.trackables[evaluator_definition][0].extend(reportable_to_results['average_coherence'][-span:])
 

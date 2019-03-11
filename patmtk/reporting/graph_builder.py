@@ -3,20 +3,19 @@
 import os
 from functools import reduce
 from collections import Counter
-# import matplotlib as mlp
 
 import matplotlib.pyplot as plt
 plt.ion()
-import easyplot
+
 from easyplot import EasyPlot
 
 from . import results_handler
 
 
 class GraphMaker(object):
-    SUPPORTED_GRAPHS = ['perplexity', 'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',
+    SUPPORTED_GRAPHS = ['perplexity', 'kernel-size', 'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',
                         'sparsity-theta', 'background-tokens-ratio']
-    LINES = ['b', 'm', 'y', 'g', 'k', 'c', 'r', '#4D79D1']
+    LINES = ['m', 'y', 'b', 'g', 'k', 'c', 'r', '#4D79D1']
     # linestyle / ls: Plot linestyle['-', '--', '-.', ':', 'None', ' ', '']
     # marker: '+', 'o', '*', 's', 'D', ',', '.', '<', '>', '^', '1', '2'
     def __init__(self, collections_root_path, plot_dir_name='graphs'):
@@ -125,9 +124,35 @@ class GraphMaker(object):
                                           title=measure_name,
                                           xlabel='iteration',
                                           ylabel='y')
-        except TypeError as e:
-            # print(e)
+        except TypeError:
             return None, None
+
+    def _get_ys_n_xs(self, exp_results_list, extractor, nb_points=None):
+        getter = lambda x: x
+        if nb_points is not None:
+            getter = lambda x: x[:nb_points]
+        ys = [getter(extractor(_)) for _ in exp_results_list]
+        self._results_indices = list(range(len(ys)))
+        return ys, [list(range(len(_))) for _ in ys]
+
+
+    @classmethod
+    def determine_metrics_usable_for_comparison(cls, exp_results):
+        """
+        If 2 or more models are found to contain information about the same metric (ie kernel-contrast-0.80) then the metric is included in the returning list.\n
+        :param list exp_results:
+        :return: list of strings; the metric definitions
+        :rtype: list
+        """
+        return sorted([k for k, v in Counter(reduce(lambda i, j: i + j, [results_handler.get_all_columns(x, cls.SUPPORTED_GRAPHS) for x in exp_results])).items() if v > 1])
+
+    @staticmethod
+    def build_graph(xs, ys, line_designs, labels, title, xlabel, ylabel, grid='on'):
+        assert len(ys) == len(xs) == len(line_designs) == len(labels)
+        pl = EasyPlot(xs[0], ys[0], line_designs[0], label=labels[0], showlegend=True, xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
+        for i, y_vals in enumerate(ys[1:]):
+            pl.add_plot(xs[i + 1], y_vals, line_designs[i + 1], label=labels[i + 1])
+        return pl
 
     def _save_plot_n_return(self, graph_label, eplot, verbose=True):
         save_path = self._save_plot(graph_label, eplot, verbose=verbose)
@@ -135,7 +160,7 @@ class GraphMaker(object):
 
     def _save_plot(self, graph_label, eplot, verbose=True):
         """Call this method to save a graph on the disk as a .png file. The input graph type contributes to naming the file
-        and appending any numbers for versioning and the plot object has a 'save' method."""
+            and appending any numbers for versioning and the plot object has a 'save' method."""
         if eplot:
             target_path = self._get_target_file_path(graph_label)
             while os.path.exists(target_path): # while old graph files are found with the same name and version number, increment the plot 'version'
@@ -158,40 +183,6 @@ class GraphMaker(object):
             return str(int_num)
         return '{}{}'.format((self._max_digits_prepend - nb_digits) * '0', int_num)
 
-    def _get_ys_n_xs(self, exp_results_list, extractor, nb_points=None):
-        if 0:
-            ys = filter(None, map(extractor, exp_results_list))
-            self._results_indices = [ind for ind, el in enumerate(ys) if el is not None]
-            # assert len(ys) == len(self._results_indices)
-            # print 'results_indices len: {}. MUST BE LENGTH number of plots on the same graph.'
-            ys = [GraphMaker._limit_points(_, nb_points) for _ in ys]
-            # ys = list([GraphMaker._limit_points(x, nb_points) for x in [_f for _f in ys if _f]])
-        # elif 0:
-        #     ys = GraphMaker._limit_points(list(map(lambda x: ResultsHandler.extract(x, metric_definition), exp_results_list)), nb_points)
-        #     self._results_indices = range(len(ys))
-        #     return ys, [range(len(_)) for _ in ys]
-        else:
-            ys = [GraphMaker._limit_points(extractor(_), nb_points) for _ in exp_results_list]
-            # ys = [_f for _f in [GraphMaker._limit_points(extractor(x), nb_points) for x in exp_results_list] if _f]
-            # ys = list(filter(None, map(lambda x: GraphMaker._limit_points(ResultsHandler.extract(x, metric_definition), nb_points), exp_results_list)))
-            self._results_indices = list(range(len(ys)))
-        return ys, [list(range(len(_))) for _ in ys]
-
-    @classmethod
-    def determine_metrics_usable_for_comparison(cls, exp_results_list):
-        c = Counter()
-        _ = reduce(lambda i, j: i + j, [results_handler.get_all_columns(x, cls.SUPPORTED_GRAPHS) for x in exp_results_list])
-        c.update(_)
-        return [k for k, v in c.items() if v > 1]
-
-    @staticmethod
-    def build_graph(xs, ys, line_designs, labels, title, xlabel, ylabel, grid='on'):
-        assert len(ys) == len(xs) == len(line_designs) == len(labels)
-        pl = EasyPlot(xs[0], ys[0], line_designs[0], label=labels[0], showlegend=True, xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
-        for i, y_vals in enumerate(ys[1:]):
-            pl.add_plot(xs[i + 1], y_vals, line_designs[i + 1], label=labels[i + 1])
-        return pl
-
         # Advanced grid modification
         # eplot.new_plot(x, 1 / (1 + x), '-s', label=r"$y = \frac{1}{1+x}$", c='#fdb462')
         # eplot.grid(which='major', axis='x', linewidth=2, linestyle='--', color='b', alpha=0.5)
@@ -199,8 +190,3 @@ class GraphMaker(object):
 
         #     eplot = EasyPlot(x, tracked_metrics_dict['trackables'], 'b-o', label='y1 != x**2', showlegend=True, xlabel='x', ylabel='y', title='title', grid='on')
         #     eplot.iter_plot(x, y_dict, linestyle=linestyle_dict, marker=marker_dict, label=labels_dict, linewidth=3, ms=10, showlegend=True, grid='on')
-
-    @staticmethod
-    def _limit_points(values_list, limit):
-        if limit is None: return values_list
-        return values_list[:limit]
