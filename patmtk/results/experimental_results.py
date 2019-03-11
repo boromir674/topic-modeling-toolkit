@@ -126,7 +126,7 @@ class ExperimentalResults(object):
                      'collection_passes': res['tracked']['collection-passes']},
                 {key: v for key, v in list(res['tracked'].items()) if key.startswith('background-tokens-ratio')},
                 {'tau-trajectories': res['tracked']['tau-trajectories']},
-                {'topic-kernel-' + key: [value['avg_coh'], value['avg_con'], value['avg_pur'],
+                {'topic-kernel-' + key: [value['avg_coh'], value['avg_con'], value['avg_pur'], value['size'],
                                          {t_name: t_data for t_name, t_data in
                                           list(value['topics'].items())}] for key, value in
                  list(res['tracked']['topic-kernel'].items())},
@@ -134,17 +134,6 @@ class ExperimentalResults(object):
                  for key, value in list(res['tracked']['top-tokens'].items())},
                 {key: v for key, v in list(res['tracked'].items()) if key.startswith('sparsity-phi-@')}]
 
-        # data = list({'perplexity': res['tracked']['perplexity'],
-        #              'sparsity-theta': res['tracked']['sparsity-theta'],
-        #              'collection_passes': res['tracked']['collection-passes']})
-        # data.append({key: v for key, v in res['tracked'].items() if key.startswith('background-tokens-ratio')})
-        # data.append({'tau-trajectories': res['tracked']['tau-trajectories']})
-        # data.append({'topic-kernel-' + key: [value['avg_coh'], value['avg_con'], value['avg_pur'],
-        #                                                           {t_name: t_data for t_name, t_data in
-        #                                                            value['topics'].items()}] for key, value in
-        #                                   res['tracked']['topic-kernel'].items()})
-        # self._data.append({'top-tokens-' + key: [value['avg_coh'], {t_name: t_data for t_name, t_data in value['topics'].items()}] for key, value in res['tracked']['top-tokens'].items()})
-        # self._data.append({key: v for key, v in res['tracked'].items() if key.startswith('sparsity-phi-@')})
         return ExperimentalResults(res['scalars']['dir'],
                                    res['scalars']['label'],
                                    res['scalars']['nb_topics'],
@@ -163,7 +152,7 @@ class ExperimentalResults(object):
         data = [{'perplexity': experiment.trackables['perplexity'],
                  'sparsity-theta': experiment.trackables['sparsity-theta'],
                  'collection_passes': experiment.collection_passes},
-                {kernel_definition: [value[0], value[1], value[2], value[3]] for kernel_definition, value in
+                {kernel_definition: [value[0], value[1], value[2], value[3], value[4]] for kernel_definition, value in
                  list(experiment.trackables.items()) if kernel_definition.startswith('topic-kernel')},
                 {top_tokens_definition: [value[0], value[1]] for top_tokens_definition, value in
                  list(experiment.trackables.items()) if top_tokens_definition.startswith('top-tokens-')},
@@ -180,7 +169,7 @@ class ExperimentalResults(object):
                                    experiment.topic_model.background_topics,
                                    experiment.topic_model.domain_topics,
                                    experiment.topic_model.modalities_dictionary,
-                                   reduce(lambda x, y: dict(x, **y), data),
+                                   reduce(lambda x, y: dict(x, **y), data),  # trackables
                                    final_kernel_tokens,
                                    final_top_tokens,
                                    experiment.topic_model.background_tokens,
@@ -399,29 +388,6 @@ class ValueTracker(AbstractValueTracker):
         return self._groups['tau-trajectories'].matrices_names
 
 
-class KernelSubGroup(object):
-    def __init__(self, coherence_list, contrast_list, purity_list):
-        self.ll = [TrackedCoherence(coherence_list), TrackedContrast(contrast_list), TrackedPurity(purity_list)]
-        # super(KernelSubGroup, self).__init__([TrackedCoherence(coherence_list), TrackedContrast(contrast_list), TrackedPurity(purity_list)])
-
-    @property
-    def coherence(self):
-        return self.ll[0]
-
-    @property
-    def contrast(self):
-        return self.ll[1]
-
-    @property
-    def purity(self):
-        return self.ll[2]
-
-class SingleTopicGroup(KernelSubGroup):
-    def __init__(self, topic_name, coherence_list, contrast_list, purity_list):
-        self.name = topic_name
-        super(SingleTopicGroup, self).__init__(coherence_list, contrast_list, purity_list)
-
-
 class TrackedTopics(object):
     def __init__(self, topics_data):
         self._data = topics_data
@@ -436,7 +402,7 @@ class TrackedTopics(object):
         raise AttributeError("Topic '{}' is not registered as tracked".format(item))
 
 class TrackedKernel(TrackedTopics):
-    def __init__(self, avg_coherence_list, avg_contrast_list, avg_purity_list, topic_name2elements_hash):
+    def __init__(self, avg_coherence_list, avg_contrast_list, avg_purity_list, sizes_list, topic_name2elements_hash):
         """
         :param list avg_coherence:
         :param list avg_contrast:
@@ -445,7 +411,7 @@ class TrackedKernel(TrackedTopics):
             {'top_00': {'coherence': [1,2], 'contrast': [3,4], 'purity': [8,9]},\n
             'top_01': {'coherence': [0,3], 'contrast': [5,8], 'purity': [6,3]}}
         """
-        self._avgs_group = KernelSubGroup(avg_coherence_list, avg_contrast_list, avg_purity_list)
+        self._avgs_group = KernelSubGroup(avg_coherence_list, avg_contrast_list, avg_purity_list, sizes_list)
         super(TrackedKernel, self).__init__({key: SingleTopicGroup(key, val['coherence'], val['contrast'], val['purity']) for key, val in list(topic_name2elements_hash.items())})
         # self._topics_groups = map(lambda x: SingleTopicGroup(x[0], x[1]['coherence'], x[1]['contrast'], x[1]['purity']), sorted(topic_name2elements_hash.items(), key=lambda x: x[0]))
         # d = {key: SingleTopicGroup(key, val['coherence'], val['contrast'], val['purity']) for key, val in topic_name2elements_hash.items()}
@@ -467,6 +433,32 @@ class TrackedTopTokens(TrackedTopics):
     @property
     def average_coherence(self):
         return self._avg_coh
+
+class KernelSubGroup(object):
+    def __init__(self, coherence_list, contrast_list, purity_list, size_list):
+        self.ll = [TrackedCoherence(coherence_list), TrackedContrast(contrast_list), TrackedPurity(purity_list), TrackedSize(size_list)]
+        # super(KernelSubGroup, self).__init__([TrackedCoherence(coherence_list), TrackedContrast(contrast_list), TrackedPurity(purity_list)])
+
+    @property
+    def coherence(self):
+        return self.ll[0]
+
+    @property
+    def contrast(self):
+        return self.ll[1]
+
+    @property
+    def purity(self):
+        return self.ll[2]
+
+    @property
+    def size(self):
+        return self.ll[3]
+
+class SingleTopicGroup(KernelSubGroup):
+    def __init__(self, topic_name, coherence_list, contrast_list, purity_list):
+        self.name = topic_name
+        super(SingleTopicGroup, self).__init__(coherence_list, contrast_list, purity_list, [])  # TODO eliminate this bug prone code
 
 
 class TrackedTrajectories(object):
@@ -528,6 +520,10 @@ class TrackedContrast(TrackedEntity):
 class TrackedPurity(TrackedEntity):
     def __init__(self, elements_list):
         super(TrackedPurity, self).__init__('purity', elements_list)
+
+class TrackedSize(TrackedEntity):
+    def __init__(self, elements_list):
+        super(TrackedSize, self).__init__('size', elements_list)
 
 
 class SteadyTrackedItems(object):
@@ -723,6 +719,7 @@ class RoundTripEncoder(json.JSONEncoder):
             return {'avg_coh': obj.average.coherence,
                     'avg_con': obj.average.contrast,
                     'avg_pur': obj.average.purity,
+                    'size': obj.average.size,
                     'topics': {topic_name: {'coherence': obj.__getattr__(topic_name).coherence.all,
                                             'contrast': obj.__getattr__(topic_name).contrast.all,
                                             'purity': obj.__getattr__(topic_name).purity.all} for topic_name in obj.topics}}

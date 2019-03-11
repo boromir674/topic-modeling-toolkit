@@ -36,8 +36,6 @@ class ModelReporter:
         :return:
         :rtype: str
         """
-        if verbose:
-            print('REPORTING ON:')
         self._initialize(collection_name, columns=columns, metric=metric, verbose=verbose)
         body = '\n'.join(self._compute_rows())
         head = '{}{} {} {}'.format(' '*self._max_label_len,

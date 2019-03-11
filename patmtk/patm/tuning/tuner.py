@@ -193,7 +193,7 @@ class Tuner(object):
             self._cur_label = self._labeler(i)
             tm, specs = self._create_model_n_specs()
             if 4 < self._vb:
-                tqdm.write(pprint.pformat({k: dict(v, **{k:v for k,v in {'target topics': (lambda x: 'all' if len(x) == 0 else x)(tm.get_reg_obj(tm.get_reg_name(k)).topic_names), 'mods': getattr(tm.get_reg_obj(tm.get_reg_name(k)), 'class_ids', None)}.items()}) for k, v in self.static_regularization_specs.items()}))
+                tqdm.write(pprint.pformat({k: dict(v, **{k:v for k,v in {'target topics': (lambda x: 'all' if len(x) == 0 else '[{}]'.format(', '.join(x)))(tm.get_reg_obj(tm.get_reg_name(k)).topic_names), 'mods': getattr(tm.get_reg_obj(tm.get_reg_name(k)), 'class_ids', None)}.items()}) for k, v in self.static_regularization_specs.items()}))
             if 3 < self._vb:
                 tqdm.write(pprint.pformat(tm.modalities_dictionary))
             self.experiment.init_empty_trackables(tm)

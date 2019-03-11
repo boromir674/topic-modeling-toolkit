@@ -10,7 +10,7 @@ from results import ExperimentalResults
 from .fitness import FitnessFunction
 
 
-KERNEL_SUB_ENTITIES = ('coherence', 'contrast', 'purity')
+KERNEL_SUB_ENTITIES = ('coherence', 'contrast', 'purity', 'size')
 
 MAX_DECIMALS = 2  # this consant should agree with the patm.modeling.experiment.Experiment.MAX_DECIMALS
 
@@ -75,7 +75,7 @@ class ResultsHandler(object):
                            int: lambda x: x[0][:x[1]],
                            list: lambda x: [x[0][_] for _ in x[1]]}
     _QUANTITY_2_EXTRACTOR_KEY = {'last': 'scalar', 'all': 'list'}
-    DYNAMIC_COLUMNS = ['kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi', 'background-tokens-ratio']
+    DYNAMIC_COLUMNS = ['kernel-size', 'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi', 'background-tokens-ratio']
     DEFAULT_COLUMNS = ['nb-topics', 'collection-passes', 'document-passes', 'total-phi-updates', 'perplexity'] +\
                       DYNAMIC_COLUMNS[:-1] + ['sparsity-theta'] + [DYNAMIC_COLUMNS[-1]] + ['regularizers']
 
@@ -148,7 +148,7 @@ class ResultsHandler(object):
         :rtype str
         """
         return COLUMNS_HASH.get(column, COLUMNS_HASH[ResultsHandler._get_hash_key(column)]).get('to-string', '{}').format(value)
-
+        
     # @staticmethod
     # def get_tau_trajectory(exp_results, matrix_name):
     #     """
@@ -202,37 +202,6 @@ class ResultsHandler(object):
         """Returns the indices of the input labels based on the input experimental results list"""
         model_labels = [x.scalars.model_label for x in experimental_results_list]
         return [experimental_results_list.index(model_labels.index(l)) for l in labels if l in model_labels]
-
-
-# class ModelSelector(object):
-#
-#     def __init__(self, collection_results_dir_path=''):
-#         self._working_dir = ''
-#         self._results_paths, self._available_model_labels = [], []
-#
-#         if collection_results_dir_path:
-#             self.working_dir = collection_results_dir_path
-#
-#     @property
-#     def working_dir(self):
-#         return self._working_dir
-#
-#     @working_dir.setter
-#     def working_dir(self, results_dir_path):
-#         self._working_dir = results_dir_path
-#         self._results_paths = glob('{}/*.json'.format(self._working_dir))
-#         if not self._results_paths:
-#             raise NoTrainingResultsFoundException("No saved training results found in '{}' directory.".format(collection_results_dir_path))
-#         self._available_model_labels = list(map(lambda x: re.search('/([\w\-.]+)\.json$', x).group(1), self._results_paths))
-#
-#     def select_n_get(self, expression='all'):
-#         if expression == 'all':
-#             return self._available_model_labels
-#         return []
-
-# class NoTrainingResultsFoundException(Exception):
-#     def __init__(self, msg):
-#         super(NoTrainingResultsFoundException, self).__init__(msg)
 
 
 if __name__ == '__main__':
