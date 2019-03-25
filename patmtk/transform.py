@@ -233,6 +233,12 @@ if __name__ == '__main__':
     uci_dt = ph.preprocess(pipe, args.collection)
     print uci_dt
 
-    print 'Building coocurences information'
-    ph.write_cooc_information(args.window, args.min_tf, args.min_df)
+    from build_coherence import CoherenceFilesBuilder
+    print '\nBuilding coocurences information'
+    coherence_builder = CoherenceFilesBuilder(os.path.join(COLLECTIONS_DIR_PATH, args.collection))
+    coherence_builder.create_files(cooc_window=args.window,
+                                   min_tf=args.min_tf,
+                                   min_df=args.min_df,
+                                   apply_zero_index=True)
+    # ph.write_cooc_information(args.window, args.min_tf, args.min_df)
 
