@@ -69,13 +69,15 @@ class CoherenceFilesBuilder:
         :return:
         """
         # let everything flow into the terminal
-        output = subprocess.run(['bigartm', '-c', vowpal_file, '-v', vocab_file, '--cooc-window', str(cooc_window),
-                                 '--cooc-min-tf', str(min_tf), '--write-cooc-tf', cooc_tf,
-                                 '--cooc-min-df', str(min_df), '--write-cooc-df', cooc_df,
-                                 '--write-ppmi-tf', ppmi_tf,
-                                 '--write-ppmi-df', ppmi_df,
-                                 '--force'])
-        return output.returncode
+        args = ['bigartm', '-c', vowpal_file, '-v', vocab_file, '--cooc-window', str(cooc_window),
+                '--cooc-min-tf', str(min_tf), '--write-cooc-tf', cooc_tf,
+                '--cooc-min-df', str(min_df), '--write-cooc-df', cooc_df,
+                '--write-ppmi-tf', ppmi_tf,
+                '--write-ppmi-df', ppmi_df,
+                '--force']
+        print('Executing:', ' '.join(args))
+        return subprocess.call(args)
+
 
 class VocabularyNotFoundError(Exception): pass
 class InvalidSplitsError(Exception): pass
