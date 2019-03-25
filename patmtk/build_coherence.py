@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import os
 import re
+import in_place
 import warnings
 import subprocess
 from glob import glob
@@ -25,21 +26,38 @@ class CoherenceFilesBuilder:
         return glob("{}/{}".format(self._root, pattern))
 
     def _path(self, *args, **kwargs):
-        return os.path.join(self._root, '_'.join(map(str, args)) + (lambda x: '.'+x if x else '')(kwargs.get('extension', '')))
+        return os.path.join(self._root, '_'.join(map(str, [_ for _ in args if _])) + (lambda x: '.'+x if x else '')(kwargs.get('extension', '')))
 
-    def create_files(self, cooc_window=5, min_tf=0, min_df=0):
+    def create_files(self, cooc_window=5, min_tf=0, min_df=0, apply_zero_index=True):
+        _file = {}
         for s, vowpal in self._splits:
-            _ = self.create_cooc_files(vowpal, self._vocab, self._path('cooc', min_tf, 'tf', extension='txt'), self._path('cooc', min_df, 'df', extension='txt'),
-                                   self._path('ppmi', min_tf, 'tf', extension='txt'), self._path('ppmi', min_tf, 'tf', extension='txt'), cooc_window=cooc_window, min_tf=min_tf, min_df=min_df)
+            _file.update({s: {'cooc_tf': self._path('cooc', min_tf, 'tf', s, extension='txt'),
+                              'cooc_df': self._path('cooc', min_df, 'df', s, extension='txt'),
+                              'ppmi_tf': self._path('ppmi', min_tf, 'tf', s, extension='txt'),
+                              'ppmi_df': self._path('ppmi', min_df, 'df', s, extension='txt')}
+                          })
+
+            _ = self.create_cooc_files(vowpal, self._vocab,
+                                       _file[s]['cooc_tf'], _file[s]['cooc_df'],
+                                       _file[s]['ppmi_tf'], _file[s]['ppmi_df'],
+                                       cooc_window=cooc_window, min_tf=min_tf, min_df=min_df)
             if _ == 0:
                 print("Created ppmi files for '{}' split.".format((lambda x: 'all' if not x else x)(s)))
             else:
                 print("Something went wrong when creating ppmi files for '{}' split.".format((lambda x: 'all' if not x else x)(s)))
 
+            if apply_zero_index:
+                print("Applying zero indexing of tokens (ids)")
+                for key, path in _file[s].items():
+                    with in_place.InPlace(path, backup_ext='.bak') as fp:
+                        for line in fp:
+                            match_obj = re.search('^(\d+) (\d+) (.+)$', line).groups()
+                            fp.write('{} {} {}\n'.format(int(match_obj[0])-1, int(match_obj[1])-1 , match_obj[2]))
+
     @staticmethod
     def create_cooc_files(vowpal_file, vocab_file, cooc_tf, cooc_df, ppmi_tf, ppmi_df, cooc_window=5, min_tf=0, min_df=0):
         """
-        :param str vowpal_file: path to vowpal-formated bag-of-_vocab_file file
+        :param str vowpal_file: path to vowpal-formated bag-of-words file
         :param str vocab_file: path to uci-formated (list of unique tokens) vocabulary file
         :param str cooc_tf: file path to save the terms frequency (tf) dictionary of co-occurrences of every specific pair of tokens: total number of times a pair of tokens appears in the dataset
         :param str cooc_df: file path to save the document-frequency (df) dictionary with the number of documents in which each pair of tokens appeared: in how many documents pair 'x' can be found
