@@ -26,7 +26,7 @@ class CoherenceFilesBuilder:
         return glob("{}/{}".format(self._root, pattern))
 
     def _path(self, *args, **kwargs):
-        return os.path.join(self._root, '_'.join(map(str, [_ for _ in args if _])) + (lambda x: '.'+x if x else '')(kwargs.get('extension', '')))
+        return os.path.join(self._root, '_'.join(map(str, [_ for _ in args if _ != ''])) + (lambda x: '.'+x if x else '')(kwargs.get('extension', '')))
 
     def create_files(self, cooc_window=5, min_tf=0, min_df=0, apply_zero_index=True):
         _file = {}
