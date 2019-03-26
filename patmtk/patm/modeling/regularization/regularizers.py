@@ -184,8 +184,19 @@ class DocumentClassificationRegularizerWrapper(ArtmRegularizerWrapper):
         super(DocumentClassificationRegularizerWrapper, self).__init__(
             'label-regularization-phi', dict(params_dict, **{'name':name, 'topic_names':topic_names, 'dictionary':dictionary, 'class_ids':class_ids}))
 
+
 @ArtmRegularizerWrapper.register_subclass('decorrelate-phi')
 class PhiDecorrelator(ArtmRegularizerWrapper):
     _artm_constructor = artm.DecorrelatorPhiRegularizer
     def __init__(self, name, params_dict, topic_names, class_ids=None):
         super(PhiDecorrelator, self).__init__('decorrelate-phi', dict(params_dict, **{'name': name, 'topic_names': topic_names, 'class_ids': class_ids}))
+
+
+@ArtmRegularizerWrapper.register_subclass('improve-coherence')
+class ImproveCoherence(ArtmRegularizerWrapper):
+    _artm_constructor = artm.ImproveCoherencePhiRegularizer # name=None, tau=1.0, class_ids=None, topic_names=None, dictionary=None, config=None)
+    def __init__(self, name, params_dict, topic_names, dictionary, class_ids=None):
+        super(ImproveCoherence, self).__init__('improve-coherence', dict(params_dict, **{'name': name,
+                                                                                        'dictionary': dictionary,
+                                                                                        'topic_names': topic_names,
+                                                                                        'class_ids': class_ids}))

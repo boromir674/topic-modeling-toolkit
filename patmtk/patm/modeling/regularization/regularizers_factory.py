@@ -88,7 +88,9 @@ class RegularizersFactory:
              'label-regularization-phi': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x, self._domain_t,
                                                                                  dictionary=self._dictionary,
                                                                                  class_ids=None), # targets all classes, since no CLASS_LABELS list is given
-             'decorrelate-phi': lambda x: ArtmRegularizerWrapper.create('decorrelate-phi', x, self._domain_t, class_ids=None)}
+             'decorrelate-phi': lambda x: ArtmRegularizerWrapper.create('decorrelate-phi', x, self._domain_t, class_ids=None),
+             'improve-coherence': lambda x: ArtmRegularizerWrapper.create('improve-coherence', x, self._domain_t, self._dictionary,
+                                                                          class_ids=None)}
 
     @property
     def collection_passes(self):

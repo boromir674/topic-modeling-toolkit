@@ -71,7 +71,8 @@ class Tuner(object):
                                                 'sparse-phi': {'tau': 'linear_-5_-15', 'start': 4},
                                                 'sparse-theta': {'alpha_iter': 1, 'tau': 'linear_-3_-13', 'start': 4},
                                                 'label-regularization-phi': {'tau': 1.0},
-                                                'decorrelate-phi': {'tau': 10000}}
+                                                'decorrelate-phi': {'tau': 10000},
+                                                'improve-coherence': {'tau': 1.0}}
     @staticmethod
     def _create_active_regs_with_default_names(reg_types_list):
         """

@@ -217,11 +217,6 @@ class RegularizersActivationDefinitionBuilder(object):
         return self
 
     @property
-    def decorrelate_phi_domain(self):
-        self._reg_types.append('decorrelate-phi')
-        return self
-
-    @property
     def phi(self):
         self._reg_types.append(self._key + '-phi')
         return self
@@ -229,6 +224,16 @@ class RegularizersActivationDefinitionBuilder(object):
     @property
     def theta(self):
         self._reg_types.append(self._key + '-theta')
+        return self
+
+    @property
+    def decorrelate_phi_domain(self):
+        self._reg_types.append('decorrelate-phi')
+        return self
+
+    @property
+    def improve_coherence_phi(self):
+        self._reg_types.append('improve-coherence')
         return self
 
     def build(self):
