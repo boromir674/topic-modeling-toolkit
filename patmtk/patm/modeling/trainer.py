@@ -119,12 +119,14 @@ class TrainerFactory(object):
         # TODO replace with nested map/lambdas and regex
         for fname in os.listdir(self._root_dir):
             name = os.path.basename(fname)
-            matc = re.match('^ppmi_(\w\w)_(\d*)', name)
+            matc = re.match('^ppmi_(\d+)_([td]f)\.txt$', name)
             if matc:
-                self._mod_tr.cooc_dicts[matc.group(1)] = {'obj': artm.Dictionary(), 'min': int(matc.group(2))}
-                self._mod_tr.cooc_dicts[matc.group(1)]['obj'].gather(data_path=self._root_dir, cooc_file_path=os.path.join(self._root_dir, name), vocab_file_path=vocab, symmetric_cooc_values=True)
-                print "Loaded positive pmi '{}' dictionary from '{}' text file".format(matc.group(1), name)
-
+                self._mod_tr.cooc_dicts[matc.group(2)] = {'obj': artm.Dictionary(), 'min': int(matc.group(1))}
+                self._mod_tr.cooc_dicts[matc.group(2)]['obj'].gather(data_path=self._root_dir,
+                                                                     cooc_file_path=os.path.join(self._root_dir, name),
+                                                                     vocab_file_path=vocab,
+                                                                     symmetric_cooc_values=True)
+                print "Loaded positive pmi with min tf '{}' dictionary from '{}' text file".format(matc.group(1), name)
         assert 'tf' in self._mod_tr.cooc_dicts
         self._mod_tr.dictionary = self._mod_tr.cooc_dicts['tf']['obj']
 
