@@ -56,7 +56,12 @@ COLUMNS_HASH = {
                                 'to-string': '{:.2f}',
                                 'definitions': lambda x: ['background-tokens-ratio-{}'.format(y[:4]) for y in x.tracked.background_tokens_thresholds]},
     'regularizers': {'scalar-extractor': lambda x: '[{}]'.format(', '.join(map(regularizers_format, x.regularizers))),
-                     'column-title': lambda: 'regs'}
+                     'column-title': lambda: 'regs',},
+    'kernel-size': {'scalar-extractor': lambda x,y: getattr(x.tracked, 'kernel'+y[2:]).average.size.last if hasattr(x.tracked, 'kernel'+y[2:]) else None,
+                               'list-extractor': lambda x, y: getattr(x.tracked, 'kernel' + y[2:]).average.size.all if hasattr(x.tracked, 'kernel' + y[2:]) else None,
+                               'column-title': lambda x: 'k'+'size'[:3:2]+'.'+str(x)[2:],
+                               'to-string': '{:.1f}',
+                               'definitions': lambda x: ['kernel-size-{}'.format(y) for y in x.tracked.kernel_thresholds]}
 }
 
 def regularizers_format(reg_def_string):
