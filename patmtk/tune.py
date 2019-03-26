@@ -24,29 +24,60 @@ if __name__ == '__main__':
 
     tuner = Tuner(args.dataset)
     tuning_definition = tdb.initialize()\
-        .nb_topics(10, 20, 40)\
+        .nb_topics(40)\
         .collection_passes(100)\
-        .document_passes(1, 2, 3)\
-        .background_topics_pct(0.1, 0.2)\
-        .ideology_class_weight(1, 5)\
-        .build()
+        .document_passes(1)\
+        .background_topics_pct(0.2)\
+        .ideology_class_weight(0, 1, 5, 10).build()
         # .sparse_phi()\
         #     .deactivate(10)\
         #     .kind('linear')\
         #     .start(-1)\
-        #     .end(-20)\
+        #     .end(-10, -20)\
         # .sparse_theta()\
-        #     .deactivate(10)\
+        #     .deactivate(5)\
         #     .kind('linear')\
         #     .start(-1)\
-        #     .end(-20)\
+        #     .end(-10, -20)\
+        # .build()
 
-    tuner.activate_regularizers\
-        .smoothing\
-            .phi\
-            .theta \
-        .label_regularization \
-    .done()
+    #PLSA
+
+    #LDA
+    # tuner.activate_regularizers.smoothing.phi.theta.done()
+
+    #CLDA
+    tuner.activate_regularizers.smoothing.phi.theta.label_regularization.done()
+
+    #ILDA
+    tuner.activate_regularizers.smoothing.phi.theta.improve_coherence_phi.done()
+
+    #DCLDA
+    # tuner.activate_regularizers.smoothing.phi.theta.decorrelate_phi_domain.label_regularization.done()
+
+    # SLDA
+    # tuner.activate_regularizers \
+    #     .smoothing \
+    #         .phi \
+    #         .theta \
+    #     .sparsing \
+    #         .theta \
+    #         .phi \
+    # .done()
+
+    # SCLDA
+    # tuner.activate_regularizers \
+    #     .smoothing \
+    #         .phi \
+    #         .theta \
+    #     .label_regularization \
+    #     .sparsing \
+    #         .theta \
+    #         .phi \
+    # .done()
+
+    #     .label_regularization \
+    # .done()
         # .sparsing\
         #     .phi\
         #     .theta\
