@@ -183,3 +183,9 @@ class DocumentClassificationRegularizerWrapper(ArtmRegularizerWrapper):
             topic_names = None
         super(DocumentClassificationRegularizerWrapper, self).__init__(
             'label-regularization-phi', dict(params_dict, **{'name':name, 'topic_names':topic_names, 'dictionary':dictionary, 'class_ids':class_ids}))
+
+@ArtmRegularizerWrapper.register_subclass('decorrelate-phi')
+class PhiDecorrelator(ArtmRegularizerWrapper):
+    _artm_constructor = artm.DecorrelatorPhiRegularizer
+    def __init__(self, name, params_dict, topic_names, class_ids=None):
+        super(PhiDecorrelator, self).__init__('decorrelate-phi', dict(params_dict, **{'name': name, 'topic_names': topic_names, 'class_ids': class_ids}))
