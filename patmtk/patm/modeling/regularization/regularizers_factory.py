@@ -85,7 +85,10 @@ class RegularizersFactory:
              'smooth-phi': lambda x: ArtmRegularizerWrapper.create('smooth-phi', x, self._back_t, [DEFAULT_CLASS_NAME]),
              'sparse-theta': lambda x: ArtmRegularizerWrapper.create('sparse-theta', x, self._domain_t),
              'smooth-theta': lambda x: ArtmRegularizerWrapper.create('smooth-theta', x, self._back_t),
-             'label-regularization-phi': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x, self._domain_t, dictionary=self._dictionary, class_ids=[DEFAULT_CLASS_NAME])}  # targets all classes, since no CLASS_LABELS list is given
+             'label-regularization-phi': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x, self._domain_t,
+                                                                                 dictionary=self._dictionary,
+                                                                                 class_ids=None), # targets all classes, since no CLASS_LABELS list is given
+             'decorrelate-phi': lambda x: ArtmRegularizerWrapper.create('decorrelate-phi', x, self._domain_t, class_ids=None)}
 
     @property
     def collection_passes(self):
