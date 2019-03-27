@@ -46,11 +46,14 @@ if __name__ == '__main__':
     #LDA
     # tuner.activate_regularizers.smoothing.phi.theta.done()
 
+    # DLDA
+    tuner.activate_regularizers.smoothing.phi.theta.decorrelate_phi_all.done()
+
     #CLDA
-    tuner.activate_regularizers.smoothing.phi.theta.label_regularization.done()
+    # tuner.activate_regularizers.smoothing.phi.theta.label_regularization.done()
 
     #ILDA
-    tuner.activate_regularizers.smoothing.phi.theta.improve_coherence_phi.done()
+    # tuner.activate_regularizers.smoothing.phi.theta.improve_coherence_phi.done()
 
     #DCLDA
     # tuner.activate_regularizers.smoothing.phi.theta.decorrelate_phi_domain.label_regularization.done()
