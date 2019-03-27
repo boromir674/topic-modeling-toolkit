@@ -141,6 +141,13 @@ class TunerDefinitionBuilder(ParameterMixtureBuilder):
     def ideology_class_weight(self, *value):
         return self._set_return(sys._getframe().f_code.co_name, value)
 
+    def decorrelate_all_tau(self, *value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+    def decorrelate_def_tau(self, *value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+    def decorrelate_class_tau(self, *value):
+        return self._set_return(sys._getframe().f_code.co_name, value)
+
     def sparse_phi(self):
         k = sys._getframe().f_code.co_name
         self._trajectory_builder.initialize(k)
@@ -227,8 +234,18 @@ class RegularizersActivationDefinitionBuilder(object):
         return self
 
     @property
-    def decorrelate_phi_domain(self):
+    def decorrelate_phi_all(self):  # target all modalities
         self._reg_types.append('decorrelate-phi')
+        return self
+
+    @property
+    def decorrelate_phi_def(self):  # target @default_class modality only
+        self._reg_types.append('decorrelate-phi-def')
+        return self
+
+    @property
+    def decorrelate_phi_class(self):  # target @ideology_class modality only
+        self._reg_types.append('decorrelate-phi-class')
         return self
 
     @property

@@ -5,10 +5,10 @@ from collections import OrderedDict
 from configparser import ConfigParser
 
 from patm.utils import cfg2model_settings
-from patm.definitions import REGULARIZERS_CFG, DEFAULT_CLASS_NAME  # this is the name of the default modality. it is irrelevant to class lebels or document lcassification
+from patm.definitions import REGULARIZERS_CFG, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME  # this is the name of the default modality. it is irrelevant to class lebels or document lcassification
 from patm.definitions import CLASS_LABELS
 
-from regularizers import ArtmRegularizerWrapper
+from regularizers import ArtmRegularizerWrapper, PhiDecorrelator
 
 def cfg2regularizer_settings(cfg_file):
     config = ConfigParser()
@@ -25,8 +25,10 @@ regularizer2parameters = {
     'sparse-phi': set1,
     'smooth-theta': set2,
     'sparse-theta': set2,
-    'decorrelate-phi-domain': decorrelation,
-    'decorrelate-phi-background': decorrelation,
+    'decorrelate-phi-def': decorrelation,  # default token modality
+    'decorrelate-phi-class': decorrelation,  # doc class modality
+    'decorrelate-phi-domain': decorrelation,  # all modalities
+    'decorrelate-phi-background': decorrelation,  # all modalities
     'label-regularization-phi': set1,
     # 'kl-function-info': ('function_type', 'power_value'),
     # 'specified-sparse-phi': ('tau', 'gamma', 'topic_names', 'class_id', 'num_max_elements', 'probability_threshold', 'sparse_by_column'),
@@ -81,14 +83,20 @@ class RegularizersFactory:
         self._col_passes = 0
         self._back_t, self._domain_t = [], []
         self._regularizer_type2constructor = \
-            {'sparse-phi': lambda x: ArtmRegularizerWrapper.create('sparse-phi', x, self._domain_t, [DEFAULT_CLASS_NAME]),
-             'smooth-phi': lambda x: ArtmRegularizerWrapper.create('smooth-phi', x, self._back_t, [DEFAULT_CLASS_NAME]),
-             'sparse-theta': lambda x: ArtmRegularizerWrapper.create('sparse-theta', x, self._domain_t),
+            {'smooth-phi': lambda x: ArtmRegularizerWrapper.create('smooth-phi', x, self._back_t, [DEFAULT_CLASS_NAME]),
              'smooth-theta': lambda x: ArtmRegularizerWrapper.create('smooth-theta', x, self._back_t),
+             'sparse-phi': lambda x: ArtmRegularizerWrapper.create('sparse-phi', x, self._domain_t, [DEFAULT_CLASS_NAME]),
+             'sparse-theta': lambda x: ArtmRegularizerWrapper.create('sparse-theta', x, self._domain_t),
              'label-regularization-phi': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x, self._domain_t,
                                                                                  dictionary=self._dictionary,
-                                                                                 class_ids=None), # targets all classes, since no CLASS_LABELS list is given
-             'decorrelate-phi': lambda x: ArtmRegularizerWrapper.create('decorrelate-phi', x, self._domain_t, class_ids=None),
+                                                                                 class_ids=DEFAULT_CLASS_NAME), # targets all classes, since no CLASS_LABELS list is given
+             'decorrelate-phi-def': lambda x: ArtmRegularizerWrapper.create('decorrelate-phi-def', x, self._domain_t, class_ids=DEFAULT_CLASS_NAME),
+             'decorrelate-phi-class': lambda x: ArtmRegularizerWrapper.create('decorrelate-phi-class', x, self._domain_t,
+                                                                            class_ids=IDEOLOGY_CLASS_NAME),
+             'decorrelate-phi-domain': lambda x: PhiDecorrelator('decorrelate-phi-domain', x, self._domain_t,
+                                                                              class_ids=None),
+             'decorrelate-phi-background': lambda x: PhiDecorrelator('decorrelate-phi-background', x, self._domain_t,
+                                                                               class_ids=None),
              'improve-coherence': lambda x: ArtmRegularizerWrapper.create('improve-coherence', x, self._domain_t, self._dictionary,
                                                                           class_ids=None)}
 
@@ -151,9 +159,8 @@ class RegularizersFactory:
         :rtype: ArtmRegularizerWrapper
         """
         # if reg_type not in self._regularizer_type2constructor:
-        if reg_type not in ArtmRegularizerWrapper.subclasses:
-            warnings.warn("Requested to create '{}' regularizer, which is not supported".format(reg_type))
-            return None
+        if reg_type not in self._regularizer_type2constructor:
+            raise RuntimeError("Requested to create '{}' regularizer, which is not supported".format(reg_type))
         if (self._back_t is None or len(self._back_t) == 0) and reg_type.startswith('smooth'):
             warnings.warn("Requested to create '{}' regularizer, which normally targets 'bakground' topicts, but there are "
                           "not distinct 'background' topics defined. The constructed regularizer will target all topics instead.".format(reg_type))
