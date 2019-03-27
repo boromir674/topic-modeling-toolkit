@@ -209,7 +209,7 @@ def get_cl_arguments():
     parser.add_argument('config', help='the .cfg file to use for constructing a pipeline')
     parser.add_argument('collection', help='a given name for the collection')
     parser.add_argument('--sample', metavar='nb_docs', default='all', help='the number of documents to consider. Defaults to all documents')
-    parser.add_argument('--window', '-w', default=5, type=int, help='number of tokens around specific token, which are used in calculation of cooccurrences')
+    parser.add_argument('--window', '-w', default=10, type=int, help='number of tokens around specific token, which are used in calculation of cooccurrences')
     parser.add_argument('--min_tf', default=0, type=int,
                         help='Minimal value of cooccurrences of a pair of tokens that are saved in dictionary of cooccurrences.')
                              # 'For each int value a file is built to be used for coherence computation. By default builds one with min_tf=0')
