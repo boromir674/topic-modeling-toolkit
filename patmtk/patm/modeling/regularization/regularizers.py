@@ -14,12 +14,7 @@ class ArtmRegularizerWrapper(object):
     _traj_type2traj_def_creator = {'alpha_iter': lambda x: '0_' + x[1],
                               'tau': lambda x: '{}_{}'.format(x[0], x[1])}
 
-    def __new__(cls, *args, **kwargs):
-        x = super(ArtmRegularizerWrapper, cls).__new__(cls)
-        x._type = args[0]
-        return x
-
-    def __init__(self, reg_type, parameters_dict, verbose=False):
+    def __init__(self, parameters_dict, verbose=False):
         self._regularizer = None
         self._alpha_iter_scalar = None
         self._trajectory_lambdas = {}
@@ -33,7 +28,7 @@ class ArtmRegularizerWrapper(object):
         for k, v in parameters_dict.items():
             # print('key:', k, 'val:', v, type(v))
             # in case it is none then parameter it is handled by the default behaviour of artm
-            if v is None or type(v) == list or type(v) == artm.dictionary.Dictionary:  # one of topic_names or class_ids or dictionary
+            if v is None or type(v) == list or type(v) == artm.dictionary.Dictionary or k == 'class_ids':  # one of topic_names or class_ids or dictionary
                 self._reg_constr_params[k] = v
             else:
                 try:  # by this point v should be a string, if exception occurs is shoud be only if a trajectory is defined (eg 'linear_-2_-10')
@@ -51,7 +46,7 @@ class ArtmRegularizerWrapper(object):
     def _create_artm_regularizer(self, parameters, verbose=False):
         self._regularizer = self._artm_constructor(**parameters)
         if verbose:
-            print "Constructed '{}' reg, named '{}', with settings: {}".format(self._type, self._name, '{'+', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), parameters.items()))+'}')
+            print "Constructed '{}' reg, named '{}', with settings: {}".format(self.type, self._name, '{'+', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), parameters.items()))+'}')
 
     @classmethod
     def register_subclass(cls, regularizer_type):
@@ -64,10 +59,7 @@ class ArtmRegularizerWrapper(object):
     def create(cls, regularizer_type, *args, **kwargs):
         if regularizer_type not in cls.subclasses:
             raise ValueError("Bad regularizer type '{}'".format(regularizer_type))
-        # print "Creating regularizer '{}'".format(regularizer_type)
-        # pprint("args: {}".format(args))
-        # pprint(kwargs)
-        return cls.subclasses[regularizer_type](regularizer_type, *args, **kwargs)
+        return cls.subclasses[regularizer_type](*args, **kwargs)
 
     @property
     def label(self):
@@ -109,66 +101,65 @@ class ArtmRegularizerWrapper(object):
 
     @property
     def type(self):
-        return self._type
+        for k, v in ArtmRegularizerWrapper.subclasses.items():
+            if type(self) == v:
+                return k
 
 
 class SmoothSparseRegularizerWrapper(ArtmRegularizerWrapper):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, reg_type, name, params_dict, targeted_topics):
+    def __init__(self, params_dict, targeted_topics):
         """
-
-        :param reg_type:
-        :param name:
         :param params_dict:
         :param targeted_topics:
         """
+        assert 'name' in params_dict
         if len(targeted_topics) == 0:
             # T.O.D.O below: the warning should fire if smooth is active because then there must be defined
             # non overlapping sets of 'domain' and 'background' topics
             warn("Set Smooth regularizer to target all topics. This is valid only if you do use 'domain' topics for other regularizers; ie in case you emulate an LDA model because smoothing achieves this behaviour.")
             targeted_topics = None
-        super(SmoothSparseRegularizerWrapper, self).__init__(reg_type, dict(params_dict, **{'name': name, 'topic_names': targeted_topics}))
+        super(SmoothSparseRegularizerWrapper, self).__init__(dict(params_dict, **{'topic_names': targeted_topics}))
 
 
 class SmoothSparsePhiRegularizerWrapper(SmoothSparseRegularizerWrapper):
     _artm_constructor = artm.SmoothSparsePhiRegularizer
-    def __init__(self, reg_type, name, params_dict, topic_names, class_ids):
-        super(SmoothSparsePhiRegularizerWrapper, self).__init__(reg_type, name, dict(params_dict, **{'class_ids': class_ids}), topic_names)
+    def __init__(self, params_dict, topic_names, class_ids):
+        super(SmoothSparsePhiRegularizerWrapper, self).__init__(dict(params_dict, **{'class_ids': class_ids}), topic_names)
 
 @ArtmRegularizerWrapper.register_subclass('sparse-phi')
 class SparsePhiRegularizerWrapper(SmoothSparsePhiRegularizerWrapper):
-    def __init__(self, name, params_dict, topic_names, class_ids):
-        super(SparsePhiRegularizerWrapper, self).__init__('sparse-phi', name, params_dict, topic_names, class_ids)
+    def __init__(self, params_dict, topic_names, class_ids):
+        super(SparsePhiRegularizerWrapper, self).__init__(params_dict, topic_names, class_ids)
 
 @ArtmRegularizerWrapper.register_subclass('smooth-phi')
 class SmoothPhiRegularizerWrapper(SmoothSparsePhiRegularizerWrapper):
-    def __init__(self, name, params_dict, topic_names, class_ids):
-        super(SmoothPhiRegularizerWrapper, self).__init__('smooth-phi', name, params_dict, topic_names, class_ids)
+    def __init__(self, params_dict, topic_names, class_ids):
+        super(SmoothPhiRegularizerWrapper, self).__init__(params_dict, topic_names, class_ids)
 
 
 class SmoothSparseThetaRegularizerWrapper(SmoothSparseRegularizerWrapper):
     _artm_constructor = artm.SmoothSparseThetaRegularizer
-    def __init__(self, reg_type, name, params_dict, topic_names):
-        super(SmoothSparseThetaRegularizerWrapper, self).__init__(reg_type, name, params_dict, topic_names)
+    def __init__(self, params_dict, topic_names):
+        super(SmoothSparseThetaRegularizerWrapper, self).__init__(params_dict, topic_names)
 
 
 @ArtmRegularizerWrapper.register_subclass('sparse-theta')
 class SparseThetaRegularizerWrapper(SmoothSparseThetaRegularizerWrapper):
-    def __init__(self, name, params_dict, topic_names):
-        super(SparseThetaRegularizerWrapper, self).__init__('sparse-theta', name, params_dict, topic_names)
+    def __init__(self, params_dict, topic_names):
+        super(SparseThetaRegularizerWrapper, self).__init__(params_dict, topic_names)
 
 @ArtmRegularizerWrapper.register_subclass('smooth-theta')
 class SmoothThetaRegularizerWrapper(SmoothSparseThetaRegularizerWrapper):
-    def __init__(self, name, params_dict, topic_names):
-        super(SmoothThetaRegularizerWrapper, self).__init__('smooth-theta', name, params_dict, topic_names)
+    def __init__(self, params_dict, topic_names):
+        super(SmoothThetaRegularizerWrapper, self).__init__(params_dict, topic_names)
 
 @ArtmRegularizerWrapper.register_subclass('label-regularization-phi')  # can be used to expand the probability space to DxWxTxC eg author-topic model
 class DocumentClassificationRegularizerWrapper(ArtmRegularizerWrapper):
     _artm_constructor = artm.LabelRegularizationPhiRegularizer
-    def __init__(self, name, params_dict, topic_names, dictionary=None, class_ids=None):
+    def __init__(self, params_dict, topic_names, dictionary=None, class_ids=None):
         """
-
         :param str name:
         :param dict params_dict: Can contain keys: 'tau', 'gamma', 'dictionary'
         :param list of str topic_names: list of names of topics to regularize, will regularize all topics if not specified.
@@ -181,22 +172,20 @@ class DocumentClassificationRegularizerWrapper(ArtmRegularizerWrapper):
             # non overlapping sets of 'domain' and 'background' topics
             warn("Set DocumentClassificationRegularizer to target all topics. This is valid only if you do use 'background topics'.")
             topic_names = None
-        super(DocumentClassificationRegularizerWrapper, self).__init__(
-            'label-regularization-phi', dict(params_dict, **{'name':name, 'topic_names':topic_names, 'dictionary':dictionary, 'class_ids':class_ids}))
-
-
+        super(DocumentClassificationRegularizerWrapper, self).__init__(dict(params_dict, **{'topic_names': topic_names,
+                                                                                            'dictionary': dictionary,
+                                                                                            'class_ids': class_ids}))
 @ArtmRegularizerWrapper.register_subclass('decorrelate-phi')
 class PhiDecorrelator(ArtmRegularizerWrapper):
     _artm_constructor = artm.DecorrelatorPhiRegularizer
-    def __init__(self, name, params_dict, topic_names, class_ids=None):
-        super(PhiDecorrelator, self).__init__('decorrelate-phi', dict(params_dict, **{'name': name, 'topic_names': topic_names, 'class_ids': class_ids}))
-
+    def __init__(self, params_dict, topic_names, class_ids=None):
+        super(PhiDecorrelator, self).__init__(dict(params_dict, **{'topic_names': topic_names,
+                                                                   'class_ids': class_ids}))
 
 @ArtmRegularizerWrapper.register_subclass('improve-coherence')
 class ImproveCoherence(ArtmRegularizerWrapper):
     _artm_constructor = artm.ImproveCoherencePhiRegularizer # name=None, tau=1.0, class_ids=None, topic_names=None, dictionary=None, config=None)
-    def __init__(self, name, params_dict, topic_names, dictionary, class_ids=None):
-        super(ImproveCoherence, self).__init__('improve-coherence', dict(params_dict, **{'name': name,
-                                                                                        'dictionary': dictionary,
-                                                                                        'topic_names': topic_names,
-                                                                                        'class_ids': class_ids}))
+    def __init__(self, params_dict, topic_names, dictionary, class_ids=None):
+        super(ImproveCoherence, self).__init__(dict(params_dict, **{'dictionary': dictionary,
+                                                                    'topic_names': topic_names,
+                                                                    'class_ids': class_ids}))
