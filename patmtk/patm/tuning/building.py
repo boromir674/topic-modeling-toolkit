@@ -4,8 +4,8 @@ from collections import OrderedDict, Counter
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 
-class MetaParameterMixture(object):
-    __metaclass__ = ABCMeta
+class AbstractParameterMixture(object):
+    __metaclass__ = ABCMeta  # Abstract class concept emulation in python! (this syntax is compatible with 2x and 3x interpreters)
 
     @abstractproperty
     def static_parameters(self):
@@ -19,7 +19,7 @@ class MetaParameterMixture(object):
         return type(self).__name__
 
 
-class StaticAndExplorableMixture(MetaParameterMixture):
+class StaticAndExplorableMixture(AbstractParameterMixture):
 
     def __init__(self, parameters):
         assert len(parameters) > 0
@@ -88,6 +88,7 @@ class StaticAndExplorableMixture(MetaParameterMixture):
         if item == 'default_class_weight':
             return 1.0
         raise AttributeError("Attribute '{}' is not found in object".format(item))
+
 
 class TunerDefinition(StaticAndExplorableMixture):
 
