@@ -87,16 +87,48 @@ class RegularizersFactory:
              'smooth-theta': lambda x: ArtmRegularizerWrapper.create('smooth-theta', x, self._back_t),
              'sparse-phi': lambda x: ArtmRegularizerWrapper.create('sparse-phi', x, self._domain_t, [DEFAULT_CLASS_NAME]),
              'sparse-theta': lambda x: ArtmRegularizerWrapper.create('sparse-theta', x, self._domain_t),
-             'label-regularization-phi': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x, self._domain_t,
+             'label-regularization-phi-dom-all': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x, self._domain_t,
                                                                                  dictionary=self._dictionary,
-                                                                                 class_ids=DEFAULT_CLASS_NAME), # targets all classes, since no CLASS_LABELS list is given
+                                                                                 class_ids=None), # targets all classes, since no CLASS_LABELS list is given
+             'label-regularization-phi-bac-all': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x,
+                                                                                         self._back_t,
+                                                                                         dictionary=self._dictionary,
+                                                                                         class_ids=None),
+             'label-regularization-phi-dom-def': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x,
+                                                                                 self._domain_t,
+                                                                                 dictionary=self._dictionary,
+                                                                                 class_ids=[DEFAULT_CLASS_NAME]),
+             'label-regularization-phi-bac-def': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x,
+                                                                                         self._back_t,
+                                                                                         dictionary=self._dictionary,
+                                                                                         class_ids=DEFAULT_CLASS_NAME),
+             'label-regularization-phi-dom-cls': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x,
+                                                                                 self._domain_t,
+                                                                                 dictionary=self._dictionary,
+                                                                                 class_ids=IDEOLOGY_CLASS_NAME),
+             'label-regularization-phi-bac-cls': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x,
+                                                                                         self._back_t,
+                                                                                         dictionary=self._dictionary,
+                                                                                         class_ids=IDEOLOGY_CLASS_NAME),
+             'label-regularization-phi-all': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x,
+                                                                                 self._domain_t + self._back_t,
+                                                                                 dictionary=self._dictionary,
+                                                                                 class_ids=None),
+             'label-regularization-phi-def': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x,
+                                                                                     self._domain_t + self._back_t,
+                                                                                     dictionary=self._dictionary,
+                                                                                     class_ids=DEFAULT_CLASS_NAME),
+             'label-regularization-phi-cls': lambda x: ArtmRegularizerWrapper.create('label-regularization-phi', x,
+                                                                                     self._domain_t + self._back_t,
+                                                                                     dictionary=self._dictionary,
+                                                                                     class_ids=IDEOLOGY_CLASS_NAME),
              'decorrelate-phi-def': lambda x: ArtmRegularizerWrapper.create('decorrelate-phi-def', x, self._domain_t, class_ids=DEFAULT_CLASS_NAME),
              'decorrelate-phi-class': lambda x: ArtmRegularizerWrapper.create('decorrelate-phi-class', x, self._domain_t,
                                                                             class_ids=IDEOLOGY_CLASS_NAME),
-             'decorrelate-phi-domain': lambda x: PhiDecorrelator('decorrelate-phi-domain', x, self._domain_t,
-                                                                              class_ids=None),
-             'decorrelate-phi-background': lambda x: PhiDecorrelator('decorrelate-phi-background', x, self._domain_t,
-                                                                               class_ids=None),
+             # 'decorrelate-phi-domain': lambda x: PhiDecorrelator('decorrelate-phi-domain', x, self._domain_t,
+             #                                                                  class_ids=None),
+             # 'decorrelate-phi-background': lambda x: PhiDecorrelator('decorrelate-phi-background', x, self._domain_t,
+             #                                                                   class_ids=None),
              'improve-coherence': lambda x: ArtmRegularizerWrapper.create('improve-coherence', x, self._domain_t, self._dictionary,
                                                                           class_ids=None)}
 
@@ -131,6 +163,8 @@ class RegularizersFactory:
         self._reg_defs = {}
         for reg_type, reg_name in reg_types_n_names:
             self._reg_defs[reg_type] = dict(reg_settings_dict[reg_type], **{'name': reg_name})
+        # print 'REG FCT:', reg_settings_dict
+        # print 'REG FCT:', self._reg_defs
         return self
 
     def create_reg_wrappers(self):
