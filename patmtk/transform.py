@@ -88,6 +88,14 @@ class PipeHandler(object):
         print '\nnum_pos', self.dct.num_pos, '\nnum_nnz', self.dct.num_nnz, '\n{} items in dictionary'.format(len(self.dct.items()))
         print '\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted(self.dct.iteritems(), key=itemgetter(0))[:5]))
 
+        tokens = [[token for token in tok_gen] for tok_gen in doc_gens]
+
+        # print corpus stats before applying 'below' and 'above' filtering
+        c = [self.dct.doc2bow(doc_tokens) for doc_tokens in tokens]
+        print 'total bow tuples in corpus (nnz): {}'.format(sum(len(_) for _ in c))
+        print 'corpus len (nb_docs):', len(c), 'empty docs', len([_ for _ in c if not _]), '\n'
+
+
         print 'filter extremes'
         self.dct.filter_extremes(no_below=a_pipe.settings['nobelow'], no_above=a_pipe.settings['noabove'])
         print '\nnum_pos', self.dct.num_pos, '\nnum_nnz', self.dct.num_nnz, '\n{} items in dictionary'.format(len(self.dct.items()))
@@ -97,14 +105,16 @@ class PipeHandler(object):
         print '\nnum_pos', self.dct.num_pos, '\nnum_nnz', self.dct.num_nnz, '\n{} items in dictionary'.format(len(self.dct.items()))
 
         # self.corpus = filter(None, [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens])
-        self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
-        print 'total bow tuples in corpus: {}\n'.format(sum(len(_) for _ in self.corpus))
-        print 'corpus len (nb_docs):', len(self.corpus), 'empty docs', len([_ for _ in self.corpus if not _]), '\n'
-
+        self.corpus = [self.dct.doc2bow(doc_tokens) for doc_tokens in tokens]
+        #[token for token in tok_gen]) for tok_gen in doc_gens]
+        print 'total bow tuples in corpus (nnz): {}'.format(sum(len(_) for _ in self.corpus))
+        print 'corpus len (nb_docs):', len(self.corpus), 'empty docs', len([_ for _ in self.corpus if not _])
+        print 'computed num_pos: {}\n'.format(sum(sum(bow_tuple[1] for bow_tuple in doc) for doc in self.corpus))
         # Remove empty docs
         self.corpus = [_ for _ in self.corpus if _]
-        print 'total bow tuples in corpus: {}'.format(sum(len(_) for _ in self.corpus))
+        print 'total bow tuples in corpus (nnz): {}'.format(sum(len(_) for _ in self.corpus))
         print 'corpus len (nb_docs):', len(self.corpus), 'empty docs', len([_ for _ in self.corpus if not _])
+        print 'computed num_pos: {}\n'.format(sum(sum(bow_tuple[1] for bow_tuple in doc) for doc in self.corpus))
 
 
         # DO SOME MANUAL FILE WRITING
