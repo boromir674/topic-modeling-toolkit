@@ -140,13 +140,13 @@ class RegularizersFactory:
     def collection_passes(self, collection_passes):
         self._col_passes = collection_passes
 
-    def set_regularizers_definitions(self, train_cfg, background_topics, domain_topics, reg_cfg=None):
+    def set_regularizers_definitions(self, reg_type2name, background_topics, domain_topics, reg_cfg=None):
         """
         Creates a dict: each key is a regularizer type (identical to one of the '_regularizers_section_name2constructor' hash'\n
-        :param str or list or dict train_cfg: indicates which regularizers should be active.
-        - If type(train_cfg) == str: train_cfg is a file path to a cfg formated file that has a 'regularizers' section indicating the active regularization components.\n
-        - If type(train_cfg) == list: train_cfg is a list of tuples with each 1st element being the regularizer type (eg 'smooth-phi', 'decorrelate-phi-domain') and each 2nd element being the regularizer unique name.\n
-        - If type(train_cfg) == dict: train_cfg maps regularizer types to names. regularizer types and regularizer names
+        :param str or list or dict reg_type2name: indicates which regularizers should be active.
+        - If type(reg_type2name) == str: reg_type2name is a file path to a cfg formated file that has a 'regularizers' section indicating the active regularization components.\n
+        - If type(reg_type2name) == list: reg_type2name is a list of tuples with each 1st element being the regularizer type (eg 'smooth-phi', 'decorrelate-phi-domain') and each 2nd element being the regularizer unique name.\n
+        - If type(reg_type2name) == dict: reg_type2name maps regularizer types to names. regularizer types and regularizer names
         :param list background_topics: a list of the 'background' topic names. Can be empty.
         :param list domain_topics: a list of the 'domain' topic names. Can be empty.
         :param str or dict reg_cfg: contains the values for initializing the regularizers with. If None then the default file is used
@@ -155,16 +155,16 @@ class RegularizersFactory:
         :rtype: RegularizersFactory
         """
         self._back_t, self._domain_t = background_topics, domain_topics
-        reg_types_n_names = self.active_regularizers_type2tuples_enlister[type(train_cfg).__name__](train_cfg)
+        reg_types_n_names = self.active_regularizers_type2tuples_enlister[type(reg_type2name).__name__](reg_type2name)
         if reg_cfg is not None:
             reg_settings_dict =self.reg_initialization_type2_enlister[type(reg_cfg).__name__](reg_cfg)
         else:
             reg_settings_dict = self._reg_settings
+        # populate self._reg_defs structure which holds the regularizers to activate for constructing the model
         self._reg_defs = {}
         for reg_type, reg_name in reg_types_n_names:
             self._reg_defs[reg_type] = dict(reg_settings_dict[reg_type], **{'name': reg_name})
-        # print 'REG FCT:', reg_settings_dict
-        # print 'REG FCT:', self._reg_defs
+
         return self
 
     def create_reg_wrappers(self):
