@@ -14,7 +14,7 @@ class ArtmRegularizerWrapper(object):
     _traj_type2traj_def_creator = {'alpha_iter': lambda x: '0_' + x[1],
                               'tau': lambda x: '{}_{}'.format(x[0], x[1])}
 
-    def __init__(self, parameters_dict, verbose=False):
+    def __init__(self, parameters_dict, verbose=True):
         self._regularizer = None
         self._alpha_iter_scalar = None
         self._trajectory_lambdas = {}
@@ -43,7 +43,7 @@ class ArtmRegularizerWrapper(object):
                     self._params_for_labeling[k] = self._traj_def[k]
         self._create_artm_regularizer(dict(self._reg_constr_params, **{'name': self._name}), verbose=verbose)
 
-    def _create_artm_regularizer(self, parameters, verbose=False):
+    def _create_artm_regularizer(self, parameters, verbose=True):
         self._regularizer = self._artm_constructor(**parameters)
         if verbose:
             print "Constructed '{}' reg, named '{}', with settings: {}".format(self.type, self._name, '{'+', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), parameters.items()))+'}')
