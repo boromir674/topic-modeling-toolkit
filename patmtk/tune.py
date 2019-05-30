@@ -1,10 +1,8 @@
 #!/home/kostas/software_and_libs/anaconda2/bin/python
 
 import argparse
-
 from patm.tuning import Tuner
 from patm.tuning.building import tuner_definition_builder as tdb
-
 
 def get_cli_arguments():
     parser = argparse.ArgumentParser(description='Performs grid-search over the parameter space by creating and training topic models', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -17,7 +15,6 @@ def get_cli_arguments():
                         help='whether to use a concatenation of the explorable parameter names as part of the automatically generated labels that are used to name the artifacts of the training process')
     parser.add_argument('--verbose', '-v', type=int, default=3, help='controls the amount of outputing to stdout. Sensible values are {1,2,3,4,5}')
     return parser.parse_args()
-
 
 if __name__ == '__main__':
     args = get_cli_arguments()

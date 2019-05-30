@@ -85,37 +85,34 @@ class PipeHandler(object):
         # self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
         # print '{} tokens in all generators\n'.format(sum_toks)
         # print 'total bow tuples in corpus: {}'.format(sum(len(_) for _ in self.corpus))
-        print '\nnum_pos', self.dct.num_pos, '\nnum_nnz', self.dct.num_nnz, '\n{} items in dictionary'.format(len(self.dct.items()))
-        print '\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted(self.dct.iteritems(), key=itemgetter(0))[:5]))
+        # print "GENSIM-DICT:\nnum_pos (processes words): {}\nnum_nnz (nb of bow-tuples) {}\nvocab size: {}".format(self.dct.num_pos, self.dct.num_nnz, len(self.dct.items()))
+        # print '\nnum_pos', self.dct.num_pos, '\nnum_nnz', self.dct.num_nnz, '\n{} items in dictionary'.format(len(self.dct.items()))
+        print
+        self._print_dict_stats()
+        print "SAMPLE LEXICAL ITEMS:\n{}".format('\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted(self.dct.iteritems(), key=itemgetter(0))[:5])))
 
         tokens = [[token for token in tok_gen] for tok_gen in doc_gens]
 
         # print corpus stats before applying 'below' and 'above' filtering
         c = [self.dct.doc2bow(doc_tokens) for doc_tokens in tokens]
-        print 'total bow tuples in corpus (nnz): {}'.format(sum(len(_) for _ in c))
-        print 'corpus len (nb_docs):', len(c), 'empty docs', len([_ for _ in c if not _]), '\n'
+        self._print_bow_model_stats(c)
 
-
-        print 'filter extremes'
+        print ' -- filter extremes -- '
         self.dct.filter_extremes(no_below=a_pipe.settings['nobelow'], no_above=a_pipe.settings['noabove'])
-        print '\nnum_pos', self.dct.num_pos, '\nnum_nnz', self.dct.num_nnz, '\n{} items in dictionary'.format(len(self.dct.items()))
+        self._print_dict_stats()
 
-        print 'compactify'
+        print ' -- compactify -- '
         self.dct.compactify()
-        print '\nnum_pos', self.dct.num_pos, '\nnum_nnz', self.dct.num_nnz, '\n{} items in dictionary'.format(len(self.dct.items()))
+        self._print_dict_stats()
 
         # self.corpus = filter(None, [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens])
         self.corpus = [self.dct.doc2bow(doc_tokens) for doc_tokens in tokens]
-        #[token for token in tok_gen]) for tok_gen in doc_gens]
-        print 'total bow tuples in corpus (nnz): {}'.format(sum(len(_) for _ in self.corpus))
-        print 'corpus len (nb_docs):', len(self.corpus), 'empty docs', len([_ for _ in self.corpus if not _])
-        print 'computed num_pos: {}\n'.format(sum(sum(bow_tuple[1] for bow_tuple in doc) for doc in self.corpus))
+        self._print_bow_model_stats(self.corpus)
+
         # Remove empty docs
         self.corpus = [_ for _ in self.corpus if _]
-        print 'total bow tuples in corpus (nnz): {}'.format(sum(len(_) for _ in self.corpus))
-        print 'corpus len (nb_docs):', len(self.corpus), 'empty docs', len([_ for _ in self.corpus if not _])
-        print 'computed num_pos: {}\n'.format(sum(sum(bow_tuple[1] for bow_tuple in doc) for doc in self.corpus))
-
+        self._print_bow_model_stats(self.corpus)
+        print
 
         # DO SOME MANUAL FILE WRITING
         self._write_vocab()
@@ -187,6 +184,15 @@ class PipeHandler(object):
         idd = get_id(a_pipe.settings)
         ri = idd.rfind('_')
         return str(len(self.corpus)) + '_' + idd[:ri] + '.' + idd[ri + 1:]
+
+    def _print_dict_stats(self):
+        print "GENSIM-DICT:\nnum_pos (processes words): {}\nnum_nnz (nb of bow-tuples) {}\nvocab size: {}".format(
+            self.dct.num_pos, self.dct.num_nnz, len(self.dct.items()))
+
+    @classmethod
+    def _print_bow_model_stats(cls, bow_corpus):
+        print "BOW-MODEL:\nnumber of word position (num_pos): {}\ntotal number of tuples (num_nnz): {}\n number of docs: {}\nempty docs: {}".format(
+            sum(sum(bow_tuple[1] for bow_tuple in doc) for doc in bow_corpus), sum(len(_) for _ in bow_corpus), len(bow_corpus), len([_ for _ in bow_corpus if not _]))
 
 
 def cfg2pipe_settings(config_path, section):
