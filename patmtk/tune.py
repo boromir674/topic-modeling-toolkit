@@ -24,8 +24,10 @@ if __name__ == '__main__':
         .nb_topics(40)\
         .collection_passes(100)\
         .document_passes(1)\
-        .background_topics_pct(0.2)\
-        .ideology_class_weight(0, 1, 5, 10).build()
+        .background_topics_pct(0.2) \
+        .ideology_class_weight(0, 1, 5, 10)\
+        .build()
+
         # .sparse_phi()\
         #     .deactivate(10)\
         #     .kind('linear')\
@@ -44,10 +46,25 @@ if __name__ == '__main__':
     # tuner.activate_regularizers.smoothing.phi.theta.done()
 
     # DLDA
-    tuner.activate_regularizers.smoothing.phi.theta.decorrelate_phi_all.done()
+    # tuner.activate_regularizers.smoothing.phi.theta.decorrelate_phi_all.done()
 
-    #CLDA
+    # CLDA
+
+    tuner.active_regularizers = [
+        # 'smooth-phi',
+        # 'smooth-theta',
+        'label-regularization-phi-dom-def'
+    ]
+
+    # "label-regularization-phi-def"
     # tuner.activate_regularizers.smoothing.phi.theta.label_regularization.done()
+
+    tuner.tune(tuning_definition,
+               prefix_label=args.prefix,
+               append_explorables=args.append_explorables,
+               append_static=args.append_static,
+               force_overwrite=args.overwrite,
+               verbose=args.verbose)
 
     #ILDA
     # tuner.activate_regularizers.smoothing.phi.theta.improve_coherence_phi.done()
@@ -91,13 +108,6 @@ if __name__ == '__main__':
     #                                      'smooth-theta': {'tau': 1.0},
     #                                      'sparse-theta': {'alpha_iter': 1}}
     # 'sparse-theta': {'alpha_iter': 'linear_1_4'}}
-
-    tuner.tune(tuning_definition,
-               prefix_label=args.prefix,
-               append_explorables=args.append_explorables,
-               append_static=args.append_static,
-               force_overwrite=args.overwrite,
-               verbose=args.verbose)
 
 
 # def get_model_settings(label, dataset):
