@@ -71,6 +71,7 @@ class Tuner(object):
                                                 'sparse-phi': {'tau': 'linear_-5_-15', 'start': 4},
                                                 'sparse-theta': {'alpha_iter': 1, 'tau': 'linear_-3_-13', 'start': 4},
                                                 'label-regularization-phi': {'tau': 1.0},
+                                                'label-regularization-phi-dom-def': {'tau': 1.0},
                                                 'decorrelate-phi-def': {'tau': 10000},
                                                 'decorrelate-phi-class': {'tau': 10000},
                                                 'decorrelate-phi-domain': {'tau': 10000},
