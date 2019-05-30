@@ -127,7 +127,12 @@ class TopicModel(object):
         return self.artm_model.regularizers[reg_name]
 
     def get_reg_name(self, reg_type):
-        return self._reg_type2name[reg_type]
+        try:
+            return self._reg_type2name[reg_type]
+        except KeyError:
+            print self._reg_type2name
+            import sys
+            sys.exit(1)
 
     def get_evaluator(self, eval_name):
         return self._definition2evaluator[self._evaluator_name2definition[eval_name]]
