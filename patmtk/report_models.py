@@ -21,7 +21,7 @@ if __name__ == '__main__':
                # 'document-passes',
                # 'total-phi-updates',
                'perplexity',
-               # 'kernel-size',
+               'kernel-size',
                'kernel-coherence',
                'kernel-contrast',
                'kernel-purity',

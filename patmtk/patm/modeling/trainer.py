@@ -55,13 +55,13 @@ class ModelTrainer(object):
         topic_model.artm_model.cache_theta = cache_theta
         if not trajectories_data:
             if effects:
-                print 'Training with constant tau coefficients..'
+                print "Training, keeping regularizers' coefficients constant.."
                 from patm.utils import Spinner
                 spinner = Spinner(delay=0.2)
                 spinner.start()
                 try:
                     topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=specs.collection_passes)
-                except RuntimeError as e:
+                except Exception as e:
                     spinner.stop()
                     raise e
                 spinner.stop()
@@ -126,7 +126,7 @@ class TrainerFactory(object):
                                                                      cooc_file_path=os.path.join(self._root_dir, name),
                                                                      vocab_file_path=vocab,
                                                                      symmetric_cooc_values=True)
-                print "Loaded positive pmi with min tf '{}' dictionary from '{}' text file".format(matc.group(1), name)
+                print "Loaded positive pmi dictionary with min_{} = {} from '{}' text file".format(matc.group(2), matc.group(1), name)
         assert 'tf' in self._mod_tr.cooc_dicts
         self._mod_tr.dictionary = self._mod_tr.cooc_dicts['tf']['obj']
 
