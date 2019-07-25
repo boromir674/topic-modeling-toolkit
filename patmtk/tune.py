@@ -25,40 +25,35 @@ if __name__ == '__main__':
         .collection_passes(100)\
         .document_passes(1)\
         .background_topics_pct(0.2) \
-        .ideology_class_weight(0, 1, 5, 10)\
+        .ideology_class_weight(0, 1) \
         .build()
 
         # .sparse_phi()\
+        #     .deactivate(8)\
+        #     .kind('linear')\
+        #     .start(-1)\
+        #     .end(-10, -100)\
+        # .sparse_theta()\
         #     .deactivate(10)\
         #     .kind('linear')\
         #     .start(-1)\
-        #     .end(-10, -20)\
-        # .sparse_theta()\
-        #     .deactivate(5)\
-        #     .kind('linear')\
-        #     .start(-1)\
-        #     .end(-10, -20)\
-        # .build()
-
-    #PLSA
+        #     .end(-10, -100)\
 
     #LDA
     # tuner.activate_regularizers.smoothing.phi.theta.done()
-
     # DLDA
     # tuner.activate_regularizers.smoothing.phi.theta.decorrelate_phi_all.done()
-
     # CLDA
+    # "label-regularization-phi-def"
+    # tuner.activate_regularizers.smoothing.phi.theta.label_regularization.done()
 
     tuner.active_regularizers = [
         # 'smooth-phi',
         # 'smooth-theta',
-        'label-regularization-phi-dom-def'
+        # 'label-regularization-phi-dom-def',
+        'decorrelate-phi-domain',
+        'decorrelate-phi-background'
     ]
-
-    # "label-regularization-phi-def"
-    # tuner.activate_regularizers.smoothing.phi.theta.label_regularization.done()
-
     tuner.tune(tuning_definition,
                prefix_label=args.prefix,
                append_explorables=args.append_explorables,
