@@ -1,3 +1,5 @@
+import pprint
+
 import warnings
 from collections import Counter
 
@@ -24,17 +26,37 @@ class TopicModel(object):
         self._definition2evaluator = evaluators
         self.definition2evaluator_name = {k: v.name for k, v in evaluators.items()} # {'sparsity-phi': 'spd_p', 'top-tokens-10': 'tt10'}
         self._evaluator_name2definition = {v.name: k for k, v in evaluators.items()} # {'sp_p': 'sparsity-phi', 'tt10': 'top-tokens-10'}
-        self._reg_type2name = {}  # ie {'smooth-theta': 'smb_t', 'sparse-phi': 'spd_p'}
+        self._reg_longtype2name = {}  # ie {'smooth-theta': 'smb_t', 'sparse-phi': 'spd_p'}
         self._reg_name2wrapper = {}
 
     def add_regularizer_wrapper(self, reg_wrapper):
         self._reg_name2wrapper[reg_wrapper.name] = reg_wrapper
-        self._reg_type2name[reg_wrapper.type] = reg_wrapper.name
+        self._reg_longtype2name[reg_wrapper.long_type] = reg_wrapper.name
         self.artm_model.regularizers.add(reg_wrapper.artm_regularizer)
 
     def add_regularizer_wrappers(self, reg_wrappers):
         for _ in reg_wrappers:
             self.add_regularizer_wrapper(_)
+
+    @property
+    def pformat_regularizers(self):
+        def _filter(reg_name):
+            d = self._reg_name2wrapper[reg_name].static_parameters
+            if 'topic_names' in d:
+                del d['topic_names']
+            return d
+        return pprint.pformat({
+            reg_long_type: dict(_filter(reg_name),
+                                **{k:v for k,v in {'target topics': (lambda x: 'all' if len(x) == 0 else '[{}]'.
+                                                                               format(', '.join(x)))(self.get_reg_obj(reg_name).topic_names),
+                                                   'mods': getattr(self.get_reg_obj(reg_name), 'class_ids', None)}.items()}
+                                )
+            for reg_long_type, reg_name in self._reg_longtype2name.items()
+        })
+
+    @property
+    def pformat_modalities(self):
+        return pprint.pformat(self.modalities_dictionary)
 
     def initialize_regularizers(self, collection_passes, document_passes):
         """
@@ -61,6 +83,14 @@ class TopicModel(object):
     @property
     def regularizer_types(self):
         return map(lambda x: self._reg_name2wrapper[x].type, self.regularizer_names)
+
+    @property
+    def regularizer_unique_types(self):
+        return map(lambda x: self._reg_name2wrapper[x].long_type, self.regularizer_names)
+
+    @property
+    def long_types_n_types(self):
+        return map(lambda x: (self._reg_name2wrapper[x].long_type, self._reg_name2wrapper[x].type), self.regularizer_names)
 
     @property
     def evaluator_names(self):
@@ -127,12 +157,13 @@ class TopicModel(object):
         return self.artm_model.regularizers[reg_name]
 
     def get_reg_name(self, reg_type):
-        try:
-            return self._reg_type2name[reg_type]
-        except KeyError:
-            print self._reg_type2name
-            import sys
-            sys.exit(1)
+        return self._reg_longtype2name[reg_type]
+        # try:
+        #     return self._reg_longtype2name[reg_type]
+        # except KeyError:
+        #     print '{} is not found in {}'.format(reg_type, self._reg_longtype2name)
+        #     import sys
+        #     sys.exit(1)
 
     def get_evaluator(self, eval_name):
         return self._definition2evaluator[self._evaluator_name2definition[eval_name]]
@@ -184,11 +215,11 @@ class TopicModel(object):
         :rtype: dict
         """
         d = {}
-        for reg_type in self.regularizer_types:
-            d[reg_type] = {}
-            cur_reg_obj = self.artm_model.regularizers[self._reg_type2name[reg_type]]
+        for unique_type, reg_type in self.long_types_n_types:
+            d[unique_type] = {}
+            cur_reg_obj = self.artm_model.regularizers[self._reg_longtype2name[unique_type]]
             for attribute_name in REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH[reg_type]:  # ie for _ in ('tau', 'gamma')
-                d[reg_type][attribute_name] = getattr(cur_reg_obj, attribute_name)
+                d[unique_type][attribute_name] = getattr(cur_reg_obj, attribute_name)
         return d
 
     def _get_header(self, max_lens, topic_names):
