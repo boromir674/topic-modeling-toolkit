@@ -42,13 +42,15 @@ class ModelFactory(object):
         self._eval_def2name = {}
         self._reg_types2names = {}
 
-    def create_model(self, label, train_cfg, reg_cfg=None):
+        self._progress_bars = False
+
+    def create_model(self, label, train_cfg, reg_cfg=None, show_progress_bars=False):
         _ = cfg2model_settings(train_cfg)
         return self.construct_model(label, _['learning']['nb_topics'], _['learning']['collection_passes'], _['learning']['document_passes'],
                                     float(_['information'].get('background-topics-percentage', 0)), self._parse_modalities(_['information']),
-                                    _['scores'], _['regularizers'], reg_settings=reg_cfg)
+                                    _['scores'], _['regularizers'], reg_settings=reg_cfg, show_progress_bars=show_progress_bars)
 
-    def construct_model(self, label, nb_topics, nb_collection_passes, nb_document_passes, background_topics_pct, modality_weights, scores, regularizers, reg_settings=None):
+    def construct_model(self, label, nb_topics, nb_collection_passes, nb_document_passes, background_topics_pct, modality_weights, scores, regularizers, reg_settings=None, show_progress_bars=False):
         """
         :param str label:
         :param int nb_topics:
@@ -59,11 +61,13 @@ class ModelFactory(object):
         :param dict scores:
         :param dict regularizers:
         :param dict reg_settings:
+        :param bool show_progress_bars:
         :return:
         :rtype: patm.modeling.topic_model.TopicModel
         """
         self._col_passes, self._nb_topics, self._nb_document_passes = nb_collection_passes, nb_topics, nb_document_passes
         self.modalities, self._eval_def2name, self._reg_types2names = modality_weights, scores, regularizers
+        self._progress_bars = show_progress_bars
         return self._create_model(label,
                                   *tn_builder.define_nb_topics(self._nb_topics).define_background_pct(background_topics_pct)
                                   .get_background_n_domain_topics(),
@@ -114,7 +118,7 @@ class ModelFactory(object):
 
     def _build_artm(self, background_topics, domain_topics, modalities_dict=None, phi_path=''):
         self._eval_factory.domain_topics = domain_topics
-        self._artm = artm.ARTM(num_topics=self._nb_topics, dictionary=self.dict)
+        self._artm = artm.ARTM(num_topics=self._nb_topics, dictionary=self.dict, show_progress_bars=self._progress_bars)
         if phi_path:
             self._artm.load(phi_path)
         self._artm.topic_names = background_topics + domain_topics
