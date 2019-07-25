@@ -38,10 +38,16 @@ if __name__ == '__main__':
     #     settings = cfg2model_settings(args.config)
     #     train_specs = TrainSpecs(15, [], [])
     # else:
-    topic_model = model_trainer.model_factory.create_model(args.label, args.config, reg_cfg=args.reg_config)
+    topic_model = model_trainer.model_factory.create_model(args.label, args.config, reg_cfg=args.reg_config, show_progress_bars=False)
     train_specs = model_trainer.model_factory.create_train_specs()
     experiment.init_empty_trackables(topic_model)
-    print 'Initialized new experiment and model'
+    # static_reg_specs = {}  # regularizers' parameters that should be kept constant during data fitting (model training)
+    # import pprint
+    # pprint.pprint({k: dict(v, **{setting_name: setting_value for setting_name, setting_value in {'target topics': (lambda x: 'all' if len(x) == 0 else '[{}]'.format(', '.join(x)))(topic_model.get_reg_obj(topic_model.get_reg_name(k)).topic_names), 'mods': getattr(topic_model.get_reg_obj(topic_model.get_reg_name(k)), 'class_ids', None)}.items()}) for k, v in self.static_regularization_specs.items()})
+    # pprint.pprint(tm.modalities_dictionary)
+    print 'Initialized Model:'
+    print topic_model.pformat_regularizers
+    print topic_model.pformat_modalities
     model_trainer.train(topic_model, train_specs, effects=True, cache_theta=True)
     print 'Iterated {} times through the collection and {} times over each document: total phi updates = {}'.format(train_specs.collection_passes, topic_model.document_passes, train_specs.collection_passes * topic_model.document_passes)
 
