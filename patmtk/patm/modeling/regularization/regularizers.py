@@ -14,7 +14,7 @@ class ArtmRegularizerWrapper(object):
     _traj_type2traj_def_creator = {'alpha_iter': lambda x: '0_' + x[1],
                               'tau': lambda x: '{}_{}'.format(x[0], x[1])}
 
-    def __init__(self, parameters_dict, verbose=True):
+    def __init__(self, parameters_dict, verbose=False):
         self._regularizer = None
         self._alpha_iter_scalar = None
         self._trajectory_lambdas = {}
@@ -23,6 +23,7 @@ class ArtmRegularizerWrapper(object):
         self._params_for_labeling = {}
 
         self._name = parameters_dict.pop('name', 'no-name')
+        self._long_type = parameters_dict.pop('long-type', 'type-not-found')
 
         self._start = int(parameters_dict.pop('start', 0))
         for k, v in parameters_dict.items():
@@ -46,7 +47,7 @@ class ArtmRegularizerWrapper(object):
     def _create_artm_regularizer(self, parameters, verbose=True):
         self._regularizer = self._artm_constructor(**parameters)
         if verbose:
-            print "Constructed '{}' reg, named '{}', with settings: {}".format(self.type, self._name, '{'+', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), parameters.items()))+'}')
+            print "BUILT '{}'/'{}' reg, named '{}', with settings: {}".format(self.type, self._long_type, self._name, '{'+', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), parameters.items()))+'}')
 
     @classmethod
     def register_subclass(cls, regularizer_type):
@@ -104,7 +105,9 @@ class ArtmRegularizerWrapper(object):
         for k, v in ArtmRegularizerWrapper.subclasses.items():
             if type(self) == v:
                 return k
-
+    @property
+    def long_type(self):
+        return self._long_type
 
 class SmoothSparseRegularizerWrapper(ArtmRegularizerWrapper):
     __metaclass__ = abc.ABCMeta
