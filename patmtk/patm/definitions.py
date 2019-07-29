@@ -149,7 +149,7 @@ id_label2outlet_dict = OrderedDict([('_'.join(ide.split(' ')), OrderedDict(sorte
 CLASS_LABELS = list(id_label2outlet_dict.keys())
 
 # id_label2outlet_dict['extreme_left']['The Guardian'] == 10513336322
-IDEOLOGY_CLASS_NAME = '@ideology_class'
+IDEOLOGY_CLASS_NAME = '@labels_class'
 DEFAULT_CLASS_NAME = '@default_class'
 
 
