@@ -59,7 +59,7 @@ class Experiment:
                 self.trackables[evaluator_definition] = [[], {t_name: [] for t_name in model.domain_topics}]
                 self.failed_top_tokens_coherence[evaluator_definition] = {t_name: [] for t_name in model.domain_topics}
         self.collection_passes = []
-        self.reg_params = {reg_type: {attr: [] for attr in DYN_COEFS[reg_type]} for reg_type in model.regularizer_types}
+        self.reg_params = {unique_type: {attr: [] for attr in DYN_COEFS[reg_type]} for unique_type, reg_type in model.long_types_n_types}
 
     @property
     def dataset_iterations(self):

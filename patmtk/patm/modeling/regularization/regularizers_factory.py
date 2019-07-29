@@ -19,16 +19,16 @@ def cfg2regularizer_settings(cfg_file):
 set1 = ('tau', 'gamma', 'class_ids', 'topic_names')
 set2 = ('tau', 'topic_names', 'alpha_iter', 'doc_titles', 'doc_topic_coef')
 decorrelation = ('tau', 'gamma', 'class_ids', 'topic_names', 'topic_pairs')
-
 regularizer2parameters = {
     'smooth-phi': set1,
     'sparse-phi': set1,
     'smooth-theta': set2,
     'sparse-theta': set2,
-    'decorrelate-phi-def': decorrelation,  # default token modality
-    'decorrelate-phi-class': decorrelation,  # doc class modality
-    'decorrelate-phi-domain': decorrelation,  # all modalities
-    'decorrelate-phi-background': decorrelation,  # all modalities
+    'decorrelate-phi': decorrelation,
+    # 'decorrelate-phi-def': decorrelation,  # default token modality
+    # 'decorrelate-phi-class': decorrelation,  # doc class modality
+    # 'decorrelate-phi-domain': decorrelation,  # all modalities
+    # 'decorrelate-phi-background': decorrelation,  # all modalities
     'label-regularization-phi': set1,
     # 'kl-function-info': ('function_type', 'power_value'),
     # 'specified-sparse-phi': ('tau', 'gamma', 'topic_names', 'class_id', 'num_max_elements', 'probability_threshold', 'sparse_by_column'),
@@ -37,6 +37,7 @@ regularizer2parameters = {
     # 'topic-selection': ('tau', 'topic_names', 'alpha_iter')
     # the reasonable parameters to consider experiment with setting to different values and to also change between training cycles
 }
+
 
 # parameters that can be dynamically updated during training ie tau coefficients for sparsing regularizers should increase in absolute values (start below zero and decrease )
 supported_dynamic_parameters = ('tau', 'gamma')
@@ -125,10 +126,10 @@ class RegularizersFactory:
              'decorrelate-phi-def': lambda x: ArtmRegularizerWrapper.create('decorrelate-phi-def', x, self._domain_t, class_ids=DEFAULT_CLASS_NAME),
              'decorrelate-phi-class': lambda x: ArtmRegularizerWrapper.create('decorrelate-phi-class', x, self._domain_t,
                                                                             class_ids=IDEOLOGY_CLASS_NAME),
-             # 'decorrelate-phi-domain': lambda x: PhiDecorrelator('decorrelate-phi-domain', x, self._domain_t,
-             #                                                                  class_ids=None),
-             # 'decorrelate-phi-background': lambda x: PhiDecorrelator('decorrelate-phi-background', x, self._domain_t,
-             #                                                                   class_ids=None),
+             'decorrelate-phi-domain': lambda x: ArtmRegularizerWrapper.create('decorrelate-phi', x, self._domain_t,
+                                                                              class_ids=None),
+             'decorrelate-phi-background': lambda x: ArtmRegularizerWrapper.create('decorrelate-phi', x, self._back_t,
+                                                                               class_ids=None),
              'improve-coherence': lambda x: ArtmRegularizerWrapper.create('improve-coherence', x, self._domain_t, self._dictionary,
                                                                           class_ids=None)}
 
@@ -140,31 +141,35 @@ class RegularizersFactory:
     def collection_passes(self, collection_passes):
         self._col_passes = collection_passes
 
-    def set_regularizers_definitions(self, train_cfg, background_topics, domain_topics, reg_cfg=None):
+    def set_regularizers_definitions(self, reg_type2name, background_topics, domain_topics, reg_cfg=None):
         """
         Creates a dict: each key is a regularizer type (identical to one of the '_regularizers_section_name2constructor' hash'\n
-        :param str or list or dict train_cfg: indicates which regularizers should be active.
-        - If type(train_cfg) == str: train_cfg is a file path to a cfg formated file that has a 'regularizers' section indicating the active regularization components.\n
-        - If type(train_cfg) == list: train_cfg is a list of tuples with each 1st element being the regularizer type (eg 'smooth-phi', 'decorrelate-phi-domain') and each 2nd element being the regularizer unique name.\n
-        - If type(train_cfg) == dict: train_cfg maps regularizer types to names. regularizer types and regularizer names
+        :param str or list or dict reg_type2name: indicates which regularizers should be active.
+        - If type(reg_type2name) == str: reg_type2name is a file path to a cfg formated file that has a 'regularizers' section indicating the active regularization components.\n
+        - If type(reg_type2name) == list: reg_type2name is a list of tuples with each 1st element being the regularizer type (eg 'smooth-phi', 'decorrelate-phi-domain') and each 2nd element being the regularizer unique name.\n
+        - If type(reg_type2name) == dict: reg_type2name maps regularizer types to names. regularizer types and regularizer names
         :param list background_topics: a list of the 'background' topic names. Can be empty.
         :param list domain_topics: a list of the 'domain' topic names. Can be empty.
-        :param str or dict reg_cfg: contains the values for initializing the regularizers with. If None then the default file is used
+        :param str or dict reg_cfg: contains the values for initializing the regularizers' parameters (eg tau) with. If None then the default file is used
         - If type(reg_cfg) == str: reg_cfg is a file path to a cfg formated file that has as sections regularizer_types with their keys being initialization parameters\n
         - If type(reg_cfg) == dict: reg_cfg maps regularizer types to parameters dict.
         :rtype: RegularizersFactory
         """
         self._back_t, self._domain_t = background_topics, domain_topics
-        reg_types_n_names = self.active_regularizers_type2tuples_enlister[type(train_cfg).__name__](train_cfg)
+        reg_types_n_names = self.active_regularizers_type2tuples_enlister[type(reg_type2name).__name__](reg_type2name)
         if reg_cfg is not None:
+            print('DEB\n{}'.format(reg_cfg))
             reg_settings_dict =self.reg_initialization_type2_enlister[type(reg_cfg).__name__](reg_cfg)
         else:
             reg_settings_dict = self._reg_settings
+        # populate self._reg_defs structure which holds the regularizers to activate for constructing the model
         self._reg_defs = {}
         for reg_type, reg_name in reg_types_n_names:
-            self._reg_defs[reg_type] = dict(reg_settings_dict[reg_type], **{'name': reg_name})
-        # print 'REG FCT:', reg_settings_dict
-        # print 'REG FCT:', self._reg_defs
+            try:
+                self._reg_defs[reg_type] = dict(reg_settings_dict[reg_type], **{'name': reg_name})
+            except KeyError:
+                # print("'self._reg_defs' allowed keys: [{}]\n'reg_settings_dict' allowed keys: [{}]\nInstead requested key '{}'. Probably you forgot to add the corresponding entry in 'train.cfg' and/or 'regularizers.cfg'.".format(', '.join(self._reg_defs.keys()), ', '.join(reg_settings_dict.keys()), reg_type))
+                raise KeyError("'self._reg_defs' allowed keys: [{}]\n'reg_settings_dict' allowed keys: [{}]\nInstead requested key '{}'. Probably you forgot to add the corresponding entry in 'train.cfg' and/or 'regularizers.cfg'.".format(', '.join(self._reg_defs.keys()), ', '.join(reg_settings_dict.keys()), reg_type))
         return self
 
     def create_reg_wrappers(self):
@@ -198,6 +203,8 @@ class RegularizersFactory:
         if (self._back_t is None or len(self._back_t) == 0) and reg_type.startswith('smooth'):
             warnings.warn("Requested to create '{}' regularizer, which normally targets 'bakground' topicts, but there are "
                           "not distinct 'background' topics defined. The constructed regularizer will target all topics instead.".format(reg_type))
+        # manually insert the 'long_type' string in the settings hash to use it as the truly unique 'type' of a regularizer
+        settings['long-type'] = reg_type
         return self._regularizer_type2constructor[reg_type](settings)
 
 

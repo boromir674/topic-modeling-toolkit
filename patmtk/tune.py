@@ -1,10 +1,8 @@
 #!/home/kostas/software_and_libs/anaconda2/bin/python
 
 import argparse
-
 from patm.tuning import Tuner
 from patm.tuning.building import tuner_definition_builder as tdb
-
 
 def get_cli_arguments():
     parser = argparse.ArgumentParser(description='Performs grid-search over the parameter space by creating and training topic models', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -18,7 +16,6 @@ def get_cli_arguments():
     parser.add_argument('--verbose', '-v', type=int, default=3, help='controls the amount of outputing to stdout. Sensible values are {1,2,3,4,5}')
     return parser.parse_args()
 
-
 if __name__ == '__main__':
     args = get_cli_arguments()
 
@@ -27,30 +24,42 @@ if __name__ == '__main__':
         .nb_topics(40)\
         .collection_passes(100)\
         .document_passes(1)\
-        .background_topics_pct(0.2)\
-        .ideology_class_weight(0, 1, 5, 10).build()
+        .background_topics_pct(0.2) \
+        .ideology_class_weight(0, 1) \
+        .build()
+
         # .sparse_phi()\
+        #     .deactivate(8)\
+        #     .kind('linear')\
+        #     .start(-1)\
+        #     .end(-10, -100)\
+        # .sparse_theta()\
         #     .deactivate(10)\
         #     .kind('linear')\
         #     .start(-1)\
-        #     .end(-10, -20)\
-        # .sparse_theta()\
-        #     .deactivate(5)\
-        #     .kind('linear')\
-        #     .start(-1)\
-        #     .end(-10, -20)\
-        # .build()
-
-    #PLSA
+        #     .end(-10, -100)\
 
     #LDA
     # tuner.activate_regularizers.smoothing.phi.theta.done()
-
     # DLDA
-    tuner.activate_regularizers.smoothing.phi.theta.decorrelate_phi_all.done()
-
-    #CLDA
+    # tuner.activate_regularizers.smoothing.phi.theta.decorrelate_phi_all.done()
+    # CLDA
+    # "label-regularization-phi-def"
     # tuner.activate_regularizers.smoothing.phi.theta.label_regularization.done()
+
+    tuner.active_regularizers = [
+        # 'smooth-phi',
+        # 'smooth-theta',
+        # 'label-regularization-phi-dom-def',
+        'decorrelate-phi-domain',
+        'decorrelate-phi-background'
+    ]
+    tuner.tune(tuning_definition,
+               prefix_label=args.prefix,
+               append_explorables=args.append_explorables,
+               append_static=args.append_static,
+               force_overwrite=args.overwrite,
+               verbose=args.verbose)
 
     #ILDA
     # tuner.activate_regularizers.smoothing.phi.theta.improve_coherence_phi.done()
@@ -94,13 +103,6 @@ if __name__ == '__main__':
     #                                      'smooth-theta': {'tau': 1.0},
     #                                      'sparse-theta': {'alpha_iter': 1}}
     # 'sparse-theta': {'alpha_iter': 'linear_1_4'}}
-
-    tuner.tune(tuning_definition,
-               prefix_label=args.prefix,
-               append_explorables=args.append_explorables,
-               append_static=args.append_static,
-               force_overwrite=args.overwrite,
-               verbose=args.verbose)
 
 
 # def get_model_settings(label, dataset):

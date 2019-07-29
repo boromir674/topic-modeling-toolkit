@@ -66,7 +66,7 @@ COLUMNS_HASH = {
 
 def regularizers_format(reg_def_string):
     try:
-        return '-'.join(re.findall("(?:^|-)(\w{1,2})\w*", reg_def_string[:reg_def_string.index("|")])) + reg_def_string[reg_def_string.index("|"):]
+        return '-'.join(re.findall("(?:^|-)(\w{1,4})\w*", reg_def_string[:reg_def_string.index("|")])) + reg_def_string[reg_def_string.index("|"):]
     except ValueError as e:
         print(e)
         return reg_def_string
@@ -106,8 +106,15 @@ class ResultsHandler(object):
         """
         result_paths = glob('{}/*.json'.format(os.path.join(self._collection_root_path, collection_name, self._results_dir_name)))
         if type(selection) == list and all(type(x) == str for x in selection):  # if input list contains model labels
-            e = self._get_experimental_results([_ for _ in result_paths if re.search('(?:{})'.format('|'.join(selection)), _)])
-            assert len(e) == len(selection)
+            e = self._get_experimental_results([_ for _ in result_paths if re.search('/(?:{})\.json'.format('|'.join(selection)), _)])
+            try:
+                assert len(e) == len(selection)
+            except AssertionError as ae:
+                print(ae)
+                print("len1 = {}, len2 = {}".format(len(e), len(selection)))
+                print("seq1 = {}\nseq2 = {}".format([_.scalars.model_label for _ in e], selection))
+                import sys
+                sys.exit(1)
             return e
         self._list_selector = lambda y: ResultsHandler._list_selector_hash[type(selection)]([y, selection])
         r = self._get_experimental_results(result_paths, callable_metric=self._get_metric(sort))
