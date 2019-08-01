@@ -57,7 +57,14 @@ class ArtmEvaluator(AbstractEvaluator):
         :return: the attribute => metrics-4all-cycles information
         :rtype: dict
         """
-        return {attr: model.score_tracker[self.name].__getattribute__(attr) for attr in self._attrs}
+        try:
+            return {attr: model.score_tracker[self.name].__getattribute__(attr) for attr in self._attrs}
+        except AttributeError as e:
+            string = "Reportable attributes: {}\nAttributes of {}: [{}]\nAttributes of {}: [{}]".format(self._attrs, type(self),
+                                                                          ', '.join(dir(self)),
+                                                                          type(model.score_tracker[self.name]),
+                                                                          ', '.join(dir(model.score_tracker[self.name])))
+            raise AttributeError('{}\n{}'.format(e, string))
 
     @property
     def reportable_attributes(self):
