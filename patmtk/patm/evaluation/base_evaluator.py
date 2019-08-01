@@ -88,7 +88,7 @@ class ArtmEvaluator(AbstractEvaluator):
 
 
 class PerplexityEvaluator(ArtmEvaluator):
-    attributes = ('class_id_info', 'normalizer', 'raw', 'value')  # smaller the "value", better. bigger the "raw", better
+    attributes = ('normalizer', 'raw', 'value')  # smaller the "value", better. bigger the "raw", better
     def __init__(self, name, dictionary, modality_class):
         super(PerplexityEvaluator, self).__init__(name, PerplexityScore(name=name, class_ids=modality_class, dictionary=dictionary), self.attributes)
         super(PerplexityEvaluator, self)._set_settings({'modality': modality_class})
