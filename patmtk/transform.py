@@ -59,7 +59,7 @@ class PipeHandler(object):
         print self.cat2textgen_proc, '\n'
 
     # TODO refactor in OOP style preprocess
-    def preprocess(self, a_pipe, collection):
+    def preprocess(self, a_pipe, collection, add_class_labels_to_vocab=True):
         self._collection = collection
         self._col_dir = os.path.join(COLLECTIONS_DIR_PATH, collection)
         if not os.path.exists(self._col_dir):
@@ -115,7 +115,7 @@ class PipeHandler(object):
         print
 
         # DO SOME MANUAL FILE WRITING
-        self._write_vocab()
+        self._write_vocab(add_class_labels=add_class_labels_to_vocab)
         self._write()  # write uci and vowpal formatted files
 
         # the first 3 lines of a uci formatted file: correspond to nb_docs, vocab_size, sum of nb of tuples (representing the bow model) found in all documents.
@@ -239,6 +239,7 @@ def get_cl_arguments():
     parser.add_argument('--min_df', default=0, type=int,
                         help='Minimal value of documents in which a specific pair of tokens occurred together closely.')
                              # 'For each int value a file is built to be used for coherence computation. By default builds one with min_df=0')
+    parser.add_argument('--exclude_class_labels_from_vocab', '--ecliv', action='store_true', default=False, help='Whether to ommit adding document labels in the vocabulary file generated. If set to False document labels are treated as valid registered vocabulary tokens.')
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
@@ -253,7 +254,7 @@ if __name__ == '__main__':
     ph = PipeHandler(args.category, sample=nb_docs)
     pipe = ph.create_pipeline(args.config)
     print '\n', pipe, '\n'
-    uci_dt = ph.preprocess(pipe, args.collection)
+    uci_dt = ph.preprocess(pipe, args.collection, not args.exclude_class_labels_from_vocab)
     print uci_dt
 
     from build_coherence import CoherenceFilesBuilder
