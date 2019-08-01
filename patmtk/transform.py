@@ -140,21 +140,28 @@ class PipeHandler(object):
             self._data_models[data_model] = self._data_model2constructor[data_model](self.corpus)
         return self._vec_gen[data_model](self.corpus)
 
-    def _write_vocab(self):
+    def _write_vocab(self, add_class_labels=True):
         # Define file and dump the vocabulary (list of unique tokens, one per line)
         self.vocab_file = os.path.join(COLLECTIONS_DIR_PATH, self._collection, 'vocab.{}.txt'.format(self._collection))
         if not os.path.isfile(self.vocab_file):
             with open(self.vocab_file, 'w') as f:
-                for gram_id, gram_string in self.dct.iteritems():
+                for string_id, string in self._vocab_tokens_generator(include_class_labels=add_class_labels):
                     try:
-                        f.write('{}\n'.format(gram_string.encode('utf-8')))
+                        f.write('{}\n'.format(string.encode('utf-8')))
                     except UnicodeEncodeError as e:
                         # f.write('\n'.join(map(lambda x: '{}'.format(str(x[1])), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0)))))
-                        print 'FAILED', type(gram_string), gram_string
+                        print 'FAILED', type(string_id), string
                         raise e
                 print 'Created \'{}\' file'.format(self.vocab_file)
         else:
             print 'File \'{}\' already exists'.format(self.vocab_file)
+
+    def _vocab_tokens_generator(self, include_class_labels=True):
+        for gram_id, gram_string in self.dct.iteritems():
+            yield gram_id, gram_string
+        if include_class_labels:
+            for class_label in [_ for _ in sorted(list(set(self.ideology_labels)))]:
+                yield 'class_modality', '{} {}'.format(class_label, IDEOLOGY_CLASS_NAME)
 
     def write_cooc_information(self, window, min_tf, min_df): # 'cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
         """
