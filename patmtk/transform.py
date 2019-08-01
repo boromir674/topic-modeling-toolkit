@@ -255,6 +255,6 @@ if __name__ == '__main__':
     coherence_builder.create_files(cooc_window=args.window,
                                    min_tf=args.min_tf,
                                    min_df=args.min_df,
-                                   apply_zero_index=True)
+                                   apply_zero_index=False)
     # ph.write_cooc_information(args.window, args.min_tf, args.min_df)
 
