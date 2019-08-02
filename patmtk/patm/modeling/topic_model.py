@@ -109,12 +109,12 @@ class TopicModel(object):
         return filter(lambda x: x[1] is not None, self._trajs.items())
 
     @property
-    def topic_names(self):
-        return self.artm_model.topic_names
-
-    @property
     def nb_topics(self):
         return self.artm_model.num_topics
+
+    @property
+    def topic_names(self):
+        return self.artm_model.topic_names
 
     @property
     def domain_topics(self):
@@ -132,6 +132,10 @@ class TopicModel(object):
         return c.most_common(1)[0][0].split('+')
 
     @property
+    def background_topics(self):
+        return [topic_name for topic_name in self.artm_model.topic_names if topic_name not in self.domain_topics]
+
+    @property
     def background_tokens(self):
         background_tokens_eval_name = ''
         for eval_def, eval_name in self.definition2evaluator_name.items():
@@ -140,10 +144,6 @@ class TopicModel(object):
         if background_tokens_eval_name:
             res = self.artm_model.score_tracker[background_tokens_eval_name].tokens
             return list(res[-1])
-
-    @property
-    def background_topics(self):
-        return [topic_name for topic_name in self.artm_model.topic_names if topic_name not in self.domain_topics]
 
     @property
     def modalities_dictionary(self):
