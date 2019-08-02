@@ -14,7 +14,7 @@ from gensim.models.tfidfmodel import TfidfModel
 from patm.modeling import get_posts_generator
 from patm import Pipeline, TextDataset, get_pipeline
 from patm.definitions import patm_root_dir, data_root_dir, encode_pipeline_cfg, cat2files, get_id, COLLECTIONS_DIR_PATH, \
-    poster_id2ideology_label, IDEOLOGY_CLASS_NAME, COOCURENCE_DICT_FILE_NAMES  # = ['cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
+    poster_id2ideology_label, IDEOLOGY_CLASS_NAME, COOCURENCE_DICT_FILE_NAMES, CLASS_LABELS  # = ['cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
 
 
 class PipeHandler(object):
@@ -160,7 +160,7 @@ class PipeHandler(object):
         for gram_id, gram_string in self.dct.iteritems():
             yield gram_id, gram_string
         if include_class_labels:
-            for class_label in [_ for _ in sorted(list(set(self.ideology_labels)))]:
+            for class_label in [_ for _ in CLASS_LABELS if _ in set(self.ideology_labels)]:
                 yield 'class_modality', '{} {}'.format(class_label, IDEOLOGY_CLASS_NAME)
 
     def write_cooc_information(self, window, min_tf, min_df): # 'cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']

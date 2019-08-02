@@ -76,7 +76,7 @@ class DivergenceComputer:
         self.topic_model = topic_model
         s = 0
         for topic in self._topic_names(topic_model, topics):
-            s += self._point_sKL(class1, classmethod, topic)
+            s += self._point_sKL(class1, class2, topic)
         return s
 
     def _point_sKL(self, c1, c2, topic):
