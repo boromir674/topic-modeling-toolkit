@@ -265,4 +265,3 @@ if __name__ == '__main__':
                                    min_df=args.min_df,
                                    apply_zero_index=False)
     # ph.write_cooc_information(args.window, args.min_tf, args.min_df)
-
