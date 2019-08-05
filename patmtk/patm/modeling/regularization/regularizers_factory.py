@@ -10,6 +10,30 @@ from patm.definitions import CLASS_LABELS
 
 from regularizers import ArtmRegularizerWrapper, PhiDecorrelator
 
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel('DEBUG')
+
+
+# Create handlers
+c_handler = logging.StreamHandler()
+# f_handler = logging.FileHandler('file.log')
+c_handler.setLevel(logging.INFO)
+# f_handler.setLevel(logging.DEBUG)
+
+# Create formatters and add it to handlers
+c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+# f_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+c_handler.setFormatter(c_format)
+# f_handler.setFormatter(f_format)
+
+# Add handlers to the logger
+logger.addHandler(c_handler)
+# logger.addHandler(f_handler)
+
+
+
 def cfg2regularizer_settings(cfg_file):
     config = ConfigParser()
     config.read(u'{}'.format(cfg_file))
@@ -157,11 +181,13 @@ class RegularizersFactory:
         """
         self._back_t, self._domain_t = background_topics, domain_topics
         reg_types_n_names = self.active_regularizers_type2tuples_enlister[type(reg_type2name).__name__](reg_type2name)
+        logger.info("Reg titles: {}".format(reg_types_n_names))
+        logger.info("Reg cfg: {}".format(reg_cfg))
         if reg_cfg is not None:
-            print('DEB\n{}'.format(reg_cfg))
             reg_settings_dict =self.reg_initialization_type2_enlister[type(reg_cfg).__name__](reg_cfg)
         else:
             reg_settings_dict = self._reg_settings
+        logger.info("Reg settings dict: {}".format(reg_settings_dict))
         # populate self._reg_defs structure which holds the regularizers to activate for constructing the model
         self._reg_defs = {}
         for reg_type, reg_name in reg_types_n_names:
