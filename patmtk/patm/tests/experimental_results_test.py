@@ -5,7 +5,7 @@ from random import randint
 # import patm
 
 from results import ExperimentalResults
-from results.experimental_results import TrackedKernel, ExperimentalResultsFactory, RoundTripEncoder, RoundTripDecoder
+from results.experimental_results import TrackedKernel, RoundTripEncoder, RoundTripDecoder
 
 from patm.modeling import Experiment
 from patm.definitions import COLLECTIONS_DIR_PATH, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
