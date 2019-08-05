@@ -2,49 +2,26 @@ import os
 import re
 from math import log
 import pandas as pd
-from .patm.definitions import COLLECTIONS_DIR_PATH, IDEOLOGY_CLASS_NAME
-
-# import numpy as np
-# from scipy.stats import entropy
-# from numpy.linalg import norm
-
-# def JSD(P, Q):
-#     _P, _Q = P / norm(P, ord=1), Q / norm(Q, ord=1)
-#     _M = 0.5 * (_P + _Q)
-#     return (entropy(_P, _M) + entropy(_Q, _M)) / 2.
-#
-#
-# def jsd(p, q, base=np.e):
-#     '''
-#         Implementation of pairwise `jsd` based on
-#         https://en.wikipedia.org/wiki/Jensen%E2%80%93Shannon_divergence
-#     '''
-#     p, q = np.asarray(p), np.asarray(q)
-#     p, q = p/p.sum(), q/q.sum()
-#     m = 1./2*(p + q)
-#     return entropy(p,m, base=base)/2. +  entropy(q, m, base=base)/2.
-
-def jsdiv(P, Q):
-    _P, _Q = tuple((_norm(_) for _ in [P, Q]))
-    _M = 0.5 * (_P + _Q)
-    return (entropy(_P, _M) + entropy(_Q, _M)) / 2.
-
-def _norm(v):
-    if unormalized(v):
-        return v / norm(v, ord=1)
-    return v
+from patm.definitions import COLLECTIONS_DIR_PATH, IDEOLOGY_CLASS_NAME
 
 
-def unormalized(l):
-    s = 0
-    for i in l:
-        s += i
-        if s - 1 > 1e-4:
-            return True
-    return False
+import logging
+logger = logging.getLogger(__name__)
+
+c_handler = logging.StreamHandler()
+
+c_handler.setLevel(logging.INFO)
 
 
-class DivergenceComputer:
+# Create formatters and add it to handlers
+c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+
+c_handler.setFormatter(c_format)
+
+logger.addHandler(c_handler)
+
+
+class DivergenceComputer(object):  # In python 2 you MUST inherit from object to use @foo.setter feature!
 
     topic_extractors = {'all': lambda x: x.topic_names,
                         'domain': lambda x: x.domain_topics,
@@ -80,11 +57,20 @@ class DivergenceComputer:
         return s
 
     def _point_sKL(self, c1, c2, topic):
+        if self.p_ct(c1, topic) == 0 or self.p_ct(c2, topic) == 0:
+            logger.warning("One of p(c|t) is zero: [{:.3f}, {:.3f}]. Skipping topic '{}' from the summation (over topics) of the symmetric KL formula, because none of limits [x->0], [y->0], [x,y->0] exist.".format(self.p_ct(c1, topic), self.p_ct(c2, topic), topic))
+            return 0
         return self._point_KL(c1, c2, topic) + self._point_KL(c2, c1, topic)
 
     def _point_KL(self, c1, c2, topic):
-        return self.p_ct(c1, topic) + log(float(self.p_ct(c1, topic) / self.p_ct(c2, topic)))
-
+        # if self.p_ct(c1, topic) == 0 or
+        # try:
+        return self.p_ct(c1, topic) * log(float(self.p_ct(c1, topic) / self.p_ct(c2, topic)))
+        # except ValueError as e:
+        #     print e
+        #     print "Topic: {}, c1: {}, c2: {}\np(c1|t) = {:.3f}, p(c2|t) = {:.3f}, p(c1|t) / p(c2|t) = {:.5f}".format(topic, c1, c2, self.p_ct(c1, topic), self.p_ct(c2, topic), self.p_ct(c1, topic) / self.p_ct(c2, topic))
+        #     import sys
+        #     sys.exit(1)
     # def _index(self, c):
     #     if type(c) == str:
     #         try:
