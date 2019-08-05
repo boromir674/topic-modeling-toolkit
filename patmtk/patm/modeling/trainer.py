@@ -61,7 +61,7 @@ class ModelTrainer(object):
                 spinner.start()
                 try:
                     topic_model.artm_model.fit_offline(self.batch_vectorizer, num_collection_passes=specs.collection_passes)
-                except Exception as e:
+                except (Exception, KeyboardInterrupt) as e:
                     spinner.stop()
                     raise e
                 spinner.stop()
