@@ -141,6 +141,8 @@ def label2alphanumeric(label):
     return '_'.join(label.lower().split(' '))
 
 poster_id2outlet_label = {poster_id: poster_name for ide_bin_dict in outlets_by_ideology.values() for poster_name, poster_id in ide_bin_dict.items()}
+
+# should be exposed
 poster_id2ideology_label = {poster_id: label2alphanumeric(id2ideology(poster_id)) for poster_id in poster_id2outlet_label}
 
 # the outlets_by_ideology dict only sorted as in labels from extreme left to extreme right
@@ -153,41 +155,137 @@ IDEOLOGY_CLASS_NAME = '@labels_class'
 DEFAULT_CLASS_NAME = '@default_class'
 
 
+######################################
 
-# obi2 = {
-#     'extreme left': {
-#         'New York Times':  '5.281.959.998',
-#         'Al Jazeera'    :  '7.382.473.689',
-#         'The New Yorker':  '9.258.148.868',
-#         'The Guardian'  : '10.513.336.322',
-#         'NPR'           : '10.643.211.755',
-#         'Slate'         : '21.516.776.437'
-#     },
-#     'left': {
-#         'The Economist'  :   '6.013.004.059',
-#         'Washington Post':   '6.250.307.292',
-#         'HuffPost'       :  '18.468.761.129',
-#         'PBS'            :  '19.013.582.168',
-#         'Politico'       :  '62.317.591.679',
-#         'BBC News'       : '228.735.667.216'
-#     },
-#     'left of middle': {
-#         'CNN'      :       '5.550.296.508',
-#         'USA Today':      '13.652.355.666',
-#         'ABC News' :      '86.680.728.811',
-#         'CBS News' :     '131.459.315.949',
-#         'NBC News' : '155.869.377.766.434',
-#         'MSNBC'    : '273.864.989.376.427'
-#     },
-#     'right of middle': {
-#         'Wall Street Journal':   '8.304.333.127',
-#         'Yahoo News'         : '338.028.696.036'
-#     },
-#     'right': {
-#         'Fox News': '15.704.546.335'
-#     },
-#     'extreme right': {
-#         'Breitbart':      '95.475.020.353',
-#         'The Blaze': '140.738.092.630.206'
-#     }
-# }
+SCALE_PLACEMENT = [
+    ('The New Yorker', '9258148868'),
+    ('Slate', '21516776437'),
+    ('The Guardian', '10513336322'),
+    ('Al Jazeera', '7382473689'),
+    ('NPR', '10643211755'),
+    ('New York Times', '5281959998'),
+    ('PBS', '19013582168'),
+    ('BBC News', '228735667216'),
+    ('HuffPost', '18468761129'),
+    ('Washington Post', '6250307292'),
+    ('The Economist', '6013004059'),
+    ('Politico', '62317591679'),
+    ('MSNBC', '273864989376427'),
+    ('CNN', '5550296508'),
+    ('NBC News', '155869377766434'),
+    ('CBS News', '131459315949'),
+    ('ABC News', '86680728811'),
+    ('USA Today', '13652355666'),
+    ('Yahoo News', '338028696036'),
+    ('Wall Street Journal', '8304333127'),
+    ('Fox News', '15704546335'),
+    ('Breitbart', '95475020353'),
+    ('The Blaze', '140738092630206')
+]
+
+DISCRETIZATION = {
+
+    'legacy-scheme': [
+        ('extreme left', ['The Guardian',
+                          'Al Jazeera',
+                          'NPR',
+                          'New York Times',
+                          'The New Yorker',
+                          'Slate']),
+        ('left', ['PBS',
+                  'BBC News',
+                  'HuffPost',
+                  'Washington Post',
+                  'The Economist',
+                  'Politico']),
+        ('left of middle', ['CBS News',
+                            'ABC News',
+                            'USA Today',
+                            'NBC News',
+                            'CNN',
+                            'MSNBC']),
+        ('right of middle', ['Wall Street Journal',
+                             'Yahoo News']),
+        ('right', ['Fox News']),
+        ('extreme right', ['Breitbart',
+                           'The Blaze'])
+    ],
+
+    '3-poles-scheme': [
+        ('liberal', []),
+        ('centre', []),
+        ('conservative', [])
+    ]
+}
+#
+# AUDIENCE_IDEOLOGICAL_PLACEMENT_DISCRETIZATION = {
+#
+#     'scheme_1': [
+#         ('extreme left', {'The Guardian': '10513336322',
+#                           'Al Jazeera': '7382473689',
+#                           'NPR': '10643211755',
+#                           'New York Times': '5281959998',
+#                           'The New Yorker': '9258148868',
+#                           'Slate': '21516776437'}),
+#         ('left', {'PBS': '19013582168',
+#                   'BBC News': '228735667216',
+#                   'HuffPost': '18468761129',
+#                   'Washington Post': '6250307292',
+#                   'The Economist': '6013004059',
+#                   'Politico': '62317591679'}),
+#         ('left of middle', {'CBS News': '131459315949',
+#                             'ABC News': '86680728811',
+#                             'USA Today': '13652355666',
+#                             'NBC News': '155869377766434',
+#                             'CNN': '5550296508',
+#                             'MSNBC': '273864989376427'}),
+#         ('right of middle', {'Wall Street Journal': '8304333127',
+#                              'Yahoo News': '338028696036'}),
+#         ('right', {'Fox News': '15704546335'}),
+#         ('extreme right', {'Breitbart': '95475020353',
+#                            'The Blaze': '140738092630206'})
+#     ],
+
+
+class PoliticalSpectrumManager(object):
+
+    def __init__(self, discretization_specs):
+        self._schemes = {k: OrderedDict(discretization) for k, discretization in discretization_specs}
+        self.discretization_scheme = 'legacy-scheme'
+
+    @property
+    def discretization_scheme(self):
+        return self._schemes[self._cur]
+
+    @property
+    def poster_id2ideology_label(self):
+        return {poster_id: self.label2alphanumeric(self._id2ideology(poster_id)) for poster_id in self._poster_id2outlet_label}
+
+    @discretization_scheme.setter
+    def discretization_scheme(self, scheme):
+        if scheme not in self._schemes:
+            raise KeyError("The schemes impemented are [{}]. Requested '{}' instead.".format(' ,'.join(self._schemes.keys()), scheme))
+        self._cur = scheme
+        self._poster_id2outlet_label = {poster_id: poster_name for ide_bin_dict in self._schemes[self._cur].values() for poster_name, poster_id in ide_bin_dict.items()}
+        self._id_label2outlet_dict = OrderedDict([('_'.join(ide.split(' ')),
+                                                   OrderedDict(sorted([(outlet, outlet_id) for outlet, outlet_id in self._schemes[self._cur][ide].items()], key=lambda x: x[0]))) for ide in self._schemes[self._cur].keys()])
+
+    @property
+    def class_names(self):
+        """The names of the discrete bins applied on the 10-point scale of ideological consistency"""
+        return map(self.label2alphanumeric, self._schemes[self._cur].keys())
+
+    @property
+    def labels(self):
+        return list(self._bins.keys())
+
+    def _id2ideology(self, _id):
+        for ideology_label, innerdict in self._schemes[self._cur].items():
+            for outlet_name, outlet_id in innerdict.items():
+                if _id == outlet_id:
+                    return ideology_label
+        return None
+
+    @staticmethod
+    def label2alphanumeric(label):
+        return label.lower().replace(' ', '_')
