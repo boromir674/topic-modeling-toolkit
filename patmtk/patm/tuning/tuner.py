@@ -8,10 +8,14 @@ from collections import OrderedDict, Counter
 
 from .building import RegularizersActivationDefinitionBuilder
 
-from patm import trainer_factory, Experiment
+from patm import Experiment
 from patm.modeling.parameters import ParameterGrid
+from patm.modeling import TrainerFactory
 from patm.utils import get_standard_evaluation_definitions
 from patm.definitions import COLLECTIONS_DIR_PATH, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
+
+
+trainer_factory = TrainerFactory()
 
 
 class Tuner(object):

@@ -84,6 +84,12 @@ class ModelTrainer(object):
                 iter_sum += chunk.span
 
 class TrainerFactory(object):
+    __instance = None
+    def __new__(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = super(TrainerFactory, cls).__new__(cls)
+        return cls.__instance
+
     ideology_flag2data_format = {True: 'vowpal_wabbit', False: 'bow_uci'}
     ideology_flag2batches_dir_name = {True: 'vow-batches', False: 'uci-batches'}
 
