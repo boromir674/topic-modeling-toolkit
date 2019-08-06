@@ -34,7 +34,7 @@ dm_t = ['t2', 't3', 't4']
 mods = {'dcn': 1, 'icn': 5}
 
 
-kernel_data = [[1,2], [3,4], [5,6], {'t01': {'coherence': [1,2,3],
+kernel_data = [[1,2], [3,4], [5,6], [120, 100], {'t01': {'coherence': [1,2,3],
                                                              'contrast': [6, 3],
                                                              'purity': [1, 8]},
                                                      't00': {'coherence': [10,2,3],
@@ -45,7 +45,7 @@ kernel_data = [[1,2], [3,4], [5,6], {'t01': {'coherence': [1,2,3],
                                                              'purity': [17, 856]}
                                                      }]
 
-kernel_data1 = [[10,20], [30,40], [50,6], {'t01': {'coherence': [3, 9],
+kernel_data1 = [[10,20], [30,40], [50,6], [80, 90], {'t01': {'coherence': [3, 9],
                                                              'contrast': [96, 3],
                                                              'purity': [1, 98]},
                                                      't00': {'coherence': [19,2,93],
@@ -113,8 +113,8 @@ class TestExperimentalResults(unittest.TestCase):
                                    'sparsity-phi-@dc': 'sppd',
                                    'sparsity-phi-@ic': 'sppi',
                                    'sparsity-theta': 'spt',
-                                   'topic-kernel-0.6': 'tk1',
-                                   'topic-kernel-0.8': 'tk2',
+                                   'topic-kernel-0.60': 'tk1',
+                                   'topic-kernel-0.80': 'tk2',
                                    'top-tokens-10': 'tt10',
                                    'top-tokens-100': 'tt100',
                                    'background-tokens-ratio-0.3': 'btr'}
