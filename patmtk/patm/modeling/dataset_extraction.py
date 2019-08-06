@@ -1,12 +1,12 @@
 import pandas as pd
 
-from patm.definitions import cat2files
+from patm.definitions import cat2files as CATEGORY_2_FILES_HASH
 from processors.mutators import StringToFieldsGenerator
 
 
 class CategoryToFieldsGenerator(StringToFieldsGenerator):
     def __init__(self, fields, nb_docs='all'):
-        super(CategoryToFieldsGenerator, self).__init__(cat2files, fields, nb_docs=nb_docs)
+        super(CategoryToFieldsGenerator, self).__init__(CATEGORY_2_FILES_HASH, fields, nb_docs=nb_docs)
 
     def get_gen(self, category):
         if self.nb_docs == 'all':
