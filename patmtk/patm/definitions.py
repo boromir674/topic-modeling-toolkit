@@ -9,7 +9,7 @@ MODELS_DIR_NAME = 'models'
 GRAPHS_DIR_NAME = 'graphs'
 
 REGULARIZERS_CFG = os.path.join(my_dir, '../regularizers.cfg')
-TRAIN_CFG = os.path.join(my_dir, '../train.cfg')
+TRAIN_CFG = os.path.join(my_dir, '../test-train.cfg')
 
 patm_root_dir = '/data/thesis'
 data_root_dir = '/data/thesis/data'

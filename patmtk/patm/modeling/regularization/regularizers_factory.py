@@ -198,8 +198,8 @@ class RegularizersFactory:
             try:
                 self._reg_defs[reg_type] = dict(reg_settings_dict[reg_type], **{'name': reg_name})
             except KeyError:
-                # print("'self._reg_defs' allowed keys: [{}]\n'reg_settings_dict' allowed keys: [{}]\nInstead requested key '{}'. Probably you forgot to add the corresponding entry in 'train.cfg' and/or 'regularizers.cfg'.".format(', '.join(self._reg_defs.keys()), ', '.join(reg_settings_dict.keys()), reg_type))
-                raise KeyError("'self._reg_defs' allowed keys: [{}]\n'reg_settings_dict' allowed keys: [{}]\nInstead requested key '{}'. Probably you forgot to add the corresponding entry in 'train.cfg' and/or 'regularizers.cfg'.".format(', '.join(self._reg_defs.keys()), ', '.join(reg_settings_dict.keys()), reg_type))
+                # print("'self._reg_defs' allowed keys: [{}]\n'reg_settings_dict' allowed keys: [{}]\nInstead requested key '{}'. Probably you forgot to add the corresponding entry in 'test-train.cfg' and/or 'regularizers.cfg'.".format(', '.join(self._reg_defs.keys()), ', '.join(reg_settings_dict.keys()), reg_type))
+                raise KeyError("'self._reg_defs' allowed keys: [{}]\n'reg_settings_dict' allowed keys: [{}]\nInstead requested key '{}'. Probably you forgot to add the corresponding entry in 'test-train.cfg' and/or 'regularizers.cfg'.".format(', '.join(self._reg_defs.keys()), ', '.join(reg_settings_dict.keys()), reg_type))
         return self
 
     def create_reg_wrappers(self):

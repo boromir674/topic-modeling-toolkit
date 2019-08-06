@@ -18,6 +18,9 @@ TEST_COLLECTION = 'unittest-dataset'
 def collections_root_dir(tmpdir):
     return str(tmpdir.mkdir(TEST_COLLECTIONS_ROOT_DIR_NAME))
 
+@pytest.fixture(scope='session')
+def test_collection_name():
+    return TEST_COLLECTION
 
 @pytest.fixture(scope='session', params=[[100, 100]])
 def sample_n_real():
