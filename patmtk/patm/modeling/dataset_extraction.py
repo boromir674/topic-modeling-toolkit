@@ -1,6 +1,6 @@
 import pandas as pd
 
-from patm.definitions import cat2files as CATEGORY_2_FILES_HASH
+from patm.definitions import CATEGORY_2_FILES_HASH
 from processors.mutators import StringToFieldsGenerator
 
 
