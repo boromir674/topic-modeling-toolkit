@@ -18,7 +18,7 @@ from patm.definitions import poster_id2ideology_label, IDEOLOGY_CLASS_NAME, COOC
 
 class PipeHandler(object):
     def __init__(self, collections_root, category, sample='all'):
-        self._col_root = collections_root
+        self._cols_root = collections_root
         self.category = category
         self.sample = sample
         self.cat2textgen_proc = None
@@ -68,14 +68,14 @@ class PipeHandler(object):
     # TODO refactor in OOP style preprocess
     def preprocess(self, collection, add_class_labels_to_vocab=True):
         self._collection = collection
-        self._col_dir = os.path.join(self._col_root, collection)
+        self._col_dir = os.path.join(self._cols_root, collection)
         if not os.path.exists(self._col_dir):
             os.makedirs(self._col_dir)
             print 'Created \'{}\' as target directory for persisting'.format(self._col_dir)
         self.set_doc_gen(self.category, num_docs=self.sample)
 
-        self.uci_file = os.path.join(self._col_root, self._collection, 'docword.{}.txt'.format(self._collection))
-        self.vowpal_file = os.path.join(self._col_root, self._collection, 'vowpal.{}.txt'.format(self._collection))
+        self.uci_file = os.path.join(self._cols_root, self._collection, 'docword.{}.txt'.format(self._collection))
+        self.vowpal_file = os.path.join(self._cols_root, self._collection, 'vowpal.{}.txt'.format(self._collection))
         self.pipeline[-2][1].fname = self.uci_file
         self.pipeline[-1][1].fname = self.vowpal_file
 
@@ -132,6 +132,7 @@ class PipeHandler(object):
         self.pipeline.finalize([prologue_lines])
         self.dataset = TextDataset(self._collection, self._get_dataset_id(),
                                    len(self.corpus), len(self.dct.items()), sum(len(_) for _ in self.corpus), self.uci_file, self.vocab_file, self.vowpal_file)
+        self.dataset.root_dir = os.path.join(self._cols_root, collection)
         self.dataset.save()
         return self.dataset
 
@@ -149,7 +150,7 @@ class PipeHandler(object):
 
     def _write_vocab(self, add_class_labels=True):
         # Define file and dump the vocabulary (list of unique tokens, one per line)
-        self.vocab_file = os.path.join(self._col_root, self._collection, 'vocab.{}.txt'.format(self._collection))
+        self.vocab_file = os.path.join(self._cols_root, self._collection, 'vocab.{}.txt'.format(self._collection))
         if not os.path.isfile(self.vocab_file):
             with open(self.vocab_file, 'w') as f:
                 for string_id, string in self._vocab_tokens_generator(include_class_labels=add_class_labels):

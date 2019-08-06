@@ -4,7 +4,6 @@ import os
 import sys
 import argparse
 
-from patm.modeling.model_factory import get_model_factory
 from patm.modeling import TrainerFactory, Experiment
 from patm.definitions import COLLECTIONS_DIR_PATH, REGULARIZERS_CFG
 
