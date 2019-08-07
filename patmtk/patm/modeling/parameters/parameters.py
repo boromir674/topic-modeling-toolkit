@@ -21,9 +21,7 @@ class ImmutableParameter(object):
         super(ImmutableParameter, self).__setattr__('value', value)
 
     def __setattr__(self, name, value):
-        """"""
-        msg = '{} is immutable'.format(self.__class__)
-        raise AttributeError(msg)
+        raise AttributeError('{} is immutable'.format(self.__class__))
 
 
 class ParameterSpan(object):
@@ -53,8 +51,7 @@ class ParameterGrid(object):
             elif type(sp) == ParameterSpan:
                 self._spans.append(sp)
             else:
-                print sp
-                raise InvalidSpanException("Invalid span object given of type " + type(sp).__name__)
+                raise InvalidSpanException("Object {} of type {} is not a valid list-like parameter span.".format(sp, type(sp).__name__))
 
     def remove_filter(self):
         self._filtered_out_indices = []
@@ -114,38 +111,4 @@ class ParameterGrid(object):
             yield self._spit()
 
 
-def test():
-    sp1 = ParameterSpan(sparse_tau_start[:3])
-    sp2 = ParameterSpan(deactivation_period)
-    sp3 = ParameterSpan(doc_iterations[:2])
-    pg = ParameterGrid([sp1, sp2, sp3])
-    res = []
-    for prs in pg:
-        res.append(prs)
-    assert res == [[-0.1, 10, 1],
-                   [-0.1, 10, 5],
-                   [-0.1, 20, 1],
-                   [-0.1, 20, 5],
-                   [-0.1, 30, 1],
-                   [-0.1, 30, 5],
-                   [-0.2, 10, 1],
-                   [-0.2, 10, 5],
-                   [-0.2, 20, 1],
-                   [-0.2, 20, 5],
-                   [-0.2, 30, 1],
-                   [-0.2, 30, 5],
-                   [-0.3, 10, 1],
-                   [-0.3, 10, 5],
-                   [-0.3, 20, 1],
-                   [-0.3, 20, 5],
-                   [-0.3, 30, 1],
-                   [-0.3, 30, 5],
-                   ]
-
-class InvalidSpanException(Exception):
-    def __init__(self, msg):
-        super(InvalidSpanException, self).__init__(msg)
-
-
-if __name__ == '__main__':
-    test()
+class InvalidSpanException(Exception): pass

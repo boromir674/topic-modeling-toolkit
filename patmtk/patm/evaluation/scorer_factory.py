@@ -3,8 +3,14 @@ import json
 from base_evaluator import *
 from patm.definitions import DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class EvaluationFactory(object):
+    """Supports evaluating TopicModels by computing 'model perplexity', 'sparsity of matrix Phi', 'sparsity of matrix Theta',
+    coherence, contrast and purity metrics computed and averaged for all topics' kernels, coherence on x number of most probable token averaged
+    for all topics and 'background tokens ratio' metrics."""
     class_names = [DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME]
 
     def __init__(self, dictionary, cooc_dict, abbreviation2class_name=None):
@@ -17,16 +23,17 @@ class EvaluationFactory(object):
             self._abbr2class = {k: v for k, v in map(lambda x: tuple(['{}{}'.format(x[0], ''.join(map(lambda y: y[0], x[1:].split('_')))),
                                                                       x]), self.class_names)}
         self._dict = dictionary
-        self.cooc_df_dict = cooc_dict['tf']['obj']
+        self.cooc_tf_dict = cooc_dict['tf']['obj']
         self._domain_topics = []
         self._modality_weights = {}
         self.eval_constructor_hash = {
             'perplexity': lambda x: PerplexityEvaluator(x[0], self._dict, [DEFAULT_CLASS_NAME]),
             'sparsity-theta': lambda x: SparsityThetaEvaluator(x[0], self._domain_topics),
             'sparsity-phi': lambda x: SparsityPhiEvaluator(x[0], x[1]),
-            'topic-kernel': lambda x: KernelEvaluator(x[0], self._domain_topics, self.cooc_df_dict, x[1]),
-            'top-tokens': lambda x: TopTokensEvaluator(x[0], self._domain_topics, self.cooc_df_dict, int(x[1])),
+            'topic-kernel': lambda x: KernelEvaluator(x[0], self._domain_topics, self.cooc_tf_dict, x[1]),
+            'top-tokens': lambda x: TopTokensEvaluator(x[0], self._domain_topics, self.cooc_tf_dict, int(x[1])),
             'background-tokens-ratio': lambda x: BackgroundTokensRatioEvaluator(x[0], x[1])}
+        logger.info("Initialized EvaluationFactory with dict for perplexity {} and dict {} TopTokens and Kernel coherence metrics".format(self._dict, self.cooc_tf_dict))
 
     @property
     def domain_topics(self):
@@ -72,6 +79,4 @@ class EvaluationFactory(object):
                     self._tokens.append(el)
 
 
-class RequiredModalityWeightNotFoundError(Exception):
-    def __init__(self, msg):
-        super(RequiredModalityWeightNotFoundError, self).__init__(msg)
+class RequiredModalityWeightNotFoundError(Exception): pass

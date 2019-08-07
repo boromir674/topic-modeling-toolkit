@@ -25,6 +25,7 @@ class TopicModel(object):
         self.artm_model = artm_model
 
         self._definition2evaluator = evaluators
+
         self.definition2evaluator_name = {k: v.name for k, v in evaluators.items()} # {'sparsity-phi': 'spd_p', 'top-tokens-10': 'tt10'}
         self._evaluator_name2definition = {v.name: k for k, v in evaluators.items()} # {'sp_p': 'sparsity-phi', 'tt10': 'top-tokens-10'}
         self._reg_longtype2name = {}  # ie {'smooth-theta': 'smb_t', 'sparse-phi': 'spd_p'}
@@ -169,25 +170,27 @@ class TopicModel(object):
     def get_evaluator(self, eval_name):
         return self._definition2evaluator[self._evaluator_name2definition[eval_name]]
 
-    def get_evaluator_by_def(self, definition):
-        return self._definition2evaluator[definition]
+    # def get_evaluator_by_def(self, definition):
+    #     return self._definition2evaluator[definition]
+    #
+    # def get_scorer_by_name(self, eval_name):
+    #     return self.artm_model.scores[eval_name]
 
-    def get_scorer_by_name(self, eval_name):
-        return self.artm_model.scores[eval_name]
+    # def get_targeted_topics_per_evaluator(self):
+    #     tps = []
+    #     for evaluator in self.artm_model.scores.data:
+    #         if hasattr(self.artm_model.scores[evaluator], 'topic_names'):
+    #             tps.append((evaluator, self.artm_model.scores[evaluator].topic_names))
+    #     return tps
+
+    # def get_formated_topic_names_per_evaluator(self):
+    #     return 'MODEL topic names:\n{}'.format('\n'.join(map(lambda x: ' {}: [{}]'.format(x[0], ', '.join(x[1])), self.get_targeted_topics_per_evaluator())))
 
     @document_passes.setter
     def document_passes(self, iterations):
         self.artm_model.num_document_passes = iterations
 
-    def get_targeted_topics_per_evaluator(self):
-        tps = []
-        for evaluator in self.artm_model.scores.data:
-            if hasattr(self.artm_model.scores[evaluator], 'topic_names'):
-                tps.append((evaluator, self.artm_model.scores[evaluator].topic_names))
-        return tps
 
-    def get_formated_topic_names_per_evaluator(self):
-        return 'MODEL topic names:\n{}'.format('\n'.join(map(lambda x: ' {}: [{}]'.format(x[0], ', '.join(x[1])), self.get_targeted_topics_per_evaluator())))
 
     def set_parameter(self, reg_name, reg_param, value):
         if reg_name in self.artm_model.regularizers.data:
@@ -208,10 +211,10 @@ class TopicModel(object):
                 self.set_parameter(reg_name, param, value)
 
     def get_regs_param_dict(self):
-        """Returns a mapping between the model's regularizers (reg.type string from {'smooth-phi', 'sparse-theta', 'smooth-theta',
-            'sparse-phi', 'smooth-theta', 'sparse-theta', 'decorrelate-phi-domain', 'decorrelate-phi-background': decorrelation,
-            'label-regularization-phi'}) and their corresponding parameters that can be dynamically changed during training (eg 'tau', 'gamma').\n
-            See patm.modeling.regularization.regularizers.REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH\n
+        """
+        Returns a mapping between the model's regularizers unique string definition (ie shown in train.cfg: eg 'smooth-phi', 'sparse-theta',
+        'label-regulariation-phi-cls', 'decorrelate-phi-dom-def') and their corresponding parameters that can be dynamically changed during training (eg 'tau', 'gamma').\n
+        See patm.modeling.regularization.regularizers.REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH\n
         :return: the regularizer type (str) to parameters (list of strings) mapping (str => list)
         :rtype: dict
         """
@@ -222,17 +225,17 @@ class TopicModel(object):
             for attribute_name in REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH[reg_type]:  # ie for _ in ('tau', 'gamma')
                 d[unique_type][attribute_name] = getattr(cur_reg_obj, attribute_name)
         return d
-
-    def _get_header(self, max_lens, topic_names):
-        assert len(max_lens) == len(topic_names)
-        return ' - '.join(map(lambda x: '{}{}'.format(x[1], ' ' * (max_lens[x[0]] - len(name))), (j, name in enumerate(topic_names))))
-
-    def _get_rows(self, topic_name2tokens):
-        max_token_lens = [max(map(lambda x: len(x), topic_name2tokens[name])) for name in self.artm_model.topic_names]
-        b = ''
-        for i in range(len(topic_name2tokens.values()[0])):
-            b += ' | '.join('{} {}'.format(topic_name2tokens[name][i], (max_token_lens[j] - len(topic_name2tokens[name][i])) * ' ') for j, name in enumerate(self.artm_model.topic_names)) + '\n'
-        return b, max_token_lens
+    #
+    # def _get_header(self, max_lens, topic_names):
+    #     assert len(max_lens) == len(topic_names)
+    #     return ' - '.join(map(lambda x: '{}{}'.format(x[1], ' ' * (max_lens[x[0]] - len(name))), (j, name in enumerate(topic_names))))
+    #
+    # def _get_rows(self, topic_name2tokens):
+    #     max_token_lens = [max(map(lambda x: len(x), topic_name2tokens[name])) for name in self.artm_model.topic_names]
+    #     b = ''
+    #     for i in range(len(topic_name2tokens.values()[0])):
+    #         b += ' | '.join('{} {}'.format(topic_name2tokens[name][i], (max_token_lens[j] - len(topic_name2tokens[name][i])) * ' ') for j, name in enumerate(self.artm_model.topic_names)) + '\n'
+    #     return b, max_token_lens
 
 
 class TrainSpecs(object):

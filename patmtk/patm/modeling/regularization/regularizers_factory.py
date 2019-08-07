@@ -1,37 +1,16 @@
-import warnings
-
 import artm
 from collections import OrderedDict
 from configparser import ConfigParser
 
 from patm.utils import cfg2model_settings
 from patm.definitions import REGULARIZERS_CFG, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME  # this is the name of the default modality. it is irrelevant to class lebels or document lcassification
-from patm.definitions import CLASS_LABELS
 
-from regularizers import ArtmRegularizerWrapper, PhiDecorrelator
+from regularizers import ArtmRegularizerWrapper
 
 import logging
-
 logger = logging.getLogger(__name__)
-logger.setLevel('DEBUG')
 
-
-# Create handlers
-c_handler = logging.StreamHandler()
-# f_handler = logging.FileHandler('file.log')
-c_handler.setLevel(logging.INFO)
-# f_handler.setLevel(logging.DEBUG)
-
-# Create formatters and add it to handlers
-c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
-# f_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-c_handler.setFormatter(c_format)
-# f_handler.setFormatter(f_format)
-
-# Add handlers to the logger
-logger.addHandler(c_handler)
-# logger.addHandler(f_handler)
-
+import attr
 
 
 def cfg2regularizer_settings(cfg_file):
@@ -88,24 +67,24 @@ parameter_name2encoder = {
 
 
 class RegularizersFactory:
+    """Supports construction of Smoothing, Sparsing, Label, Decorrelating, Coherence-improving regularizers. Currently, it
+    resorts to supplying the internal artm.Dictionary to the regularizers' constructors whenever possible."""
     active_regularizers_type2tuples_enlister = {'OrderedDict': lambda x: x.items(),
                                                 'dict': lambda x: x.items(),
                                                   'str': lambda x: cfg2model_settings(x)['regularizers'],
                                                 'list': lambda x: x}
-    reg_initialization_type2_enlister = {'dict': lambda x: x,
+    reg_initialization_type2_dict = {'dict': lambda x: x,
                                          'OrderedDict': lambda x: x,
                                          'str': lambda x: cfg2regularizer_settings(x)}
 
-    def __init__(self, dictionary=None):
+    def __init__(self, dictionary):
         """
-        :param str artm.Dictionary dictionary:  BigARTM collection dictionary qon't use dictionary if None when creating regularizers that support using a dictionary
+        :param artm.Dictionary dictionary: this object shall be passed as regularizers' constructors argument when possible
         """
+        # :param str regularizers_initialization_parameters: this file contains parameters and values to use as defaults for when initializing regularizer object
         self._dictionary = dictionary
-        self._registry = {}
-        self._reg_settings = cfg2regularizer_settings(REGULARIZERS_CFG)
-        self._reg_defs = {}
-        self._wrappers = []
-        self._col_passes = 0
+        self._regs_data = None
+        self._reg_settings = {}
         self._back_t, self._domain_t = [], []
         self._regularizer_type2constructor = \
             {'smooth-phi': lambda x: ArtmRegularizerWrapper.create('smooth-phi', x, self._back_t, [DEFAULT_CLASS_NAME]),
@@ -160,19 +139,26 @@ class RegularizersFactory:
                                                                                class_ids=None),
              'improve-coherence': lambda x: ArtmRegularizerWrapper.create('improve-coherence', x, self._domain_t, self._dictionary,
                                                                           class_ids=None)}
+        logger.info("Initialized RegularizersFactory with artm.Dictionary '{}'".format(self._dictionary.name))
 
     @property
-    def collection_passes(self):
-        return self._col_passes
+    def regs_data(self):
+        return self._regs_data
 
-    @collection_passes.setter
-    def collection_passes(self, collection_passes):
-        self._col_passes = collection_passes
+    @regs_data.setter
+    def regs_data(self, regs_data):
+        """
+        :param RegularizersData regs_data:
+        """
+        self._regs_data = regs_data
+        print "GG", self._regs_data
+        self._back_t, self._domain_t = regs_data.background_topics, regs_data.domain_topics
+        self._reg_settings = regs_data.regularizers_parameters
 
-    def set_regularizers_definitions(self, reg_type2name, background_topics, domain_topics, reg_cfg=None):
+    def create_reg_wrappers(self, reg_type2name, background_topics, domain_topics, reg_cfg=None):
         """
         Creates a dict: each key is a regularizer type (identical to one of the '_regularizers_section_name2constructor' hash'\n
-        :param str or list or dict reg_type2name: indicates which regularizers should be active.
+        :param str or list or dict reg_type2name: indicates which regularizers should be active; eg keys of the 'regularizers' section of the train.cfg
         - If type(reg_type2name) == str: reg_type2name is a file path to a cfg formated file that has a 'regularizers' section indicating the active regularization components.\n
         - If type(reg_type2name) == list: reg_type2name is a list of tuples with each 1st element being the regularizer type (eg 'smooth-phi', 'decorrelate-phi-domain') and each 2nd element being the regularizer unique name.\n
         - If type(reg_type2name) == dict: reg_type2name maps regularizer types to names. regularizer types and regularizer names
@@ -183,26 +169,17 @@ class RegularizersFactory:
         - If type(reg_cfg) == dict: reg_cfg maps regularizer types to parameters dict.
         :rtype: RegularizersFactory
         """
+        if not reg_cfg:
+            reg_cfg = REGULARIZERS_CFG
+        self._regs_data = RegularizersData(background_topics, domain_topics, reg_type2name, reg_cfg)
         self._back_t, self._domain_t = background_topics, domain_topics
-        reg_types_n_names = self.active_regularizers_type2tuples_enlister[type(reg_type2name).__name__](reg_type2name)
-        logger.info("Reg titles: {}".format(reg_types_n_names))
-        logger.info("Reg cfg: {}".format(reg_cfg))
-        if reg_cfg is not None:
-            reg_settings_dict =self.reg_initialization_type2_enlister[type(reg_cfg).__name__](reg_cfg)
-        else:
-            reg_settings_dict = self._reg_settings
-        logger.info("Reg settings dict: {}".format(reg_settings_dict))
-        # populate self._reg_defs structure which holds the regularizers to activate for constructing the model
-        self._reg_defs = {}
-        for reg_type, reg_name in reg_types_n_names:
-            try:
-                self._reg_defs[reg_type] = dict(reg_settings_dict[reg_type], **{'name': reg_name})
-            except KeyError:
-                # print("'self._reg_defs' allowed keys: [{}]\n'reg_settings_dict' allowed keys: [{}]\nInstead requested key '{}'. Probably you forgot to add the corresponding entry in 'test-train.cfg' and/or 'regularizers.cfg'.".format(', '.join(self._reg_defs.keys()), ', '.join(reg_settings_dict.keys()), reg_type))
-                raise KeyError("'self._reg_defs' allowed keys: [{}]\n'reg_settings_dict' allowed keys: [{}]\nInstead requested key '{}'. Probably you forgot to add the corresponding entry in 'test-train.cfg' and/or 'regularizers.cfg'.".format(', '.join(self._reg_defs.keys()), ', '.join(reg_settings_dict.keys()), reg_type))
-        return self
+        self._reg_settings = self._regs_data.regularizers_parameters
+        logger.info("Active regs: {}".format(self._regs_data.regs_hash))
+        logger.info("Regs default inits cfg file: {}".format(reg_cfg))
+        logger.info("Reg settings: {}".format(self._reg_settings))
+        return self._create_reg_wrappers()
 
-    def create_reg_wrappers(self):
+    def _create_reg_wrappers(self):
         """
         Call this method to create all possible regularization components for the model.\n
          keys; each value is a dictionry of the corresponding's regularizer's initialization parameter; ie:
@@ -215,27 +192,87 @@ class RegularizersFactory:
         :return: the constructed regularizers; objects of type ArtmRegularizerWrapper
         :rtype: list
         """
-        return list(filter(None, map(lambda x: self.construct_reg_wrapper(x[0], x[1]), sorted(self._reg_defs.items(), key=lambda y: y[0]))))
-
-    # def construct_reg_pool_from_latest_results(self, results):
-    #     return [ArtmRegularizerWrapper(reg_type, dict([(attr_name, reg_settings_dict[attr_name]) for attr_name in regularizer2parameters[reg_type]])) for reg_type, reg_settings_dict in results['reg_parameters'][-1][1].items()]
+        return [self.construct_reg_wrapper(reg, params) for reg, params in sorted(self._reg_settings.items(), key=lambda x: x[0])]
+        # return list(filter(None, map(lambda x: self.construct_reg_wrapper(x[0], x[1]), sorted(self._reg_settings.items(), key=lambda y: y[0]))))
 
     def construct_reg_wrapper(self, reg_type, settings):
         """
-        :param str reg_type: the regularizer's type
+        :param str reg_type: the regularizer's unique definition, based on reg_type, topics targeted, modality targeted
         :param dict settings: key, values pairs to initialize the regularizer parameters. Must contain 'name' key
         :return: the regularizer's wrapper object reference
         :rtype: ArtmRegularizerWrapper
         """
-        # if reg_type not in self._regularizer_type2constructor:
         if reg_type not in self._regularizer_type2constructor:
             raise RuntimeError("Requested to create '{}' regularizer, which is not supported".format(reg_type))
         if (self._back_t is None or len(self._back_t) == 0) and reg_type.startswith('smooth'):
-            warnings.warn("Requested to create '{}' regularizer, which normally targets 'bakground' topicts, but there are "
+            logger.warning("Requested to create '{}' regularizer, which normally targets 'bakground' topicts, but there are "
                           "not distinct 'background' topics defined. The constructed regularizer will target all topics instead.".format(reg_type))
         # manually insert the 'long_type' string in the settings hash to use it as the truly unique 'type' of a regularizer
-        settings['long-type'] = reg_type
-        return self._regularizer_type2constructor[reg_type](settings)
+        return self._regularizer_type2constructor[reg_type](dict(settings, **{'long-type': reg_type}))
 
 
-regularizers_factory = RegularizersFactory()
+def _parse_active_regs(regs):
+    active_regularizers_type2tuples_enlister = {'OrderedDict': lambda x: x.items(),
+                                                'dict': lambda x: x.items(),
+                                                'str': lambda x: cfg2model_settings(x)['regularizers'],
+                                                'list': lambda x: x}
+    print "IN", regs
+    _ = dict(active_regularizers_type2tuples_enlister[type(regs).__name__](regs))  # reg-def, reg-name tuples in a list
+    print "OUT", _
+    return _
+
+def _valid_active_regs(instance, attribute, value):
+    if len(value) != len(instance.regs_hash):
+        raise RuntimeError("Parsing of active regularizers definition {} failed. Resulted in {} regs instead of {}.".format(value, len(value), len(instance.regs_hash)))
+
+def _parse_reg_cfg(regs_config):
+    reg_initialization_type2_dict = {'dict': lambda x: x,
+                                     'OrderedDict': lambda x: x,
+                                     'str': lambda x: cfg2regularizer_settings(x)}
+    return reg_initialization_type2_dict[type(regs_config).__name__](regs_config)
+
+def _create_reg_settings(self):
+    regs_init_params = {}
+    # if type(self.regs_hash) != dict:
+    #    raise RuntimeError("Even though this supposed to be executed after object initialization the self.regs_hash is not of type dict as promised by _parse_active_regs. Instead type = {}".format(type(self.regs_hash)))
+    # if type(self.reg_cfg) != dict:
+    #     raise RuntimeError("Instead of type dict reg_cfg is {}. Probably factory has not been applied yet.".format(self.reg_cfg))
+    for reg_unique_type, reg_name in _parse_active_regs(self.regs_hash).items():
+        try:
+            regs_init_params[reg_unique_type] = dict(_parse_reg_cfg(self.reg_cfg)[reg_unique_type], **{'name': reg_name})
+        except KeyError:
+            raise KeyError(
+                "Keys in regs_cfg: [{}], keys requested as active regularizers: [{}], current key: {}, name: {}. "
+                "Probably you forgot to add the corresponding entry in 'train.cfg' and/or 'regularizers.cfg'".format(
+                    ', '.join(sorted(self.reg_cfg.keys())),
+                    ', '.join(sorted(self.reg_cfg.keys())),
+                    reg_unique_type, reg_name))
+    return regs_init_params
+    # self.regularizers_parameters = regs_init_params
+
+
+@attr.s(cmp=True, hash=True, slots=False)
+class RegularizersData(object):
+    background_topics = attr.ib(factory=list, repr=True, cmp=True, hash=True, init=True)
+    domain_topics = attr.ib(factory=list, repr=True, cmp=True, hash=True, init=True)
+    regs_hash = attr.ib(factory=_parse_active_regs, repr=True, cmp=True, hash=True, init=True)
+    reg_cfg = attr.ib(factory=_parse_reg_cfg, repr=True, cmp=False, hash=False, init=True)
+    regularizers_parameters = attr.ib(default=attr.Factory(lambda self: _create_reg_settings(self), takes_self=True), repr=True, cmp=True, hash=True, init=False)
+
+    # @property
+    # def regularizers_parameters(self):
+    #     regs_init_params = {}
+    #     # assert type(self.regs_hash) == dict
+    #     # if type(self.reg_cfg) != dict:
+    #     #     raise RuntimeError("Instead of type dict reg_cfg is {}. Probably factory has not been applied yet.".format(self.reg_cfg))
+    #     for reg_unique_type, reg_name in self.regs_hash.items():
+    #         try:
+    #             regs_init_params[reg_unique_type] = dict(self.reg_cfg[reg_unique_type], **{'name': reg_name})
+    #         except KeyError:
+    #             raise KeyError(
+    #                 "Keys in regs_cfg: [{}], keys requested as active regularizers: [{}], current key: {}, name: {}. "
+    #                 "Probably you forgot to add the corresponding entry in 'train.cfg' and/or 'regularizers.cfg'".format(
+    #                     ', '.join(sorted(self.reg_cfg.keys())),
+    #                     ', '.join(sorted(self.reg_cfg.keys())),
+    #                     reg_unique_type, reg_name))
+    #     return regs_init_params

@@ -1,102 +1,43 @@
 import sys
 import json
 from math import ceil
-
+import attr
 from functools import reduce
 
+from collections import OrderedDict
+import re
 
+import logging
+logger = logging.getLogger(__name__)
+
+
+
+@attr.s(cmp=True, repr=True, str=True)
 class ExperimentalResults(object):
-    def __init__(self, root_dir, model_label, nb_topics, document_passes, background_topics, domain_topics, modalities,
-                 tracked, kernel_tokens, top_tokens_defs, background_tokens, regularizers_labels):
-        """
-        Examples:
-            4 elements: kernel_data = [[1,2], [3,4], [5,6], {'t01': {'coherence': [1,2,3],
-                                                                 'contrast': [6, 3],
-                                                                 'purity': [1, 8]},
-                                                         't00': {'coherence': [10,2,3],
-                                                                 'contrast': [67, 36],
-                                                                 'purity': [12, 89]},
-                                                         't02': {'coherence': [10,11],
-                                                                 'contrast': [656, 32],
-                                                                 'purity': [17, 856]}
-                                                         }]
-
-            top10_data = [[1, 2], {'t01': [1,2,3], 't00': [10,2,3], 't02': [10,11]}]
-            tau_trajectories_data = {'phi': [1,2,3,4,5], 'theta': [5,6,7,8,9]} \n
-            tracked = {'perplexity': [1, 2, 3], 'kernel': kernel_data, 'top10': top10_data, 'tau_trajectories': tau_trajectories_data}
-
-        :param str root_dir:
-        :param str model_label:
-        :param int nb_topics:
-        :param int document_passes:
-        :param list of str background_topics:
-        :param list of str domain_topics:
-        :param dict modalities: class_name => weight , ie {'@default_class': 1.0, '@ideology_class': 5.0}
-        :param tracked: ie kernel_data = [[1,2], [3,4], [5,6], {'t01': {'coherence': [1,2,3],\n
-                                                                 'contrast': [6, 3],\n
-                                                                 'purity': [1, 8]},\n
-                                                         't00': {'coherence': [10,2,3],\n
-                                                                 'contrast': [67, 36],\n
-                                                                 'purity': [12, 89]},\n
-                                                         't02': {'coherence': [10,11],\n
-                                                                 'contrast': [656, 32],\n
-                                                                 'purity': [17, 856]}\n
-                                                         }]\n
-
-            top10_data = [[1, 2], {'t01': [1,2,3], 't00': [10,2,3], 't02': [10,11]}]
-            tau_trajectories_data = {'phi': [1,2,3,4,5], 'theta': [5,6,7,8,9]}
-        :param dict kernel_tokens: topic_name => list_of_tokens
-        :param dict top_tokens_defs:
-        :param list background_tokens: list of background tokens, p(t) and p(t | w) distributions \mathrm{KL}(p(t) | | p(t | w)) (or vice versa)
-            for each token and counts the part of tokens that have this value greater than a given (non-negative) delta_threshold.
-        :param list regularizers_labels: a list of strings optimally the strings should contain all infromation about a regularizer component's settings ie tau coefficient, alpha coefficient, etc
-            an example input would be ["label-regularization-phi|t:1.0", "smooth-phi|t:1.0", "smooth-theta|a:1.0|t:1.0"]
-
-        """
-        assert len(background_topics) + len(domain_topics) == nb_topics
-        assert sum(tracked['collection_passes']) == len(tracked['perplexity'])
-        background_tokens_threshold = 0 # no distinction between background and "domain" tokens
-        for eval_def in tracked:
-            if eval_def.startswith('background-tokens-ratio'):
-                background_tokens_threshold = float(eval_def.split('-')[-1])
-        self._steady_container = SteadyTrackedItems(root_dir, model_label, sum(tracked['collection_passes']), nb_topics, document_passes,
-                                                    background_topics, domain_topics, background_tokens_threshold, modalities)
-        self._tracker = ValueTracker(tracked)
-        self._final_state_items = FinalStateEntities(dict([(x[0], dict([(y[0], list(y[1])) for y in list(x[1].items())])) for x in list(kernel_tokens.items())]),
-                                                     dict([(x[0], dict([(y[0], list(y[1])) for y in list(x[1].items())])) for x in list(top_tokens_defs.items())]),
-                                                     background_tokens)
-        self._regularizers = regularizers_labels
+    scalars = attr.ib(init=True, cmp=True, repr=True)
+    tracked = attr.ib(init=True, cmp=True, repr=True)
+    final = attr.ib(init=True, cmp=True, repr=True)
+    regularizers = attr.ib(init=True, converter=lambda x: sorted(x), cmp=True, repr=True)
+    reg_defs = attr.ib(init=True, cmp=True, repr=True)
+    score_defs = attr.ib(init=True, cmp=True, repr=True)
 
     def __str__(self):
-        return 'Scalars:\n{}\nTracked:\n{}\nFinal:\n{}\nRegularizers: {}'.format(self._steady_container, self._tracker, self._final_state_items, ', '.join(self._regularizers))
+        return 'Scalars:\n{}\nTracked:\n{}\nFinal:\n{}\nRegularizers: {}'.format(self.scalars, self.tracked, self.final, ', '.join(self.regularizers))
 
-    @property
-    def regularizers(self):
-        return sorted(self._regularizers)
-
-    @property
-    def scalars(self):
-        return self._steady_container
-
-    @property
-    def tracked(self):
-        return self._tracker
-
-    @property
-    def final(self):
-        return self._final_state_items
+    def __eq__(self, other):
+        return True  # [self.scalars, self.regularizers, self.reg_defs, self.score_defs] == [other.scalars, other.regularizers, other.reg_defs, other.score_defs]
 
     @property
     def tracked_kernels(self):
-        return [getattr(self._tracker, 'kernel'+str(x)[2:]) for x in self._tracker.kernel_thresholds]
+        return [getattr(self.tracked, 'kernel'+str(x)[2:]) for x in self.tracked.kernel_thresholds]
 
     @property
     def tracked_top_tokens(self):
-        return [getattr(self._tracker, 'top{}'.format(x)) for x in self._tracker.top_tokens_cardinalities]
+        return [getattr(self.tracked, 'top{}'.format(x)) for x in self.tracked.top_tokens_cardinalities]
 
     @property
     def phi_sparsities(self):
-        return [getattr(self._tracker, 'sparsity_phi_'.format(x)) for x in self._tracker.modalities_initials]
+        return [getattr(self.tracked, 'sparsity_phi_'.format(x)) for x in self.tracked.modalities_initials]
 
     def to_json(self, human_redable=True):
         if human_redable:
@@ -105,7 +46,7 @@ class ExperimentalResults(object):
             indent = None
         return json.dumps(self, cls=RoundTripEncoder, indent=indent)
 
-    def save_as_json(self, file_path, human_redable=True):
+    def save_as_json(self, file_path, human_redable=True, debug=False):
         if human_redable:
             indent = 2
         else:
@@ -114,364 +55,354 @@ class ExperimentalResults(object):
             json.dump(self, fp, cls=RoundTripEncoder, indent=indent)
 
     @classmethod
+    def _legacy(cls, key, data, factory):
+        if key not in data:
+            logger.info("'{}' not in experimental results dict with keys [{}]. Perhaps object is of the old format".format(key, ', '.join(data.keys())))
+            return factory(key, data)
+        return data[key]
+
+    @classmethod
     def create_from_json_file(cls, file_path):
         with open(file_path, 'r') as fp:
             res = json.load(fp, cls=RoundTripDecoder)
-        # nb_decimals = set([ExperimentalResults._count_decimals1(key)
-        #                    for key in res['tracked']['topic-kernel'].keys() + [_ for _ in res['tracked'].keys() if _.startswith('background-tokens-ratio')]])
-        # assert len(nb_decimals) == 1
+        return cls.from_dict(res)
 
-        data = [{'perplexity': res['tracked']['perplexity'],
-                     'sparsity-theta': res['tracked']['sparsity-theta'],
-                     'collection_passes': res['tracked']['collection-passes']},
-                {key: v for key, v in list(res['tracked'].items()) if key.startswith('background-tokens-ratio')},
-                {'tau-trajectories': res['tracked']['tau-trajectories']},
-                {'topic-kernel-' + key: [value['avg_coh'], value['avg_con'], value['avg_pur'], value['size'],
-                                         {t_name: t_data for t_name, t_data in
-                                          list(value['topics'].items())}] for key, value in
-                 list(res['tracked']['topic-kernel'].items())},
-                {'top-tokens-' + key: [value['avg_coh'], {t_name: t_data for t_name, t_data in list(value['topics'].items())}]
-                 for key, value in list(res['tracked']['top-tokens'].items())},
-                {key: v for key, v in list(res['tracked'].items()) if key.startswith('sparsity-phi-@')}]
-
-        return ExperimentalResults(res['scalars']['dir'],
-                                   res['scalars']['label'],
-                                   res['scalars']['nb_topics'],
-                                   res['scalars']['document_passes'],
-                                   res['scalars']['background_topics'],
-                                   res['scalars']['domain_topics'],
-                                   res['scalars']['modalities'],
-                                   reduce(lambda x, y: dict(x, **y), data),
-                                   {'topic-kernel-'+threshold: tokens_hash for threshold, tokens_hash in list(res['final']['topic-kernel'].items())},
-                                   {'top-tokens-'+nb_tokens: tokens_hash for nb_tokens, tokens_hash in list(res['final']['top-tokens'].items())},
-                                   res['final']['background-tokens'],
-                                   res['regularizers'])
+    @classmethod
+    def from_dict(cls, data):
+        return ExperimentalResults(SteadyTrackedItems.from_dict(data),
+                                   ValueTracker.from_dict(data),
+                                   FinalStateEntities.from_dict(data),
+                                   data['regularizers'],
+                                   # data.get('reg_defs', {'t'+str(i): v[:v.index('|')] for i, v in enumerate(data['regularizers'])}),
+                                   cls._legacy('reg_defs', data, lambda x, y: {'type-'+str(i): v[:v.index('|')] for i, v in enumerate(y['regularizers'])}),
+                                   cls._legacy('score_defs', data,
+                                               lambda x, y: {k: 'name-'+str(i) for i, k in
+                                                             enumerate(_ for _ in sorted(y['tracked'].keys()) if _ not in ['tau-trajectories', 'regularization-dynamic-parameters', 'collection-passes'])}))
 
     @classmethod
     def create_from_experiment(cls, experiment):
-        data = [{'perplexity': experiment.trackables['perplexity'],
-                 'sparsity-theta': experiment.trackables['sparsity-theta'],
-                 'collection_passes': experiment.collection_passes},
-                {kernel_definition: [value[0], value[1], value[2], value[3], value[4]] for kernel_definition, value in
-                 list(experiment.trackables.items()) if kernel_definition.startswith('topic-kernel')},
-                {top_tokens_definition: [value[0], value[1]] for top_tokens_definition, value in
-                 list(experiment.trackables.items()) if top_tokens_definition.startswith('top-tokens-')},
-                # {'tau-trajectories': {matrix_name: experiment.reg_params['sparse-' + matrix_name]['tau'] for matrix_name in ['theta', 'phi']}},
-                {'tau-trajectories': {matrix_name: experiment.reg_params.get('sparse-'+matrix_name, {}).get('tau', []) for matrix_name in ['theta', 'phi']}},
-                {key: v for key, v in list(experiment.trackables.items()) if key.startswith('sparsity-phi-@')},
-                {key: v for key, v in list(experiment.trackables.items()) if key.startswith('background-tokens-ratio')}]
-        final_kernel_tokens = {eval_def: cls._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('topic-kernel-')}
-        final_top_tokens = {eval_def: cls._get_final_tokens(experiment, eval_def) for eval_def in experiment.topic_model.evaluator_definitions if eval_def.startswith('top-tokens-')}
-        return ExperimentalResults(experiment.current_root_dir,
-                                   experiment.topic_model.label,
-                                   experiment.topic_model.nb_topics,
-                                   experiment.topic_model.document_passes,
-                                   experiment.topic_model.background_topics,
-                                   experiment.topic_model.domain_topics,
-                                   experiment.topic_model.modalities_dictionary,
-                                   reduce(lambda x, y: dict(x, **y), data),  # trackables
-                                   final_kernel_tokens,
-                                   final_top_tokens,
-                                   experiment.topic_model.background_tokens,
-                                   [x.label for x in experiment.topic_model.regularizer_wrappers])
-
-    @staticmethod
-    def _get_final_tokens(experiment, evaluation_definition):
-        return experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[evaluation_definition]].tokens[-1]
-
-    @staticmethod
-    def _get_evolved_tokens(experiment, evaluation_definition):
         """
-        :param experiment:
-        :param evaluation_definition:
+        :param patm.modeling.experiment.Experiment experiment:
         :return:
-        :rtype: list of dicts
         """
-        return experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[evaluation_definition]].tokens
+        return ExperimentalResults(SteadyTrackedItems.from_experiment(experiment),
+                                   ValueTracker.from_experiment(experiment),
+                                   FinalStateEntities.from_experiment(experiment),
+                                   [x.label for x in experiment.topic_model.regularizer_wrappers],
+                                   {k: v for k, v in zip(experiment.topic_model.regularizer_unique_types, experiment.topic_model.regularizer_names)},
+                                   experiment.topic_model.definition2evaluator_name)
 
 
-# def _get_final_tokens(experiment, evaluation_definition):
-#     return experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[evaluation_definition]].tokens[-1]
-#
-# def _get_evolved_tokens(experiment, evaluation_definition):
-#     """
-#     :param experiment:
-#     :param evaluation_definition:
-#     :return:
-#     :rtype: list of dicts
-#     """
-#     return experiment.topic_model.artm_model.score_tracker[experiment.topic_model.definition2evaluator_name[evaluation_definition]].tokens
+############### PARSER #################
+@attr.s(slots=False)
+class StringToDictParser(object):
+    """Parses a string (if '-' found in string they are converted to '_'; any '@' is removed) trying various regexes at runtime and returns the one capturing the most information (this is simply measured by the number of entities captured"""
+    regs = attr.ib(init=False, default={'score-word': r'[a-zA-Z]+',
+                                        'score-sep': r'(?:-|_)',
+                                        'numerical-argument': r'(?: \d+\. )? \d+',
+                                        'modality-argument': r'[a-zA-Z]',
+                                        'modality-argum1ent': r'@?[a-zA-Z]c?'}, converter=lambda x: dict(x, **{'score-type': r'{score-word}(?:{score-sep}{score-word})*'.format(**x)}), cmp=True, repr=True)
+    normalizer = attr.ib(init=False, default={
+            'kernel': 'topic-kernel',
+            'top': 'top-tokens',
+            'btr': 'background-tokens-ratio'
+    }, cmp=False, repr=True)
+
+    def __call__(self, *args, **kwargs):
+        self.string = args[0]
+        self.design = kwargs.get('design', [
+            r'({score-type}) {score-sep} ({numerical-argument})',
+            r'({score-type}) {score-sep} @?({modality-argument})c?$',
+            r'({score-type}) ({numerical-argument})',
+            r'({score-type})'])
+        if kwargs.get('debug', False):
+            dd = []
+            for d in self.design:
+                print '\nDL: {}'.format(d)
+                dd.append(self.search_debug(d, args[0]))
+                print dd[-1]
+                # dd.append(OrderedDict([(k, v) for k, v in self.search_debug(d, args[0])]))
+            if kwargs.get('encode', False):
+                return self.encode(max(dd, key=lambda x: len(x)))
+            return max(dd, key=lambda x: len(x))
+        if kwargs.get('encode', False):
+            return self.encode(max([self.search_n_dict(r, args[0]) for r in self.design],
+                       key=lambda x: len(x)))
+        return max([self.search_n_dict(r, args[0]) for r in self.design], key=lambda x: len(x))
 
 
-class AbstractValueTracker(object):
-    def __dir__(self):
-        return [_f for _f in [self._trans('perplexity'), self._trans('sparsity_theta')] + ['sparsity_phi_' + x for x in self.modalities_initials] + \
-               ['kernel'+str(x)[2:] for x in self.kernel_thresholds] + \
-               ['top' + str(x) for x in self.top_tokens_cardinalities] + ['tau_trajectories'] + \
-               ['background_tokens_ratio_'+str(x)[2:] for x in self.background_tokens_thresholds] + [self._trans('collection_passes')] if _f]
+    def search_n_dict(self, design_line, string):
+        return OrderedDict([(k, v) for k, v in zip(self._entities(design_line), list(getattr(re.compile(design_line.format(**self.regs), re.X).match(string), 'groups', lambda: len(self._entities(design_line)) * [''])())) if v])
 
-    def _trans(self, dash_splitable):
-        if dash_splitable not in self._flat: return None
-        return dash_splitable.replace('-', '_')
-    def __repr__(self):
-        return '[{}]'.format(', '.join(dir(self)))
-    def __str__(self):
-        return '[{}]'.format(', '.join(sorted(self._flat.keys()) + sorted(self._groups.keys())))
+    def search_debug(self, design_line, string):
+        print "FF: {}".format(design_line.format(**self.regs))
+        print "Entities: {}".format(self._entities(design_line))
+        reg = re.compile(design_line.format(**self.regs), re.X)
+        print "REG: {}".format(str(reg))
+        res = reg.search(string)
+        if res:
+            print res
+            ls = res.groups()
+        else:
+            print "NO match with '{}'".format(string)
+            ls = len(self._entities(design_line))*['']
+        print 'LS: {}'.format(ls)
+        return OrderedDict([(k, v) for k , v in zip(self._entities(design_line), list(ls)) if v])
 
-    def __init__(self, tracked):
-        self._flat = {}
-        self._groups = {}
-        for evaluator_definition, v in list(tracked.items()):  # assumes maximum depth is 2
-            score_type = _strip_parameters(evaluator_definition.replace('_', '-'))
-            if score_type == 'topic-kernel':
-                self._groups[evaluator_definition] = TrackedKernel(*v)
-            elif score_type == 'top-tokens':
-                self._groups[evaluator_definition] = TrackedTopTokens(*v)
-            elif score_type == 'tau-trajectories':
-                # print('VT', v)
-                self._groups[score_type] = TrackedTrajectories(v)
-                # print(self._groups['tau-trajectories']._trajs.keys())
+    def encode(self, ord_d):
+        # try:
+        #
+        # except KeyError:
+        #     raise KeyError("String '{}' could not be parsed. Dict {}".format(self.string, ord_d))
+        ord_d['score-type'] = self.normalizer.get(ord_d['score-type'].replace('_', '-'), ord_d['score-type'].replace('_', '-'))
+        if 'modality-argument' in ord_d:
+            ord_d['modality-argument'] = '@{}c'.format(ord_d['modality-argument'].lower())
+        if 'numerical-argument' in ord_d:
+            ord_d['numerical-argument'] = self._norm_numerical(ord_d['score-type'], ord_d['numerical-argument'])
+            # if ord_d['score-type'] in ['topic_kernel', 'background_tokens_ratio']:
+            #     # integer = int(ord_d['numerical-argument'])
+            #     a_float = float(ord_d['numerical-argument'])
+            #     if int(a_float) == a_float:
+            #         ord_d['numerical-argument'] = ord_d['numerical-argument'][:2]
+            #     else:
+            #         ord_d['numerical-argument'] = '{:.2f}'.format(a_float)[2:]
+        return ord_d
+        #
+        #     integer = int(ord_d['numerical-argument'])
+        #     a_float = float(ord_d['numerical-argument'])
+        #     if integer == a_float:
+        #
+        #         return key, str(int(value))
+        #     return key, '{:.2f}'.format(value)
+        #     ord_d['numerical-argument'] = ord_d['numerical-argument'].replace('@', '').lower()
+        #     return key, value.replace('@', '').lower()
+        # if ord_d['score-type'] in ['top_kernel', 'background_tokens_ratio']:
+        #
+        # if key == 'score-type':
+        #     return key, value.replace('-', '_')
+        # if key == 'modality-argument':
+        #     return key, value.replace('@', '').lower()
+        # if key == 'numerical-argument':
+        #     integer = int(value)
+        #     a_float = float(value)
+        #     if integer == a_float:
+        #         return key, str(int(value))
+        #     return key, '{:.2f}'.format(value)
+        #
+        # return key, value
+
+    def _norm_numerical(self, score_type, value):
+        if score_type in ['topic-kernel', 'background-tokens-ratio']:
+            a_float = float(value)
+            if int(a_float) == a_float:
+                value = '0.' + str(int(a_float))
+                # return value[:2]  # keep fist 2 characters only as the real part
+            return '{:.2f}'.format(float(value))
+        return value
+
+    def _entities(self, design_line):
+        return self._post_process(re.findall(r''.join([r'\({', r'(?:{score-type}|{numerical-argument}|{modality-argument})'.format(**self.regs), r'}\)']), design_line))
+
+    def _post_process(self, entities):
+        return [x[2:-2] for x in entities]
+
+
+################### VALUE TRACKER ###################
+
+@attr.s(cmp=True, repr=True, str=True)
+class ValueTracker(object):
+    _tracked = attr.ib(init=True, cmp=True, repr=True)
+    parser = attr.ib(init=False, factory=StringToDictParser, cmp=False, repr=False)
+
+    def __attrs_post_init__(self):
+        self.scores = {}
+        self._rest = {}
+
+        for tracked_definition, v in list(self._tracked.items()):  # assumes maximum depth is 2
+
+            d = self.parser(tracked_definition, encode=True, debug=False)
+            key = '-'.join(d.values())
+            try:
+                tracked_type = d['score-type']
+            except KeyError:
+                raise KeyError("String '{}' was not parsed successfully. d = {}".format(tracked_definition, d))
+            if tracked_type == 'topic-kernel':
+                self.scores[tracked_definition] = TrackedKernel(*v)
+            elif tracked_type == 'top-tokens':
+                self.scores[key] = TrackedTopTokens(*v)
+            elif tracked_type in ['perplexity', 'sparsity-theta', 'background-tokens-ratio']:
+                self.scores[key] = TrackedEntity(tracked_type, v)
+            elif tracked_type in ['sparsity-phi']:
+                self.scores[key] = TrackedEntity(tracked_type, v)
+            elif tracked_type == 'tau-trajectories':
+                self._rest[key] = TrackedTrajectories(v)
+            elif tracked_type == 'regularization-dynamic-parameters':
+                self._rest[key] = TrackedEvolvingRegParams(v)
             else:
-                self._flat[evaluator_definition.replace('_', '-')] = TrackedEntity(score_type, v)
+                self._rest[key] = TrackedEntity(tracked_type, v)
+
+    @classmethod
+    def from_dict(cls, data):
+        tracked = data['tracked']
+        d = {'perplexity': tracked['perplexity'],
+             'sparsity-theta': tracked['sparsity-theta'],
+             'collection-passes': tracked['collection-passes'],
+             'tau-trajectories': tracked['tau-trajectories'],
+             }
+        if 'regularization-dynamic-parameters' in tracked:
+            d['regularization-dynamic-parameters'] = tracked['regularization-dynamic-parameters']
+        else:
+            logger.info("Did not find 'regularization-dynamic-parameters' in tracked values. Probably, reading from legacy formatted object")
+        return ValueTracker(reduce(lambda x, y: dict(x, **y), [
+            d,
+            {key: v for key, v in list(tracked.items()) if key.startswith('background-tokens-ratio')},
+            {'topic-kernel-' + key: [[value['avg_coh'], value['avg_con'], value['avg_pur'], value['size']],
+                                     {t_name: t_data for t_name, t_data in list(value['topics'].items())}]
+             for key, value in list(tracked['topic-kernel'].items())},
+            {'top-tokens-' + key: [value['avg_coh'], {t_name: t_data for t_name, t_data in list(value['topics'].items())}]
+                 for key, value in list(tracked['top-tokens'].items())},
+            {key: v for key, v in list(tracked.items()) if key.startswith('sparsity-phi-@')}
+        ]))
+
+        # except KeyError as e:
+        #     raise TypeError("Error {}, all: [{}], scalars: [{}], tracked: [{}], final: [{}]".format(e,
+        #         ', '.join(sorted(data.keys())),
+        #         ', '.join(sorted(data['scalars'].keys())),
+        #         ', '.join(sorted(data['tracked'].keys())),
+        #         ', '.join(sorted(data['final'].keys())),
+        #     ))
+
+    @classmethod
+    def from_experiment(cls, experiment):
+        return ValueTracker(reduce(lambda x, y: dict(x, **y), [
+            {'perplexity': experiment.trackables['perplexity'],
+             'sparsity-theta': experiment.trackables['sparsity-theta'],
+             'collection-passes': experiment.collection_passes,
+             'tau-trajectories': {matrix_name: experiment.regularizers_dynamic_parameters.get('sparse-' + matrix_name, {}).get('tau', []) for matrix_name in ['theta', 'phi']},
+             'regularization-dynamic-parameters': experiment.regularizers_dynamic_parameters},
+            {key: v for key, v in list(experiment.trackables.items()) if key.startswith('background-tokens-ratio')},
+            {kernel_definition: [[value[0], value[1], value[2], value[3]], value[4]] for kernel_definition, value in
+                 list(experiment.trackables.items()) if kernel_definition.startswith('topic-kernel')},
+            {top_tokens_definition: [value[0], value[1]] for top_tokens_definition, value in
+                 list(experiment.trackables.items()) if top_tokens_definition.startswith('top-tokens-')},
+            {key: v for key, v in list(experiment.trackables.items()) if key.startswith('sparsity-phi-@')},
+        ]))
+
+    def __dir__(self):
+        return sorted(list(self.scores.keys()) + list(self._rest.keys()))
 
     @property
     def top_tokens_cardinalities(self):
-        return sorted(int(_.split('-')[-1]) for _ in list(self._groups.keys()) if _.startswith('top-tokens'))
+        return sorted(int(_.split('-')[-1]) for _ in list(self.scores.keys()) if _.startswith('top-tokens'))
 
     @property
     def kernel_thresholds(self):
         """
-
         :return: list of strings eg ['0.60', '0.80', '0.25']
         """
-        return sorted(_.split('-')[-1] for _ in list(self._groups.keys()) if _.startswith('topic-kernel'))
+        return sorted(_.split('-')[-1] for _ in list(self.scores.keys()) if _.startswith('topic-kernel'))
 
     @property
     def modalities_initials(self):
-        return sorted(_.split('-')[-1][1] for _ in list(self._flat.keys()) if _.startswith('sparsity-phi'))
+        return sorted(_.split('-')[-1][1] for _ in list(self.scores.keys()) if _.startswith('sparsity-phi'))
 
     @property
     def tracked_entity_names(self):
-        return sorted(list(self._flat.keys()) + list(self._groups.keys()))
+        return sorted(list(self.scores.keys()) + list(self._rest.keys()))
 
     @property
     def background_tokens_thresholds(self):
-        return sorted(_.split('-')[-1] for _ in list(self._flat.keys()) if _.startswith('background-tokens-ratio-0.'))
-
-    def _query_metrics(self):
-        _ = self._decode(sys._getframe(1).f_code.co_name).replace('_', '-')
-        if _ in self._flat:
-            return self._flat[_]
-        if _ in self._groups:
-            return self._groups[_]
-        raise AttributeError("'{}' not found within [{}]".format(_, ', '.join(list(self._flat.keys()) + list(self._groups))))
-
-    def _decode(self, method_name):
-        if method_name.startswith('top'):
-            return 'top-tokens-' + method_name[3:]
-        return method_name
-
-    # @abstractmethod
-    # def collection_passes(self):
-    #     raise NotImplemented
-    # @abstractmethod
-    # def perplexity(self):
-    #     raise NotImplemented
-    # @abstractmethod
-    # def sparsity_phi(self):
-    #     raise NotImplemented
-    # @abstractmethod
-    # def sparsity_theta(self):
-    #     raise NotImplemented
-    # @abstractmethod
-    # def background_tokens_ratio(self):
-    #     raise NotImplemented
-    # @abstractmethod
-    # def kernel(self):
-    #     raise NotImplemented
-    # @abstractmethod
-    # def top10(self):
-    #     raise NotImplemented
-    # @abstractmethod
-    # def top100(self):
-    #     raise NotImplemented
-    # @abstractmethod
-    # def tau_trajectories(self):
-    #     raise NotImplemented
-
-
-def _strip_parameters(score_definition):
-    tokens = []
-    for el in score_definition.split('-'):
-        try:
-            _ = float(el)
-        except ValueError:
-            if el[0] != '@':
-                tokens.append(el)
-    return '-'.join(tokens)
-
-
-class ValueTracker(AbstractValueTracker):
-
-    def __init__(self, tracked):
-        super(ValueTracker, self).__init__(tracked)
-        self._index = None
-
-    def __get_attr(self, dict_hash, key, item):
-        if key in dict_hash:
-            return dict_hash[key]
-        else:
-            raise AttributeError("Attribute '{}' not within the computed ones {}. Probably its key '{}' not found within the keys [{}] of inner dictionaries.".format(item, dir(self), key, ', '.join(list(self._flat.keys()) + list(self._groups))))
-
-    def __getattr__(self, item):
-        if item.startswith('kernel'):
-            _ = self._groups
-            key = 'topic-kernel-0.' + item[6:]
-            # return self._groups['topic-kernel-0.' + item[6:]]
-        elif item.startswith('sparsity_phi_'):
-            _ = self._flat
-            key = 'sparsity-phi-@{}c'.format(item[13:])
-            # try:
-            #     _ = self._flat['sparsity-phi-@{}c'.format(item[13:])]
-            # except KeyError:
-            #     raise KeyError('{} not in {}. Maybe in [{}] ??'.format(item, list(self._flat.keys()), list(self._groups.keys())))
-            # return self._flat['sparsity-phi-@{}c'.format(item[13:])]
-        elif item.startswith('background_tokens_ratio_'):
-            # print(self._flat.keys())
-            # print(item, item.split('_')[-1])
-            _ = self._flat
-            key = 'background-tokens-ratio-0.' + item.split('_')[-1]
-        else:
-            raise AttributeError
-            # return self._flat['background-tokens-ratio-0.' + item.split('_')[-1]]
-        return self.__get_attr(_, key, item)
-        # return None
-
-    @property
-    def collection_passes(self):
-        return super(ValueTracker, self)._query_metrics()
-
-    @property
-    def top100(self):
-        return super(ValueTracker, self)._query_metrics()
-
-    @property
-    def top10(self):
-        return super(ValueTracker, self)._query_metrics()
-
-    @property
-    def kernel(self):
-        return super(ValueTracker, self)._query_metrics()
-
-    @property
-    def background_tokens_ratio(self):
-        return super(ValueTracker, self)._query_metrics()
-
-    @property
-    def sparsity_phi(self):
-        return super(ValueTracker, self)._query_metrics()
-
-    @property
-    def sparsity_theta(self):
-        return super(ValueTracker, self)._query_metrics()
-
-    @property
-    def perplexity(self):
-        return super(ValueTracker, self)._query_metrics()
-
-    @property
-    def tau_trajectories(self):
-        return super(ValueTracker, self)._query_metrics()
+        return sorted(_.split('-')[-1] for _ in list(self.scores.keys()) if _.startswith('background-tokens-ratio'))
 
     @property
     def tau_trajectory_matrices_names(self):
-        return self._groups['tau-trajectories'].matrices_names
+        try:
+            return self._rest['tau-trajectories'].matrices_names
+        except KeyError:
+            raise KeyError("Key 'tau-trajectories' was not found in scores [{}]. ALL: [{}]".format(
+                ', '.join(sorted(self.scores.keys())), ', '.join(self.tracked_entity_names)))
 
-
-class TrackedTopics(object):
-    def __init__(self, topics_data):
-        self._data = topics_data
-
-    @property
-    def topics(self):
-        return sorted(self._data.keys())
+    def __getitem__(self, item):
+        d = self.parser(item, encode=True, debug=False)
+        key = '-'.join(d.values())
+        if key in self.scores:
+            return self.scores[key]
+        elif key in self._rest:
+            return self._rest[key]
+        raise KeyError(
+            "Requested item '{}', converted to '{}' but it was not found either in ValueTracker.scores [{}] nor in ValueTracker._rest [{}]".format(
+                item, key, ', '.join(sorted(self.scores.keys())), ', '.join(sorted(self._rest.keys()))))
 
     def __getattr__(self, item):
-        if item in self._data:
-            return self._data[item]
+        d = self.parser(item, encode=True, debug=False)
+        key = '-'.join(d.values())
+        if key in self.scores:
+            return self.scores[key]
+        elif key in self._rest:
+            return self._rest[key]
+        raise KeyError(
+            "Requested item '{}', converted to '{}' after parsed as {}. It was not found either in ValueTracker.scores [{}] nor in ValueTracker._rest [{}]".format(
+                item, key, d, ', '.join(sorted(self.scores.keys())), ', '.join(sorted(self._rest.keys()))))
+
+##############################################################
+
+
+@attr.s(cmp=True, repr=True, str=True, slots=True)
+class TrackedEvolvingRegParams(object):
+    """Holds regularizers_parameters data which is a dictionary: keys should be the unique regularizer definitions
+    (as in train.cfg; eg 'label-regularization-phi-dom-cls'). Keys should map to dictionaries, which map strings to lists.
+    These dictionaries keys should correspond to one of the supported dynamic parameters (eg 'tau', 'gamma') and each
+    list should have length equal to the number of collection iterations and hold the evolution/trajectory of the parameter values
+    """
+    _evolved = attr.ib(init=True, converter=lambda regularizers_params: {reg: {param: TrackedEntity(param, values_list) for param, values_list in reg_params.items()} for
+                     reg, reg_params in regularizers_params.items()}, cmp=True)
+    regularizers_definitions = attr.ib(init=False, default=attr.Factory(lambda self: sorted(self._evolved.keys()), takes_self=True), cmp=False, repr=True)
+
+    def __iter__(self):
+        return ((k, v) for k, v in self._evolved.items())
+
+    def __getattr__(self, item):
+        return self._evolved[item]
+
+@attr.s(cmp=True, repr=True, str=True, slots=True)
+class TrackedKernel(object):
+    """data = [avg_coherence_list, avg_contrast_list, avg_purity_list, sizes_list, topic_name2elements_hash]"""
+    average = attr.ib(init=True, cmp=True, converter=lambda x: KernelSubGroup(x[0], x[1], x[2], x[3]))
+    _topics_data = attr.ib(converter=lambda topic_name2elements_hash: {key: KernelSubGroup(val['coherence'], val['contrast'], val['purity'], key) for key, val in list(topic_name2elements_hash.items())}, init=True, cmp=True)
+    topics = attr.ib(default=attr.Factory(lambda self: sorted(self._topics_data.keys()), takes_self=True))
+
+    def __getattr__(self, item):
+        if item in self._topics_data:
+            return self._topics_data[item]
         raise AttributeError("Topic '{}' is not registered as tracked".format(item))
 
-class TrackedKernel(TrackedTopics):
-    def __init__(self, avg_coherence_list, avg_contrast_list, avg_purity_list, sizes_list, topic_name2elements_hash):
-        """
-        :param list avg_coherence:
-        :param list avg_contrast:
-        :param list avg_purity:
-        :param dict topic_name2elements_hash: dict of dicts: inner dicts have lists as values; ie\n
-            {'top_00': {'coherence': [1,2], 'contrast': [3,4], 'purity': [8,9]},\n
-            'top_01': {'coherence': [0,3], 'contrast': [5,8], 'purity': [6,3]}}
-        """
-        self._avgs_group = KernelSubGroup(avg_coherence_list, avg_contrast_list, avg_purity_list, sizes_list)
-        super(TrackedKernel, self).__init__({key: SingleTopicGroup(key, val['coherence'], val['contrast'], val['purity']) for key, val in list(topic_name2elements_hash.items())})
-        # self._topics_groups = map(lambda x: SingleTopicGroup(x[0], x[1]['coherence'], x[1]['contrast'], x[1]['purity']), sorted(topic_name2elements_hash.items(), key=lambda x: x[0]))
-        # d = {key: SingleTopicGroup(key, val['coherence'], val['contrast'], val['purity']) for key, val in topic_name2elements_hash.items()}
-        # super(TrackedKernel, self).__init__([TrackedCoherence(avg_coherences), TrackedContrast(avg_contrasts), TrackedPurity(avg_purities)])
+@attr.s(cmp=True, repr=True, str=True, slots=True)
+class TrackedTopTokens(object):
+    average_coherence = attr.ib(init=True, converter=lambda x: TrackedEntity('average_coherence', x), cmp=True, repr=True)
+    _topics_data = attr.ib(init=True, converter=lambda topic_name2coherence: {key: TrackedEntity(key, val) for key, val in list(topic_name2coherence.items())}, cmp=True, repr=True)
+    topics = attr.ib(init=False, default=attr.Factory(lambda self: sorted(self._topics_data.keys()), takes_self=True), cmp=False, repr=True)
 
-    @property
-    def average(self):
-        return self._avgs_group
+    def __getattr__(self, item):
+        if item in self._topics_data:
+            return self._topics_data[item]
+        raise AttributeError("Topic '{}' is not registered as tracked".format(item))
 
-class TrackedTopTokens(TrackedTopics):
-    def __init__(self, avg_coherence, topic_name2coherence):
-        """
-        :param list avg_coherence:
-        :param dict topic_name2coherence: contains coherence per topic
-        """
-        self._avg_coh = TrackedEntity('average_coherence', avg_coherence)
-        super(TrackedTopTokens, self).__init__({key: TrackedEntity(key, val) for key, val in list(topic_name2coherence.items())})
 
-    @property
-    def average_coherence(self):
-        return self._avg_coh
-
+@attr.s(cmp=True, repr=True, str=True, slots=True)
 class KernelSubGroup(object):
-    def __init__(self, coherence_list, contrast_list, purity_list, size_list):
-        self.ll = [TrackedCoherence(coherence_list), TrackedContrast(contrast_list), TrackedPurity(purity_list), TrackedSize(size_list)]
-        # super(KernelSubGroup, self).__init__([TrackedCoherence(coherence_list), TrackedContrast(contrast_list), TrackedPurity(purity_list)])
-
-    @property
-    def coherence(self):
-        return self.ll[0]
-
-    @property
-    def contrast(self):
-        return self.ll[1]
-
-    @property
-    def purity(self):
-        return self.ll[2]
-
-    @property
-    def size(self):
-        return self.ll[3]
-
-class SingleTopicGroup(KernelSubGroup):
-    def __init__(self, topic_name, coherence_list, contrast_list, purity_list):
-        self.name = topic_name
-        super(SingleTopicGroup, self).__init__(coherence_list, contrast_list, purity_list, [])  # TODO eliminate this bug prone code
+    """Containes averages over topics for metrics computed on lexical kernels defined with a specific threshold [coherence, contrast, purity] and the average kernel size"""
+    coherence = attr.ib(init=True, converter=lambda x: TrackedEntity('coherence', x), cmp=True, repr=True)
+    contrast = attr.ib(init=True, converter=lambda x: TrackedEntity('contrast', x), cmp=True, repr=True)
+    purity = attr.ib(init=True, converter=lambda x: TrackedEntity('purity', x), cmp=True, repr=True)
+    size = attr.ib(init=True, converter=lambda x: TrackedEntity('size', x), cmp=True, repr=True)
+    name = attr.ib(init=True, default='', cmp=True, repr=True)
 
 
+@attr.s(cmp=True, repr=True, str=True, slots=True)
 class TrackedTrajectories(object):
-    def __init__(self, matrix_name2elements_hash):
-        self._trajs = {k: TrackedEntity(k, v) for k, v in list(matrix_name2elements_hash.items())}
-
-    @property
-    def trajectories(self):
-        return sorted(list(self._trajs.items()), key=lambda x: x[0])
-
-    @property
-    def matrices_names(self):
-        return sorted(self._trajs.keys())
+    _trajs = attr.ib(init=True, converter=lambda matrix_name2elements_hash: {k: TrackedEntity(k, v) for k, v in list(matrix_name2elements_hash.items())}, cmp=True, repr=True)
+    trajectories = attr.ib(init=False, default=attr.Factory(lambda self: sorted(list(self._trajs.items()), key=lambda x: x[0]), takes_self=True), cmp=False, repr=False)
+    matrices_names = attr.ib(init=False, default=attr.Factory(lambda self: sorted(self._trajs.keys()), takes_self=True), cmp=False, repr=True)
 
     @property
     def phi(self):
@@ -489,90 +420,101 @@ class TrackedTrajectories(object):
         return str(self.matrices_names)
 
 
+@attr.s(cmp=True, repr=True, str=True, slots=True)
 class TrackedEntity(object):
-    def __init__(self, name, elements_list):
-        self._name = name
-        self._elements = elements_list
-    def __len__(self):
-        return len(self._elements)
-    def __getitem__(self, item):
-        if item == 'all':
-            return self._elements
-        return self._elements[item]
-    @property
-    def name(self):
-        return self._name
-    @property
-    def all(self):
-        return self._elements
+    name = attr.ib(init=True, converter=str, cmp=True, repr=True)
+    all = attr.ib(init=True, converter=list, cmp=True, repr=True)  # list of elements (values tracked)
+
     @property
     def last(self):
-        return self._elements[-1]
+        return self.all[-1]
 
-class TrackedCoherence(TrackedEntity):
-    def __init__(self, elements_list):
-        super(TrackedCoherence, self).__init__('coherence', elements_list)
+    def __len__(self):
+        return len(self.all)
 
-class TrackedContrast(TrackedEntity):
-    def __init__(self, elements_list):
-        super(TrackedContrast, self).__init__('contrast', elements_list)
+    def __getitem__(self, item):
+        if item == 'all':
+            return self.all
+        try:
+            return self.all[item]
+        except KeyError:
+            raise KeyError("self: {} type of self._elements: {}".format(self, type(self.all).__name__))
 
-class TrackedPurity(TrackedEntity):
-    def __init__(self, elements_list):
-        super(TrackedPurity, self).__init__('purity', elements_list)
+######### CONSTANTS during training and between subsequent fit calls
 
-class TrackedSize(TrackedEntity):
-    def __init__(self, elements_list):
-        super(TrackedSize, self).__init__('size', elements_list)
+def _check_topics(self, attribute, value):
+    if len(value) != len(set(value)):
+        raise RuntimeError("Detected duplicates in input topics: [{}]".format(', '.join(str(x) for x in value)))
+
+def _non_overlapping(self, attribute, value):
+    if any(x in value for x in self.background_topics):
+        raise RuntimeError("Detected overlapping domain topics [{}] with background topics [{}]".format(', '.join(str(x) for x in value), ', '.join(str(x) for x in self.background_topics)))
+
+def background_n_domain_topics_soundness(instance, attribute, value):
+    if instance.nb_topics != len(instance.background_topics) + len(value):
+        raise ValueError("nb_topics should be equal to len(background_topics) + len(domain_topics). Instead, {} != {} + {}".format(instance.nb_topics, len(instance.background_topics), len(value)))
 
 
+@attr.s(repr=True, cmp=True, str=True, slots=True)
 class SteadyTrackedItems(object):
+    """Supportes only one tokens list for a specific btr threshold."""
+    dir = attr.ib(init=True, converter=str, cmp=True, repr=True)  # T.O.D.O. rename to 'dataset_dir'
+    model_label = attr.ib(init=True, converter=str, cmp=True, repr=True)
+    dataset_iterations = attr.ib(init=True, converter=int, cmp=True, repr=True)
+    nb_topics = attr.ib(init=True, converter=int, cmp=True, repr=True)
+    document_passes = attr.ib(init=True, converter=int, cmp=True, repr=True)
+    background_topics = attr.ib(init=True, converter=list, cmp=True, repr=True, validator=_check_topics)
+    domain_topics = attr.ib(init=True, converter=list, cmp=True, repr=True, validator=[_check_topics, _non_overlapping, background_n_domain_topics_soundness])
+    background_tokens_threshold = attr.ib(init=True, converter=float, cmp=True, repr=True)
+    modalities = attr.ib(init=True, converter=dict, cmp=True, repr=True)
 
-    def __init__(self, root_dir, model_label, dataset_iterations, nb_topics, document_passes, background_topics, domain_topics, background_tokens_threshold, modalities):
-        self._root_dir = root_dir
-        self._model_label = model_label
-        self._total_collection_passes = dataset_iterations
-        self._nb_topics = nb_topics
-        self._nb_doc_passes = document_passes
-        self._bg_topics = background_topics
-        self._dm_topics = domain_topics
-        self._bg_tokens_threshold = background_tokens_threshold
-        self._modalities = modalities
+    parser = StringToDictParser()
     def __dir__(self):
         return ['dir', 'model_label', 'dataset_iterations', 'nb_topics', 'document_passes', 'background_topics', 'domain_topics', 'background_tokens_threshold', 'modalities']
-    def __str__(self):
-        return '\n'.join(['{}: {}'.format(x, getattr(self, x)) for x in dir(self)])
-    @property
-    def dir(self):
-        return self._root_dir
-    @property
-    def model_label(self):
-        return self._model_label
-    @property
-    def dataset_iterations(self):
-        return self._total_collection_passes
+    # def __str__(self):
+    #     return '\n'.join(['{}: {}'.format(x, getattr(self, x)) for x in dir(self)])
 
-    @property
-    def nb_topics(self):
-        return self._nb_topics
+    @classmethod
+    def from_dict(cls, data):
+        steady = data['scalars']
+        background_tokens_threshold = 0  # no distinction between background and "domain" tokens
+        for eval_def in data['tracked']:
+            if eval_def.startswith('background-tokens-ratio'):
+                background_tokens_threshold = float(eval_def.split('-')[-1])
+        return SteadyTrackedItems(steady['dir'], steady['label'], data['scalars']['dataset_iterations'], steady['nb_topics'],
+                                  steady['document_passes'], steady['background_topics'], steady['domain_topics'], background_tokens_threshold, steady['modalities'])
 
-    @property
-    def document_passes(self):
-        return self._nb_doc_passes
+    @classmethod
+    def from_experiment(cls, experiment):
+        """
+        Uses the maximum threshold found amongst the defined 'background-tokens-ratio' scores.\n
+        :param patm.modeling.experiment.Experiment experiment:
+        :return:
+        """
+        ds = [d for d in experiment.topic_model.evaluator_definitions if d.startswith('background-tokens-ratio-')]
+        m = 0
+        for d in (_.split('-')[-1] for _ in ds):
+            if str(d).startswith('0.'):
+                m = max(m, float(d))
+            else:
+                m = max(m, float('0.' + str(d)))
 
-    @property
-    def background_topics(self):
-        return self._bg_topics
+        return SteadyTrackedItems(experiment.current_root_dir, experiment.topic_model.label, experiment.dataset_iterations,
+                                  experiment.topic_model.nb_topics, experiment.topic_model.document_passes, experiment.topic_model.background_topics,
+                                  experiment.topic_model.domain_topics, m, experiment.topic_model.modalities_dictionary)
 
-    @property
-    def domain_topics(self):
-        return self._dm_topics
-    @property
-    def background_tokens_threshold(self):
-        return self._bg_tokens_threshold
-    @property
-    def modalities(self):
-        return self._modalities
+
+@attr.s(repr=True, str=True, cmp=True, slots=True)
+class TokensList(object):
+    tokens = attr.ib(init=True, converter=list, repr=True, cmp=True)
+    def __len__(self):
+        return len(self.tokens)
+    def __getitem__(self, item):
+        return self.tokens[item]
+    def __iter__(self):
+        return iter(self.tokens)
+    def __contains__(self, item):
+        return item in self.tokens
 
 
 def kernel_def2_kernel(kernel_def):
@@ -581,58 +523,63 @@ def kernel_def2_kernel(kernel_def):
 def top_tokens_def2_top(top_def):
     return 'top'+top_def.split('-')[-1]
 
-
+@attr.s(repr=True, str=True, cmp=True, slots=True)
 class FinalStateEntities(object):
-    def __init__(self, kernel_def_2tokens_hash, top_def_2_tokens_hash, background_tokens):
-        self._kernel_defs_list = sorted(kernel_def_2tokens_hash.keys())
-        self._top_defs_list = sorted(top_def_2_tokens_hash.keys())
-        self._bg_tokens = TokensList(background_tokens)
-        for kernel_def, topic_name2tokens in list(kernel_def_2tokens_hash.items()):
-            setattr(self, kernel_def2_kernel(kernel_def), TopicsTokens(topic_name2tokens))
-        for top_def, topic_name2tokens in list(top_def_2_tokens_hash.items()):
-            setattr(self, top_tokens_def2_top(top_def), TopicsTokens(topic_name2tokens))
+    kernel_hash = attr.ib(init=True, converter=lambda x: {kernel_def: TopicsTokens(data) for kernel_def, data in x.items()}, cmp=True, repr=False)
+    top_hash = attr.ib(init=True, converter=lambda x: {top_tokens_def: TopicsTokens(data) for top_tokens_def, data in x.items()}, cmp=True, repr=False)
+    _bg_tokens = attr.ib(init=True, converter=TokensList, cmp=True, repr=False)
+    kernel_defs = attr.ib(init=False, default=attr.Factory(lambda self: sorted(self.kernel_hash.keys()), takes_self=True))
+    kernels = attr.ib(init=False, default=attr.Factory(lambda self: [kernel_def2_kernel(x) for x in self.kernel_defs], takes_self=True))
+    top_defs = attr.ib(init=False, default=attr.Factory(lambda self: sorted(self.top_hash.keys()), takes_self=True))
+    top = attr.ib(init=False, default=attr.Factory(lambda self: [top_tokens_def2_top(x) for x in self.top_defs], takes_self=True))
+    background_tokens = attr.ib(init=False, default=attr.Factory(lambda self: sorted(self._bg_tokens.tokens), takes_self=True))
+
+    parse = attr.ib(init=False, factory=StringToDictParser, cmp=False, repr=False)
+
+    def __getattr__(self, item):
+        d = self.parse(item, encode=True, debug=False)
+        key = '-'.join(d.values())
+        if key in self.kernel_hash:
+            return self.kernel_hash[key]
+        elif key in self.top_hash:
+            return self.top_hash[key]
+        raise KeyError(
+            "Requested item '{}', converted to '{}' after parsed as {}. It was not found either in kernel thresholds [{}] nor in top-toknes cardinalities [{}]".format(
+                item, key, d, ', '.join(sorted(self.kernel_hash.keys())), ', '.join(sorted(self.top_hash.keys()))))
 
     def __str__(self):
         return 'bg-tokens: {}\n'.format(len(self._bg_tokens)) + '\n'.join(['final state: {}\n{}'.format(y, getattr(self, y)) for y in self.top + self.kernels])
 
-    @property
-    def top(self):
-        return [top_tokens_def2_top(x) for x in self._top_defs_list]
+    @classmethod
+    def from_dict(cls, data):
+        return FinalStateEntities(
+            {'topic-kernel-' + threshold: tokens_hash for threshold, tokens_hash in list(data['final']['topic-kernel'].items())},
+            {'top-tokens-' + nb_tokens: tokens_hash for nb_tokens, tokens_hash in list(data['final']['top-tokens'].items())},
+            data['final']['background-tokens']
+        )
 
-    @property
-    def top_defs(self):
-        return self._top_defs_list
+    @classmethod
+    def from_experiment(cls, experiment):
+        return FinalStateEntities(experiment.final_tokens['topic-kernel'],experiment.final_tokens['top-tokens'], experiment.final_tokens['background-tokens'])
 
-    @property
-    def kernels(self):
-        return [kernel_def2_kernel(x) for x in self._kernel_defs_list]
-
-    @property
-    def kernel_defs(self):
-        return self._kernel_defs_list
-
-    @property
-    def background_tokens(self):
-        return self._bg_tokens.tokens
-
-
+@attr.s(repr=True, cmp=True, slots=True)
 class TopicsTokens(object):
-    def __init__(self, topic_name2tokens_hash):
-        self._nb_columns = 10
-        self._tokens = {topic_name: TokensList(tokens_list) for topic_name, tokens_list in list(topic_name2tokens_hash.items())}
-        self._nb_topics = len(topic_name2tokens_hash)
-        self._nb_rows = int(ceil((float(self._nb_topics) / self._nb_columns)))
-        self.__lens = {}
-        for k, v in list(self._tokens.items()):
-            setattr(self, k, v)
-            self.__lens[k] = {'string': len(k), 'list': len(str(len(v)))}
+    _tokens = attr.ib(init=True, converter=lambda topic_name2tokens: {topic_name: TokensList(tokens_list) for topic_name, tokens_list in topic_name2tokens.items()}, cmp=True, repr=False)
+    _nb_columns = attr.ib(init=False, default=10, cmp=False, repr=False)
+    _nb_rows = attr.ib(init=False, default=attr.Factory(lambda self: int(ceil((float(len(self._tokens)) / self._nb_columns))), takes_self=True), repr=False, cmp=False)
+    topics = attr.ib(init=False, default=attr.Factory(lambda self: sorted(self._tokens.keys()), takes_self=True), repr=True, cmp=False)
+    __lens = attr.ib(init=False, default=attr.Factory(lambda self: {k : {'string': len(k), 'list': len(str(len(v)))} for k, v in self._tokens.items()}, takes_self=True), cmp=False, repr=False)
+
+    def __iter__(self):
+        return ((k,v) for k,v in self._tokens.items())
+
+    def __getattr__(self, item):
+        if item in self._tokens:
+            return self._tokens[item]
+        raise AttributeError
 
     def __str__(self):
         return '\n'.join([self._get_row_string(x) for x in self._gen_rows()])
-
-    def _get_row_string(self, row_topic_names):
-        return '  '.join(['{}{}: {}{}'.format(
-            x[1], (self._max(x[0], 'string')-len(x[1]))*' ', (self._max(x[0], 'list')-self.__lens[x[1]]['list'])*' ', len(self._tokens[x[1]])) for x in enumerate(row_topic_names)])
 
     def _gen_rows(self):
         i, j = 0, 0
@@ -642,50 +589,21 @@ class TopicsTokens(object):
             i += len(_)
             yield _
 
-    def _max(self, column_index, entity):
-        assert entity in ['string', 'list']
-        return max([self.__lens[self.topics[x]][entity] for x in self._range(column_index)])
-
-    def _range(self, column_index):
-        # print 'RANGE', column_index, self._get_last_index_in_column(column_index), self._nb_columns
-        return list(range(column_index, self._get_last_index_in_column(column_index), self._nb_columns))
-
     def _index(self, row_nb):
         return [_f for _f in [self.topics[x] if x<len(self._tokens) else None for x in range(self._nb_columns * row_nb, self._nb_columns * row_nb + self._nb_columns)] if _f]
 
-    def _index_by_column(self, column_index):
-        return [self.topics[x] for x in self._range(column_index)]
+    def _get_row_string(self, row_topic_names):
+        return '  '.join(['{}{}: {}{}'.format(
+            x[1], (self._max(x[0], 'string')-len(x[1]))*' ', (self._max(x[0], 'list')-self.__lens[x[1]]['list'])*' ', len(self._tokens[x[1]])) for x in enumerate(row_topic_names)])
+
+    def _max(self, column_index, entity):
+        return max([self.__lens[self.topics[x]][entity] for x in self._range(column_index)])
+
+    def _range(self, column_index):
+        return list(range(column_index, self._get_last_index_in_column(column_index), self._nb_columns))
 
     def _get_last_index_in_column(self, column_index):
-        assert column_index < self._nb_columns
-        index = self._nb_rows * self._nb_columns - self._nb_columns + column_index
-        if index < self._nb_topics <= index:
-            index -= self._nb_columns
-        return index
-
-    @property
-    def topics(self):
-        return sorted(self._tokens.keys())
-
-class TokensList(object):
-    def __init__(self, tokens_list):
-        assert type(tokens_list) == list
-        self._tokens = tokens_list
-    def __len__(self):
-        return len(self._tokens)
-    def __getitem__(self, item):
-        return self._tokens[item]
-    @property
-    def tokens(self):
-        return self._tokens
-    def __str__(self):
-        return str(self._tokens)
-    def __repr__(self):
-        return str(len(self._tokens))
-    def __iter__(self):
-        return iter(self._tokens)
-    def __contains__(self, item):
-        return item in self._tokens
+        return self._nb_rows * self._nb_columns - self._nb_columns + column_index
 
 
 class RoundTripEncoder(json.JSONEncoder):
@@ -712,28 +630,36 @@ class RoundTripEncoder(json.JSONEncoder):
             return obj.all
         if isinstance(obj, TrackedTrajectories):
             return {matrix_name: tau_elements for matrix_name, tau_elements in obj.trajectories}
+        if isinstance(obj, TrackedEvolvingRegParams):
+            return dict(obj)
         if isinstance(obj, TrackedTopTokens):
             return {'avg_coh': obj.average_coherence,
-                    'topics': {topic_name: obj.__getattr__(topic_name).all for topic_name in obj.topics}}
+                    'topics': {topic_name: getattr(obj, topic_name).all for topic_name in obj.topics}}
         if isinstance(obj, TrackedKernel):
             return {'avg_coh': obj.average.coherence,
                     'avg_con': obj.average.contrast,
                     'avg_pur': obj.average.purity,
                     'size': obj.average.size,
-                    'topics': {topic_name: {'coherence': obj.__getattr__(topic_name).coherence.all,
-                                            'contrast': obj.__getattr__(topic_name).contrast.all,
-                                            'purity': obj.__getattr__(topic_name).purity.all} for topic_name in obj.topics}}
+                    'topics': {topic_name: {'coherence': getattr(obj, topic_name).coherence.all,
+                                            'contrast': getattr(obj, topic_name).contrast.all,
+                                            'purity': getattr(obj, topic_name).purity.all} for topic_name in obj.topics}}
         if isinstance(obj, ValueTracker):
-            _ = {name: tracked_entity for name, tracked_entity in list(obj._flat.items())}
-            _['top-tokens'] = {k: obj._groups['top-tokens-' + str(k)] for k in obj.top_tokens_cardinalities}
-            _['topic-kernel'] = {k: obj._groups['topic-kernel-' + str(k)] for k in obj.kernel_thresholds}
-            _['tau-trajectories'] = {k: obj.tau_trajectories.__getattribute__(k) for k in obj.tau_trajectory_matrices_names}
+            _ = {name: tracked_entity for name, tracked_entity in list(obj.scores.items()) if name not in ['tau-trajectories', 'regularization-dynamic-parameters'] or
+                 all(name.startswith(x) for x in ['top-tokens', 'topic-kernel'])}
+            # _ = {name: tracked_entity for name, tracked_entity in list(obj._flat.items())}
+            _['top-tokens'] = {k: obj.scores['top-tokens-' + str(k)] for k in obj.top_tokens_cardinalities}
+            _['topic-kernel'] = {k: obj.scores['topic-kernel-' + str(k)] for k in obj.kernel_thresholds}
+            _['tau-trajectories'] = {k: getattr(obj.tau_trajectories, k) for k in obj.tau_trajectory_matrices_names}
+            _['collection-passes'] = obj.collection_passes,
+            _['regularization-dynamic-parameters'] = obj.regularization_dynamic_parameters
             return _
         if isinstance(obj, ExperimentalResults):
             return {'scalars': obj.scalars,
                     'tracked': obj.tracked,
                     'final': obj.final,
-                    'regularizers': obj.regularizers}
+                    'regularizers': obj.regularizers,
+                    'reg_defs': obj.reg_defs,
+                    'score_defs': obj.score_defs}
         return super(RoundTripEncoder, self).default(obj)
 
 

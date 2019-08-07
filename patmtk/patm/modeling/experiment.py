@@ -1,4 +1,4 @@
-from .model_factory import get_model_factory
+from .model_factory import ModelFactory
 from .persistence import ResultsWL, ModelWL
 from patm.modeling.regularization.regularizers_factory import REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH as DYN_COEFS
 
@@ -17,35 +17,26 @@ class Experiment:
     - _evaluator_name2definition
     """
 
-    # tracked_entities = {
-    #     'perplexity': ['value', 'class_id_info'],
-    #     'sparsity-phi': ['value'],
-    #     'sparsity-theta': ['value'],
-    #     'topic-kernel': ['average_coherence', 'average_contrast', 'average_purity', 'average_size', 'coherence',
-    #                      'contrast', 'purity'],
-    # # tokens are not tracked over time; they will be saved only for the lastest state of the inferred topics
-    #     'top-tokens': ['average_coherence', 'coherence'],
-    # # tokens are not tracked over time; they will be saved only for the lastest state of the inferred topics
-    #     'background-tokens-ratio': ['value']
+
     MAX_DECIMALS = 2
-    def __init__(self, root_dir, cooc_dict):
+    def __init__(self, dataset_dir, cooc_dict):
         """
-        :param str root_dir: the full path to a dataset/collection specific directory
+        Encapsulates experimentation by doing topic modeling on a dataset/'collection' in the given patm_root_dir. A 'collection' is a proccessed document collection into BoW format and possibly split into 'train' and 'test' splits.\n
+        :param str dataset_dir: the full path to a dataset/collection specific directory
         :param str cooc_dict: the full path to a dataset/collection specific directory
-        Encapsulates experimentation by doing topic modeling on a 'collection' in the given patm_root_dir. A 'collection' is a proccessed document collection into BoW format and possibly split into 'train' and 'test' splits
         """
-        self._dir = root_dir
+        self._dir = dataset_dir
         self.cooc_dict = cooc_dict
         self._loaded_dictionary = None # artm.Dictionary object. Data population happens uppon artm.Artm object creation in model_factory; dictionary.load(bin_dict_path) is called there
         self._topic_model = None
         self.collection_passes = []
         self.trackables = None
-        self.train_results_handler = ResultsWL(self, None)
-        self.phi_matrix_handler = ModelWL(self, None)
+        self.train_results_handler = ResultsWL(self)
+        self.phi_matrix_handler = ModelWL(self)
         self.failed_top_tokens_coherence = {}
         self._total_passes = 0
-        self.reg_params = None
-        # self.degeneration_checker = DegenerationChecker([])
+        self.regularizers_dynamic_parameters = None
+        self._last_tokens = {}
 
     def init_empty_trackables(self, model):
         self._topic_model = model
@@ -61,7 +52,7 @@ class Experiment:
                 self.trackables[evaluator_definition] = [[], {t_name: [] for t_name in model.domain_topics}]
                 self.failed_top_tokens_coherence[evaluator_definition] = {t_name: [] for t_name in model.domain_topics}
         self.collection_passes = []
-        self.reg_params = {unique_type: {attr: [] for attr in DYN_COEFS[reg_type]} for unique_type, reg_type in model.long_types_n_types}
+        self.regularizers_dynamic_parameters = {unique_type: {attr: [] for attr in DYN_COEFS[reg_type]} for unique_type, reg_type in model.long_types_n_types}
 
     @property
     def dataset_iterations(self):
@@ -69,7 +60,7 @@ class Experiment:
 
     @property
     def model_factory(self):
-        return get_model_factory(self.dictionary, self.cooc_dict)
+        return ModelFactory(self.dictionary, self.cooc_dict)
 
     @property
     def topic_model(self):
@@ -112,16 +103,17 @@ class Experiment:
     def dictionary(self):
         return self._loaded_dictionary
 
-    def set_dictionary(self, artm_dictionary):
+    @dictionary.setter
+    def dictionary(self, artm_dictionary):
         self._loaded_dictionary = artm_dictionary
 
     # TODO refactor this; remove dubious exceptions
     def update(self, topic_model, span):
         self.collection_passes.append(span) # iterations performed on the train set for the current 'steady' chunk
 
-        for reg_type, reg_settings in topic_model.get_regs_param_dict().items():
+        for unique_reg_type, reg_settings in topic_model.get_regs_param_dict().items():
             for param_name, param_value in reg_settings.items():
-                self.reg_params[reg_type][param_name].extend([param_value]*span)
+                self.regularizers_dynamic_parameters[unique_reg_type][param_name].extend([param_value] * span)
         for evaluator_name, evaluator_definition in zip(topic_model.evaluator_names, topic_model.evaluator_definitions):
             reportable_to_results = topic_model.get_evaluator(evaluator_name).evaluate(topic_model.artm_model)
             definition_with_max_decimals = Experiment._assert_max_decimals(evaluator_definition)
@@ -153,15 +145,20 @@ class Experiment:
                                 perv_tuple = self.failed_top_tokens_coherence[evaluator_definition][topic_name][-1]
                                 self.failed_top_tokens_coherence[evaluator_definition][topic_name][-1] = (self._total_passes, perv_tuple[1]+span)
                 self._total_passes += span
+        self.final_tokens = {
+            'topic-kernel': {eval_def: self._get_final_tokens(eval_def) for eval_def in
+                             self.topic_model.evaluator_definitions if eval_def.startswith('topic-kernel-')},
+            'top-tokens': {eval_def: self._get_final_tokens(eval_def) for eval_def in
+                           self.topic_model.evaluator_definitions if eval_def.startswith('top-tokens-')},
+            'background-tokens': self.topic_model.background_tokens
+        }
 
     @property
     def current_root_dir(self):
         return self._dir
 
     def save_experiment(self, save_phi=True):
-        """
-        Dumps the dictionary-type accumulated experimental results with the given file name. The file is saved in the directory specified by the latest train specifications (TrainSpecs).\n
-        """
+        """Dumps the dictionary-type accumulated experimental results with the given file name. The file is saved in the directory specified by the latest train specifications (TrainSpecs)"""
         if not self.collection_passes:
             raise DidNotReceiveTrainSignalException('Model probably hasn\'t been fitted since len(self.collection_passes) = {}'.format(len(self.collection_passes)))
         # asserts that the number of observations recorded per tracked metric variables is equal to the number of "collections pass"; training iterations over the document dataset
@@ -173,7 +170,6 @@ class Experiment:
         if save_phi:
             self.phi_matrix_handler.save(self._topic_model.label)
 
-    # TODO fix logic
     def load_experiment(self, model_label):
         """
         Given a unigue model label, restores the state of the experiment from disk. Loads all tracked values of the experimental results
@@ -188,12 +184,54 @@ class Experiment:
         :rtype: patm.modeling.topic_model.TrainSpecs
         """
         results = self.train_results_handler.load(model_label)
-        self.collection_passes = results.tracked.collection_passes
-        self._total_passes = sum(results.tracked.collection_passes)
-        self.trackables = results.tracked
-        self.reg_params = results['reg_parameters']
         self._topic_model = self.phi_matrix_handler.load(model_label, results)
+        # self._topic_model.scores = {v.name: topic_model.artm_model.score_tracker[v.name] for v in topic_model._definition2evaluator.values()}
+        self.failed_top_tokens_coherence = {}
+        self.collection_passes = [item for sublist in results.tracked.collection_passes for item in sublist]
+        # [x for x in ] [sublist for sublist in results.tracked.collection_passes in x for x in sublist for sublist in results.tracked.collection_passes]
+        self._total_passes = sum(sum(_) for _ in results.tracked.collection_passes)
+        try:
+            self.regularizers_dynamic_parameters = dict(results.tracked.regularization_dynamic_parameters)
+        except KeyError as e:
+            print e
+            raise RuntimeError("Tracked: {}, dynamic reg params: {}".format(results.tracked, results.tracked.regularization_dynamic_parameters))
+        self.trackables = self._get_trackables(results)
+        self.final_tokens = {
+            'topic-kernel': {kernel_def: {t_name: list(tokens) for t_name, tokens in topics_tokens} for kernel_def, topics_tokens in results.final.kernel_hash.items()},
+            'top-tokens': {top_tokens_def: {t_name: list(tokens) for t_name, tokens in topics_tokens} for top_tokens_def, topics_tokens in results.final.top_hash.items()},
+            'background-tokens': list(results.final.background_tokens),
+        }
         return self._topic_model
+
+    def _get_final_tokens(self, evaluation_definition):
+        return self.topic_model.artm_model.score_tracker[self.topic_model.definition2evaluator_name[evaluation_definition]].tokens[-1]
+
+
+    def _get_trackables(self, results):
+        """
+        :param results.experimental_results.ExperimentalResults results:
+        :return:
+        :rtype: dict
+        """
+        trackables = {}
+        for k in (_.replace('_', '-') for _ in dir(results.tracked) if _ not in ('tau_trajectories', 'regularization_dynamic_parameters')):
+            if self._strip_parameters(k) in ('perplexity', 'sparsity-phi', 'sparsity-theta', 'background-tokens-ratio'):
+                trackables[Experiment._assert_max_decimals(k)] = results.tracked[k].all
+            elif k.startswith('topic-kernel-'):
+                trackables[Experiment._assert_max_decimals(k)] = [
+                    results.tracked[k].average.coherence.all,
+                    results.tracked[k].average.contrast.all,
+                    results.tracked[k].average.purity.all,
+                    results.tracked[k].average.size.all,
+                    {t_name: {'coherence': getattr(results.tracked[k], t_name).coherence.all,
+                              'contrast': getattr(results.tracked[k], t_name).contrast.all,
+                              'purity': getattr(results.tracked[k], t_name).purity.all,
+                              'size': getattr(results.tracked[k], t_name).size.all} for t_name in results.scalars.domain_topics}
+                ]
+            elif k.startswith('top-tokens-'):
+                trackables[k] = [results.tracked[k].average_coherence.all,
+                                      {t_name: getattr(results.tracked[k], t_name).all for t_name in results.scalars.domain_topics}]
+        return trackables
 
 
 class DegenerationChecker(object):
@@ -295,9 +333,5 @@ class DegenerationChecker(object):
         return False
 
 
-class EvaluationOutputLoadingException(Exception):
-    def __init__(self, msg):
-        super(EvaluationOutputLoadingException, self).__init__(msg)
-class DidNotReceiveTrainSignalException(Exception):
-    def __init__(self, msg):
-        super(DidNotReceiveTrainSignalException, self).__init__(msg)
+class EvaluationOutputLoadingException(Exception): pass
+class DidNotReceiveTrainSignalException(Exception): pass

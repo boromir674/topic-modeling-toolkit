@@ -34,8 +34,12 @@ def test_collection_name():
 
 
 @pytest.fixture(scope='session')
-def test_collection_dir(collections_root_dir):
-    return os.path.join(collections_root_dir, TEST_COLLECTION)
+def test_collection_dir(collections_root_dir, test_collection_name, tmpdir_factory):
+    if not os.path.isdir(os.path.join(collections_root_dir, test_collection_name)):
+        os.mkdir(os.path.join(collections_root_dir, test_collection_name))
+    return os.path.join(collections_root_dir, test_collection_name)
+    # return str(tmpdir_factory.mktemp(os.path.join(collections_root_dir, test_collection_name)))
+    # return os.path.join(collections_root_dir, TEST_COLLECTION)
 
 
 @pytest.fixture(scope='session', params=[[100, 100]])
@@ -82,18 +86,47 @@ def reg_settings():
 
 
 @pytest.fixture(scope='session')
-def trainer_n_experiment(test_dataset, collections_root_dir):
-    trainer = TrainerFactory(collections_root_dir=collections_root_dir).create_trainer(test_dataset.name, exploit_ideology_labels=True, force_new_batches=True)
-    experiment = Experiment(os.path.join(collections_root_dir, test_dataset.name), trainer.cooc_dicts)
-    trainer.register(experiment)  # when the model_trainer trains, the experiment object keeps track of evaluation metrics
-    return trainer, experiment
+def trainer(collections_root_dir, test_dataset):
+    return TrainerFactory(collections_root_dir=collections_root_dir).create_trainer(test_dataset.name, exploit_ideology_labels=True, force_new_batches=True)
 
 
 @pytest.fixture(scope='session')
-def trained_model_n_experiment(trainer_n_experiment):
-    trainer, experiment = trainer_n_experiment
+def cooc_dicts(trainer):
+    return trainer.cooc_dicts
+
+
+
+# @pytest.fixture(scope='session')
+# def trainer_n_experiment(test_dataset, collections_root_dir):
+#     trainer = TrainerFactory(collections_root_dir=collections_root_dir).create_trainer(test_dataset.name, exploit_ideology_labels=True, force_new_batches=True)
+#     experiment = Experiment(os.path.join(collections_root_dir, test_dataset.name), trainer.cooc_dicts)
+#     trainer.register(experiment)  # when the model_trainer trains, the experiment object keeps track of evaluation metrics
+#     return trainer, experiment
+
+
+@pytest.fixture(scope='session')
+def trained_model_n_experiment(collections_root_dir, test_dataset, trainer):
+    experiment = Experiment(os.path.join(collections_root_dir, test_dataset.name), trainer.cooc_dicts)
     topic_model = trainer.model_factory.create_model(MODEL_1_LABEL, TRAIN_CFG, reg_cfg=REGS_CFG, show_progress_bars=False)
     train_specs = trainer.model_factory.create_train_specs()
+    trainer.register(experiment)
     experiment.init_empty_trackables(topic_model)
     trainer.train(topic_model, train_specs, effects=False, cache_theta=True)
     return topic_model, experiment
+
+
+@pytest.fixture(scope='session')
+def loaded_model_n_experiment(collections_root_dir, test_dataset, trainer, trained_model_n_experiment):
+    model, experiment = trained_model_n_experiment
+    experiment.save_experiment(save_phi=True)
+    new_exp_obj = Experiment(os.path.join(collections_root_dir, test_dataset.name), trainer.cooc_dicts)
+    trainer.register(new_exp_obj)
+    loaded_model = new_exp_obj.load_experiment(model.label)
+    return loaded_model, new_exp_obj
+
+
+    # if args.load:
+    #     topic_model = experiment.load_experiment(args.label)
+    #     print '\nLoaded experiment and model state'
+    #     settings = cfg2model_settings(args.config)
+    #     train_specs = TrainSpecs(15, [], [])

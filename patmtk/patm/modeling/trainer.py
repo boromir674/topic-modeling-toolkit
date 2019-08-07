@@ -4,7 +4,7 @@ import re
 import abc
 import artm
 
-from .model_factory import get_model_factory
+from .model_factory import ModelFactory
 from ..definitions import COLLECTIONS_DIR_PATH
 from patm.modeling.parameters.trajectory import get_fit_iteration_chunks
 
@@ -17,14 +17,32 @@ class ModelTrainer(object):
     """
     def __init__(self):
         self.batch_vectorizer = None
-        self.dictionary = artm.Dictionary()
+        # self.dictionary = artm.Dictionary()
+        self._pmi_key = ''
+        self._dictionary = None
         self.cooc_dicts = {}  # ppmi: positive pmi (Point-Mutual Information)
         self.observers = []
+
+    @property
+    def dictionary(self):
+        """The dictionary used to compute all coherence related metric"""
+        return self.cooc_dicts[self._pmi_key]['obj']
+
+    @dictionary.setter
+    def dictionary(self, dictionary_obj):
+        """The dictionary used to compute all coherence related metric"""
+        self._pmi_key = self.__search(dictionary_obj)
+
+    def __search(self, dictionary_obj):
+        for k, v in self.cooc_dicts.items():
+            if v['obj'] == dictionary_obj:
+                return k
+        raise RuntimeError("Dict {} not found in {}".format(dictionary_obj, self.cooc_dicts))
 
     def register(self, observer):
         if observer not in self.observers:
             self.observers.append(observer)
-            observer.set_dictionary(self.dictionary)
+            observer.dictionary = self.dictionary
 
     def unregister(self, observer):
         if observer in self.observers:
@@ -40,7 +58,7 @@ class ModelTrainer(object):
 
     @property
     def model_factory(self):
-        return get_model_factory(self.dictionary, self.cooc_dicts)
+        return ModelFactory(self.dictionary, self.cooc_dicts)
 
     def train(self, topic_model, specs, effects=False, cache_theta=False):
         """
@@ -128,7 +146,7 @@ class TrainerFactory(object):
             name = os.path.basename(fname)
             matc = re.match('^ppmi_(\d+)_([td]f)\.txt$', name)
             if matc:
-                self._mod_tr.cooc_dicts[matc.group(2)] = {'obj': artm.Dictionary(), 'min': int(matc.group(1))}
+                self._mod_tr.cooc_dicts[matc.group(2)] = {'obj': artm.Dictionary(name=name), 'min': int(matc.group(1))}
                 self._mod_tr.cooc_dicts[matc.group(2)]['obj'].gather(data_path=self._root_dir,
                                                                      cooc_file_path=os.path.join(self._root_dir, name),
                                                                      vocab_file_path=vocab,

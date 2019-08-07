@@ -1,7 +1,6 @@
 import os
 import abc
-import glob
-import json
+from glob import glob
 from patm.definitions import MODELS_DIR_NAME, RESULTS_DIR_NAME
 
 from results import ExperimentalResults
@@ -10,18 +9,6 @@ from results import ExperimentalResults
 class WriterLoader(object):
 
     __metaclass__ = abc.ABCMeta
-
-    @abc.abstractproperty
-    def location(self):
-        raise NotImplemented
-
-    @abc.abstractproperty
-    def list(self):
-        raise NotImplemented
-
-    @abc.abstractproperty
-    def saved(self):
-        raise NotImplemented
 
     @abc.abstractmethod
     def save(self, name):
@@ -34,7 +21,12 @@ class WriterLoader(object):
 
 class BaseWriterLoader(WriterLoader):
 
-    def __init__(self, location, post_fix, extension):
+    def __init__(self, location, extension, post_fix=''):
+        """
+        :param str location: path to directory where all objects shall be saved
+        :param str extension: the file extension to use or the saved files
+        :param str post_fix: an optional string to append to each resulting file name
+        """
         self._loc = location
         self._post = post_fix
         self._extension = extension
@@ -54,8 +46,7 @@ class BaseWriterLoader(WriterLoader):
         :return:
         :rtype: list
         """
-        # return [os.path.basename(file_path) for file_path in glob.glob('{}/*{}{}'.format(self._loc, self._post, self._extension))]
-        return [os.path.basename(file_path[:file_path.index(self._extension)]) for file_path in glob.glob('{}/*{}'.format(self._loc, ''.join(filter(None, [self._post, self._extension]))))]
+        return [os.path.basename(file_path[:file_path.index(self._extension)]) for file_path in glob('{}/*{}'.format(self._loc, ''.join(filter(None, [self._post, self._extension]))))]
 
     @property
     def saved(self):
@@ -69,8 +60,8 @@ class BaseWriterLoader(WriterLoader):
 
 
 class ExperimentWL(BaseWriterLoader):
-    def __init__(self, experiment, location, post_fix, extension):
-        super(ExperimentWL, self).__init__(location, post_fix, extension)
+    def __init__(self, experiment, location, extension, post_fix=''):
+        super(ExperimentWL, self).__init__(location, extension, post_fix=post_fix)
         self._exp = experiment
 
     @property
@@ -78,9 +69,10 @@ class ExperimentWL(BaseWriterLoader):
         return self._post
 
     def get_full_path(self, name):
-        if self._post:
-            return os.path.join(self._loc, '{}-{}{}'.format(name, self._post, self._extension))
-        return os.path.join(self._loc, '{}{}'.format(name, self._extension))
+        return os.path.join(self._loc, '{}{}{}'.format(name, (lambda x: '-'+x if x else '')(self._post), self._extension))
+        # if self._post:
+        #     return os.path.join(self._loc, '{}-{}{}'.format(name, self._post, self._extension))
+        # return os.path.join(self._loc, '{}{}'.format(name, self._extension))
 
     def save(self, name):
         raise NotImplementedError
@@ -88,11 +80,17 @@ class ExperimentWL(BaseWriterLoader):
         raise NotImplementedError
 
 
+##### CONCRETE CLASSES ######
+
 class ResultsWL(ExperimentWL):
-    def __init__(self, experiment, split_label):
-        self._my_root = RESULTS_DIR_NAME
+    """Class responsible for saving and loading experimental results (eg model training measurements/metrics)"""
+    def __init__(self, experiment, split_label=None):
+        """
+        :param patm.modeling.experiment.Experiment experiment:
+        :param str split_label: if not given then the assumptions is that there is no need to 'label' saved artifacts (ie to distinguish 'train' split from 'test' split)
+        """
         self._ext = '.json'
-        super(ResultsWL, self).__init__(experiment, os.path.join(experiment.current_root_dir, self._my_root), split_label, self._ext)
+        super(ResultsWL, self).__init__(experiment, os.path.join(experiment.current_root_dir, RESULTS_DIR_NAME), split_label, self._ext)
 
     def save(self, name):
         results_file_path = self.get_full_path(name)
@@ -105,11 +103,15 @@ class ResultsWL(ExperimentWL):
 
 
 class ModelWL(ExperimentWL):
-    def __init__(self, experiment, split_label):
-        self._my_root = MODELS_DIR_NAME
+    """Class responsible for saving and loading topic models"""
+    def __init__(self, experiment, split_label=None):
+        """
+        :param patm.modeling.experiment.Experiment experiment:
+        :param str split_label: if not given then the assumptions is that there is no need to 'label' saved artifacts (ie to distinguish 'train' split from 'test' split)
+        """
         self._extension = '.phi'
         self._phi_matrix_label = 'p_wt'
-        super(ModelWL, self).__init__(experiment, os.path.join(experiment.current_root_dir, self._my_root), split_label, self._extension)
+        super(ModelWL, self).__init__(experiment, os.path.join(experiment.current_root_dir, MODELS_DIR_NAME), split_label, self._extension)
 
     def save(self, name):
         self._exp.topic_model.artm_model.save(self.get_full_path(name), model_name=self._phi_matrix_label)  # saves one Phi-like matrix to disk

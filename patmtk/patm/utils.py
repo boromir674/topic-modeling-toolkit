@@ -49,14 +49,26 @@ class GenericTopicNamesBuilder:
         self._nb_topics = nb_topics
         self._background_pct = background_topics_pct
         self._background_topics, self._domain_topics = [], []
+        self._names = []
 
-    def _get_generic_topic_names(self, a_range):
-        return ['top_' + index for index in map(lambda x: str(x) if len(str(x)) > 1 else '0' + str(x), range(*a_range))]
+    def _query_topics(self, a_range):
+        return [self._names[i] for i in range(*a_range)]
+
+    @property
+    def _generic_topic_names(self):
+        return ['top_{}'.format(index) for index in [x if len(str(x)) > 1 else '0'+str(x) for x in range(self._nb_topics)]]
+
+    def define_topics(self, names_list):
+        self._background_topics, self._domain_topics = [], []
+        self._nb_topics = len(names_list)
+        self._names = names_list
+        return self
 
     def define_nb_topics(self, nb_topics):
         if nb_topics != self._nb_topics:
             self._background_topics, self._domain_topics = [], []
             self._nb_topics = nb_topics
+            self._names = self._generic_topic_names
         return self
     def define_background_pct(self, pct):
         if pct != self._background_pct:
@@ -66,11 +78,11 @@ class GenericTopicNamesBuilder:
 
     def get_background_topics(self):
         if not self._background_topics:
-            self._background_topics = self._get_generic_topic_names([int(self._background_pct * self._nb_topics)])
+            self._background_topics = self._query_topics([int(self._background_pct * self._nb_topics)])
         return self._background_topics
     def get_domain_topics(self):
         if not self._domain_topics:
-            self._domain_topics = self._get_generic_topic_names([int(self._background_pct * self._nb_topics), self._nb_topics])
+            self._domain_topics = self._query_topics([int(self._background_pct * self._nb_topics), self._nb_topics])
         return self._domain_topics
     def get_background_n_domain_topics(self):
         return self.get_background_topics(), self.get_domain_topics()
