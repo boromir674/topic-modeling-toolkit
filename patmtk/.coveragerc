@@ -27,4 +27,3 @@ exclude_lines =
     abstractproperty
     abstractclassmethod
     warnings.warn
-

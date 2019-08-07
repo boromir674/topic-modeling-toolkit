@@ -23,11 +23,6 @@ class TextDataset(object):
         self.words = words_file
         self.root_dir = os.path.join(COLLECTIONS_DIR_PATH, self.name)
         self.vowpal = vowpal_file
-        # assert os.path.isdir(self.root_dir)
-        # assert os.path.isfile(self.bowf) and os.path.isfile(self.words)
-        # assert os.path.dirname(self.bowf) == os.path.dirname(self.words) == self.root_dir
-        # assert os.path.isfile(self.vowpal)
-        # assert os.path.dirname(self.vowpal) == self.root_dir
         # self.splits = None
         # self.datapoints = dict([(tag, {}) for tag in split_tags])
 

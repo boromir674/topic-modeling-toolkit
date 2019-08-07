@@ -28,6 +28,11 @@ class ModelFactory(object):
     """
     abbreviation2_class_name = {'@dc': DEFAULT_CLASS_NAME, '@ic': IDEOLOGY_CLASS_NAME}
     def __init__(self, dictionary, cooc_dict):
+        """
+
+        :param dictionary: this dictionary is used for creating artm models and
+        :param cooc_dict:
+        """
         self.dict = dictionary
         self._eval_factory = EvaluationFactory(dictionary, cooc_dict, abbreviation2class_name=self.abbreviation2_class_name)
         self._regularizers_factory = RegularizersFactory(dictionary)

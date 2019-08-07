@@ -30,6 +30,8 @@ class Experiment:
     MAX_DECIMALS = 2
     def __init__(self, root_dir, cooc_dict):
         """
+        :param str root_dir: the full path to a dataset/collection specific directory
+        :param str cooc_dict: the full path to a dataset/collection specific directory
         Encapsulates experimentation by doing topic modeling on a 'collection' in the given patm_root_dir. A 'collection' is a proccessed document collection into BoW format and possibly split into 'train' and 'test' splits
         """
         self._dir = root_dir
