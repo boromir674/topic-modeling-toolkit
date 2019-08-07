@@ -21,16 +21,10 @@ def coherence_builder(collections_root_dir):
     return CoherenceFilesBuilder(os.path.join(collections_root_dir, TEST_COLLECTION))
 
 
-
 class TestDatasetTransformation:
 
-    #
-    # @pytest.mark.parametrize("pipeline_cfg, sample, nb_docs, nb_bows, unique, vocab_file_len", [
-    #     (TEST_PIPELINE_CFG, 100, 100, 1297, 833, 834)
-    # ])
     def test_transform(self, pipe_n_quantities, test_dataset, coherence_builder):
         coherence_builder.create_files(cooc_window=10, min_tf=0, min_df=0, apply_zero_index=False)
-        print "FF", test_dataset.id
         assert test_dataset.name == TEST_COLLECTION
         assert test_dataset.id == self._id(pipe_n_quantities[2], pipe_n_quantities[0])
         assert test_dataset._col_len == pipe_n_quantities[2]
