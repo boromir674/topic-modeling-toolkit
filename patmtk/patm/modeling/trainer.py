@@ -134,7 +134,8 @@ class TrainerFactory(object):
                                                                      vocab_file_path=vocab,
                                                                      symmetric_cooc_values=True)
                 print "Loaded positive pmi dictionary with min_{} = {} from '{}' text file".format(matc.group(2), matc.group(1), name)
-        assert 'tf' in self._mod_tr.cooc_dicts
+        if not 'tf' in self._mod_tr.cooc_dicts:
+            raise RuntimeError("Key 'tf' should be in the coocurrences dictionaries hash: Instead these is the hash: [{}]".format('{}: {}'.format(k, v) for k,v in self._mod_tr.cooc_dicts.items()))
         self._mod_tr.dictionary = self._mod_tr.cooc_dicts['tf']['obj']
 
         # if os.path.exists(bin_dict):
