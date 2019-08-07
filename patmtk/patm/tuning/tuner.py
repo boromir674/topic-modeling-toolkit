@@ -8,10 +8,14 @@ from collections import OrderedDict, Counter
 
 from .building import RegularizersActivationDefinitionBuilder
 
-from patm import trainer_factory, Experiment
+from patm import Experiment
 from patm.modeling.parameters import ParameterGrid
+from patm.modeling import TrainerFactory
 from patm.utils import get_standard_evaluation_definitions
 from patm.definitions import COLLECTIONS_DIR_PATH, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
+
+
+trainer_factory = TrainerFactory()
 
 
 class Tuner(object):
@@ -39,7 +43,7 @@ class Tuner(object):
     def __init__(self, collection, evaluation_definitions=None, verbose=3):
         """
         :param str collection: the name of the 'dataset'/collection to target the tuning process on
-        :param str train_config: full path to 'the' train.cfg file used here only for initializing tracking evaluation scoring capabilities. Namely the necessary BaseScore objects of ARTM lib and the custom ArtmEvaluator objects are initialized
+        :param str train_config: full path to 'the' test-train.cfg file used here only for initializing tracking evaluation scoring capabilities. Namely the necessary BaseScore objects of ARTM lib and the custom ArtmEvaluator objects are initialized
         :param list_of_tuples static_parameters: definition of parameters that will remain constant while exploring the parameter space. The order of this affects the order in which vectors of the parameter space are generated
             ie: [('collection_passes', 100), ('nb_topics', 20), ('document_passes', 5))].
         :param list of tuples explorable_parameters_names: definition of parameter "ranges" that will be explored; the order of list affects the order in which vectors of the parameter space are generated; ie

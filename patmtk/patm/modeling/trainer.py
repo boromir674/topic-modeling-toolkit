@@ -15,8 +15,7 @@ class ModelTrainer(object):
     learning by fitting a topic model instance according to given train settings/specifications. It also notifies any
     observers/listeners on every training cycle updating them with new evaluation scores as the training progresses.
     """
-    def __init__(self, collection_dir):
-        self.col_root = collection_dir
+    def __init__(self):
         self.batch_vectorizer = None
         self.dictionary = artm.Dictionary()
         self.cooc_dicts = {}  # ppmi: positive pmi (Point-Mutual Information)
@@ -83,7 +82,15 @@ class ModelTrainer(object):
                 self.update_observers(topic_model, chunk.span)
                 iter_sum += chunk.span
 
+
 class TrainerFactory(object):
+    __instance = None
+    def __new__(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = super(TrainerFactory, cls).__new__(cls)
+        cls.__instance._collections_root = kwargs.get('collections_root_dir', COLLECTIONS_DIR_PATH)
+        return cls.__instance
+
     ideology_flag2data_format = {True: 'vowpal_wabbit', False: 'bow_uci'}
     ideology_flag2batches_dir_name = {True: 'vow-batches', False: 'uci-batches'}
 
@@ -97,8 +104,8 @@ class TrainerFactory(object):
         :rtype: ModelTrainer
         """
         self._col = collection
-        self._root_dir = os.path.join(COLLECTIONS_DIR_PATH, self._col)
-        self._mod_tr = ModelTrainer(COLLECTIONS_DIR_PATH)
+        self._root_dir = os.path.join(self._collections_root, self._col)
+        self._mod_tr = ModelTrainer()
         self._batches_dir_name = self.ideology_flag2batches_dir_name[exploit_ideology_labels]
         self._batches_target_dir = os.path.join(self._root_dir, self._batches_dir_name)
 

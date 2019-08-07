@@ -23,6 +23,7 @@ class TopicModel(object):
         """
         self.label = label
         self.artm_model = artm_model
+
         self._definition2evaluator = evaluators
         self.definition2evaluator_name = {k: v.name for k, v in evaluators.items()} # {'sparsity-phi': 'spd_p', 'top-tokens-10': 'tt10'}
         self._evaluator_name2definition = {v.name: k for k, v in evaluators.items()} # {'sp_p': 'sparsity-phi', 'tt10': 'top-tokens-10'}

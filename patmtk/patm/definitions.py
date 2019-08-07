@@ -1,9 +1,6 @@
 import os
 from collections import OrderedDict
 
-from processors.string_processors import LowerCaser, MonoSpacer, UtfEncoder, DeAccenter, StringLemmatizer
-from processors.generator_processors import MinLengthFilter, MaxLengthFilter, WordToNgramGenerator
-from processors.disk_writer_processors import UciFormatWriter, VowpalFormatWriter
 
 my_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -12,7 +9,7 @@ MODELS_DIR_NAME = 'models'
 GRAPHS_DIR_NAME = 'graphs'
 
 REGULARIZERS_CFG = os.path.join(my_dir, '../regularizers.cfg')
-TRAIN_CFG = os.path.join(my_dir, '../train.cfg')
+TRAIN_CFG = os.path.join(my_dir, '../test-train.cfg')
 
 patm_root_dir = '/data/thesis'
 data_root_dir = '/data/thesis/data'
@@ -33,7 +30,7 @@ cat2file_ids = dict(zip(categories, ((2, 5, 38),
                                      (24, 31, 36)
                                      )))
 
-cat2files = {cat: [os.path.join(cat2dir[cat], '{}_{}_{}.pkl'.format(pre, iid, cat)) for iid in cat2file_ids[cat]] for cat in categories}
+CATEGORY_2_FILES_HASH = {cat: [os.path.join(cat2dir[cat], '{}_{}_{}.pkl'.format(pre, iid, cat)) for iid in cat2file_ids[cat]] for cat in categories}
 
 
 ###### TOKEN COOCURENCE INFORMATION #####
@@ -41,57 +38,6 @@ COOCURENCE_DICT_FILE_NAMES = ['cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
 
 ###### CONSTANTS #####
 BINARY_DICTIONARY_NAME = 'mydic.dict'
-
-
-###### ###### ###### ###### ###### ######
-
-encode_pipeline_cfg = {
-    'lowercase': lambda x: bool(eval(x)),
-    'monospace': lambda x: bool(eval(x)),
-    'unicode': lambda x: bool(eval(x)),
-    'deaccent': lambda x: bool(eval(x)),
-    'normalize': str,
-    'minlength': int,
-    'maxlength': int,
-    'nobelow': int,
-    'noabove': float,
-    'ngrams': int,
-    'weight': str,
-    'format': str
-}
-
-settings_value2processors = {
-    'lowercase': lambda x: LowerCaser() if x else None,
-    'monospace': lambda x: MonoSpacer() if x else None,
-    'unicode': lambda x: UtfEncoder() if x else None,
-    'deaccent': lambda x: DeAccenter() if x else None,
-    'normalize': lambda x: StringLemmatizer() if x == 'lemmatize' else None,
-    'minlength': lambda x: MinLengthFilter(x) if x else None,
-    'maxlength': lambda x: MaxLengthFilter(x) if x else None,
-    'nobelow': lambda x: x if x else None,
-    'noabove': lambda x: x if x else None,
-    'ngrams': lambda x: WordToNgramGenerator(x) if x else None,
-    'weight': lambda x: x if x else None,
-    'format': lambda x: {'uci': UciFormatWriter(), 'vowpal': VowpalFormatWriter()}[x] if x else None
-}
-
-
-def tuple2string(pipeline_component, value):
-    if type(value) == bool:
-        if value:
-            return pipeline_component
-        else:
-            return ''
-    elif pipeline_component == 'format':
-        return value
-    else:
-        return '{}-{}'.format(pipeline_component, value)
-
-
-def get_id(pipe_settings):
-    assert isinstance(pipe_settings, OrderedDict)
-
-    return '_'.join(tuple2string(pipeline_component, value) for pipeline_component, value in pipe_settings.items() if tuple2string(pipeline_component, value))
 
 
 ############## IDEOLOGY INFORMATION ##############

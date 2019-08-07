@@ -9,7 +9,9 @@ from results.experimental_results import TrackedKernel, RoundTripEncoder, RoundT
 
 from patm.modeling import Experiment
 from patm.definitions import COLLECTIONS_DIR_PATH, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
-from patm.modeling import trainer_factory
+from patm.modeling import TrainerFactory
+
+trainer_factory = TrainerFactory()
 
 # Random order for tests runs. (Original is: -1 if x<y, 0 if x==y, 1 if x>y).
 unittest.TestLoader.sortTestMethodsUsing = lambda _, x, y: randint(-1, 1)
