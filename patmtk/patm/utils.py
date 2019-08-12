@@ -18,6 +18,9 @@ def get_standard_evaluation_definitions():
     :return:
     :rtype: OrderedDict
     """
+    _ = cfg2model_settings(TRAIN_CFG)
+    if 'scores' not in _:
+        raise KeyError("'scores' section is missing from cfg file '{}'.".format(TRAIN_CFG))
     return cfg2model_settings(TRAIN_CFG)['scores']
 
 def get_standard_regularization_definitions():

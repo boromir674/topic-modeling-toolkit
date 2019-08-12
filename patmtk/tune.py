@@ -18,8 +18,9 @@ def get_cli_arguments():
 
 if __name__ == '__main__':
     args = get_cli_arguments()
-
-    tuner = Tuner(args.dataset)
+    from patm.definitions import COLLECTIONS_DIR_PATH
+    from os import path
+    tuner = Tuner(path.join(COLLECTIONS_DIR_PATH, args.dataset))
     tuning_definition = tdb.initialize()\
         .nb_topics(40)\
         .collection_passes(100)\

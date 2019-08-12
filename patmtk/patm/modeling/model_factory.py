@@ -11,20 +11,6 @@ from patm.modeling.regularization.regularizers_factory import RegularizersFactor
 import logging
 logger = logging.getLogger(__name__)
 
-#
-# dicts2model_factory = {}
-#
-# def get_model_factory(dictionary, ppmi_dicts):
-#     """
-#     :param dictionary:
-#     :param ppmi_dicts:
-#     :return:
-#     :rtype: ModelFactory
-#     """
-#     if dictionary not in dicts2model_factory:
-#         dicts2model_factory[dictionary] = ModelFactory(dictionary, ppmi_dicts)
-#     return dicts2model_factory[dictionary]
-
 
 class ModelFactory(object):
     """This class can create a fresh TopicModel or restore a TopicModel's state from disk. In both cases the model is ready to be trained"""
@@ -207,7 +193,7 @@ class ModelFactory(object):
         self._modality_weights = {DEFAULT_CLASS_NAME: 1}
         for modality, weight in modality_weights.items():
             self._set_modality(modality, weight)
-        logger.info("'Modalities/class-ids' and 'weights as coefficients' additivev factors contributing to the likelihodd function: {}".format(self._modality_weights))
+        logger.info("'Modalities/class-ids' and 'weights as coefficients' additive factors contributing to the likelihodd function: {}".format(self._modality_weights))
 
     def _set_modality(self, modality, weight):
         if float(weight) <= 0:

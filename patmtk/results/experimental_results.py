@@ -118,10 +118,7 @@ class StringToDictParser(object):
         if kwargs.get('debug', False):
             dd = []
             for d in self.design:
-                print '\nDL: {}'.format(d)
                 dd.append(self.search_debug(d, args[0]))
-                print dd[-1]
-                # dd.append(OrderedDict([(k, v) for k, v in self.search_debug(d, args[0])]))
             if kwargs.get('encode', False):
                 return self.encode(max(dd, key=lambda x: len(x)))
             return max(dd, key=lambda x: len(x))
@@ -130,23 +127,16 @@ class StringToDictParser(object):
                        key=lambda x: len(x)))
         return max([self.search_n_dict(r, args[0]) for r in self.design], key=lambda x: len(x))
 
-
     def search_n_dict(self, design_line, string):
         return OrderedDict([(k, v) for k, v in zip(self._entities(design_line), list(getattr(re.compile(design_line.format(**self.regs), re.X).match(string), 'groups', lambda: len(self._entities(design_line)) * [''])())) if v])
 
     def search_debug(self, design_line, string):
-        print "FF: {}".format(design_line.format(**self.regs))
-        print "Entities: {}".format(self._entities(design_line))
         reg = re.compile(design_line.format(**self.regs), re.X)
-        print "REG: {}".format(str(reg))
         res = reg.search(string)
         if res:
-            print res
             ls = res.groups()
         else:
-            print "NO match with '{}'".format(string)
             ls = len(self._entities(design_line))*['']
-        print 'LS: {}'.format(ls)
         return OrderedDict([(k, v) for k , v in zip(self._entities(design_line), list(ls)) if v])
 
     def encode(self, ord_d):

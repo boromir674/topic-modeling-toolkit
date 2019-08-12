@@ -8,7 +8,7 @@ def readme():
 
 setup(
     name='patmtk',
-    version='0.5.1',
+    version='0.5.2',
     description='Perspectivew Aware Topic Modeling Toolkit',
     long_description=readme(),
     keywords='topic modeling machine learning',

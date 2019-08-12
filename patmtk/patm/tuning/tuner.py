@@ -8,7 +8,7 @@ from collections import OrderedDict, Counter
 
 from .building import RegularizersActivationDefinitionBuilder
 
-from patm import Experiment
+from patm.modeling import Experiment
 from patm.modeling.parameters import ParameterGrid
 from patm.modeling import TrainerFactory
 from patm.utils import get_standard_evaluation_definitions
@@ -40,9 +40,9 @@ class Tuner(object):
     - decorrelate_topics_reg_coef        eg: 1e+5\n
     """
 
-    def __init__(self, collection, evaluation_definitions=None, verbose=3):
+    def __init__(self, collection_dir, evaluation_definitions=None, verbose=3):
         """
-        :param str collection: the name of the 'dataset'/collection to target the tuning process on
+        :param str collection_dir: the path to a 'dataset'/collection to target the tuning process on
         :param str train_config: full path to 'the' test-train.cfg file used here only for initializing tracking evaluation scoring capabilities. Namely the necessary BaseScore objects of ARTM lib and the custom ArtmEvaluator objects are initialized
         :param list_of_tuples static_parameters: definition of parameters that will remain constant while exploring the parameter space. The order of this affects the order in which vectors of the parameter space are generated
             ie: [('collection_passes', 100), ('nb_topics', 20), ('document_passes', 5))].
@@ -52,7 +52,7 @@ class Tuner(object):
         """
         self._set_verbosity_level(verbose)
         self._required_parameters = ('nb_topics', 'document_passes', 'collection_passes')
-        self._dir = os.path.join(COLLECTIONS_DIR_PATH, collection)
+        self._dir = collection_dir
         if evaluation_definitions:
             self._score_defs = evaluation_definitions
         else:
@@ -66,7 +66,7 @@ class Tuner(object):
         self._allowed_labeling_params = ['collection_passes', 'nb_topics', 'document_passes', 'background_topics_pct', 'ideology_class_weight'] + \
                                         reduce(lambda i,j: i+j, map(lambda y: map(lambda x: y+'.'+x, ('deactivate', 'kind', 'start', 'end')), ('sparse_phi', 'sparse_theta')))
         self._active_reg_def_builder = RegularizersActivationDefinitionBuilder(tuner=self)
-        self.trainer = trainer_factory.create_trainer(collection, exploit_ideology_labels=True)  # forces to use (and create if not found) batches holding modality information in case it is needed
+        self.trainer = trainer_factory.create_trainer(os.path.basename(collection_dir), exploit_ideology_labels=True)  # forces to use (and create if not found) batches holding modality information in case it is needed
         self.experiment = Experiment(self._dir, self.trainer.cooc_dicts)
         self.trainer.register(self.experiment)  # when the model_trainer trains, the experiment object listens to changes
         self._parameter_grid_searcher = None
@@ -76,7 +76,9 @@ class Tuner(object):
                                                 'sparse-theta': {'alpha_iter': 1, 'tau': 'linear_-3_-13', 'start': 4},
                                                 'label-regularization-phi': {'tau': 1.0},
                                                 'label-regularization-phi-dom-def': {'tau': 1e5},
+                                                'label-regularization-phi-dom-cls': {'tau': 1e5},
                                                 'decorrelate-phi-def': {'tau': 10000},
+                                                'decorrelate-phi-dom-def': {'tau': 10000},
                                                 'decorrelate-phi-class': {'tau': 10000},
                                                 'decorrelate-phi-domain': {'tau': 10000},
                                                 'decorrelate-phi-background': {'tau': 10000},
@@ -130,10 +132,6 @@ class Tuner(object):
     @property
     def static_regularization_specs(self):
         return self._reg_specs
-
-    @static_regularization_specs.setter
-    def static_regularization_specs(self, regularizers_specs):
-        self._reg_specs = regularizers_specs
 
     def _set_verbosity_level(self, input_verbose):
         try:
@@ -239,9 +237,9 @@ class Tuner(object):
             print 'Search space', tuner_definition.parameter_spans
         if static_regularizers_specifications:
             # for which ever of the activated regularizers there is a missing setting, then use a default value
-            self.static_regularization_specs = self._create_reg_specs(static_regularizers_specifications, self.active_regularizers)
+            self._reg_specs = self._create_reg_specs(static_regularizers_specifications, self.active_regularizers)
         else:
-            self.static_regularization_specs = self._create_reg_specs(self._default_regularizer_parameters, self.active_regularizers)
+            self._reg_specs = self._create_reg_specs(self._default_regularizer_parameters, self.active_regularizers)
 
     def _initialize_labeling_functionality(self, prefix_label='', append_explorables='all', append_static=None, overwrite=False):
         """Call this method to:
@@ -288,15 +286,15 @@ class Tuner(object):
             self._labeler = lambda index: self._build_label(self.parameter_vector)
 
     def _create_model_n_specs(self):
-        self.static_regularization_specs = self._replace_settings_with_supported_explorable(self._reg_specs)
+        self._reg_specs = self._replace_settings_with_supported_explorable(self._reg_specs)
         tm = self.trainer.model_factory.construct_model(self._cur_label, self._val('nb_topics'),
-                                                              self._val('collection_passes'),
-                                                              self._val('document_passes'),
-                                                              self._val('background_topics_pct'),
-                                                              {DEFAULT_CLASS_NAME: self._val('default_class_weight'), IDEOLOGY_CLASS_NAME: self._val('ideology_class_weight')},
-                                                              self._score_defs,
-                                                              self._active_regs,
-                                                              reg_settings=self.static_regularization_specs)
+                                                        self._val('collection_passes'),
+                                                        self._val('document_passes'),
+                                                        self._val('background_topics_pct'),
+                                                        {k:v for k, v in {DEFAULT_CLASS_NAME: self._val('default_class_weight'), IDEOLOGY_CLASS_NAME: self._val('ideology_class_weight')}.items() if v},
+                                                        self._score_defs,
+                                                        self._active_regs,
+                                                        reg_settings=self.static_regularization_specs)
         tr_specs = self.trainer.model_factory.create_train_specs(self._val('collection_passes'))
         return tm, tr_specs
 
@@ -318,8 +316,11 @@ class Tuner(object):
 
     def _create_reg_specs(self, reg_settings, active_regularizers):
         """Call this method to use default values where missing, according to given activated regularizers"""
-        return {k: dict(map(lambda x: (x[0], reg_settings[k].get(x[0],
-            self._default_regularizer_parameters[k][x[0]])), self._default_regularizer_parameters[k].items())) for k in active_regularizers}
+        try:
+            return {k: dict(map(lambda x: (x[0], reg_settings[k].get(x[0],
+                self._default_regularizer_parameters[k][x[0]])), self._default_regularizer_parameters[k].items())) for k in active_regularizers}
+        except KeyError as e:
+            raise KeyError("Error: {}. Probably you need to manually update the self._default_regularizer_parameters attribute so that it has the same kyes as the train.cfg".format(str(e)))
 
     def _get_overlapping_indices(self, maximal_model_labels):
         _ = map(lambda x: self._trans((x[1] in self.experiment.train_results_handler.list, x[1] in self.experiment.phi_matrix_handler.list), x[0]),

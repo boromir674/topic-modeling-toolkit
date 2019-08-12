@@ -12,6 +12,7 @@ from patm.modeling import Experiment
 
 
 MODULE_DIR = os.path.dirname(os.path.realpath(__file__))
+DATA_DIR = os.path.join(MODULE_DIR, 'data')
 
 TEST_PIPELINE_CFG = os.path.join(MODULE_DIR, 'test-pipeline.cfg')
 TRAIN_CFG = os.path.join(MODULE_DIR, 'test-train.cfg')
@@ -31,6 +32,12 @@ def collections_root_dir(tmpdir_factory):
 @pytest.fixture(scope='session')
 def test_collection_name():
     return TEST_COLLECTION
+
+
+@pytest.fixture(scope='session')
+def rq1_cplsa_results_json():
+    """These are the results gathered for a cplsa trained model"""
+    return os.path.join(DATA_DIR, 'cplsa100000_0.2_0.json')
 
 
 @pytest.fixture(scope='session')

@@ -29,14 +29,8 @@ if __name__ == '__main__':
                'sparsity-phi',
                'sparsity-theta',
                'background-tokens-ratio',
-               'regularizers'
+               # 'regularizers'
                ]
-
-    # COLUMNS = ['nb-topics', 'collection-passes', 'perplexity']
-               # 'kernel-coherence', 'kernel-contrast', 'kernel-purity', 'top-tokens-coherence', 'sparsity-phi',
-               # 'sparsity-theta',
-               # 'background-tokens-ratio',
-               # 'regularizers']
 
     cli_args = get_cli_arguments()
 
