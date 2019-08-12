@@ -1,11 +1,12 @@
 import abc
-from pprint import pprint
 from warnings import warn
 
 import artm
 
 from patm.modeling.parameters import trajectory_builder
 
+import logging
+logger = logging.getLogger(__name__)
 
 class ArtmRegularizerWrapper(object):
     __metaclass__ = abc.ABCMeta
@@ -42,12 +43,11 @@ class ArtmRegularizerWrapper(object):
                 except ValueError:
                     self._traj_def[k] = self._traj_type2traj_def_creator[k]([self._start, v])  # case: parameter_value is a trajectory definition without the 'start' setting (nb of initial iterations that regularizer stays inactive)
                     self._params_for_labeling[k] = self._traj_def[k]
-        self._create_artm_regularizer(dict(self._reg_constr_params, **{'name': self._name}), verbose=verbose)
+        self._create_artm_regularizer(dict(self._reg_constr_params, **{'name': self._name}))
 
-    def _create_artm_regularizer(self, parameters, verbose=True):
+    def _create_artm_regularizer(self, parameters):
         self._regularizer = self._artm_constructor(**parameters)
-        if verbose:
-            print "BUILT '{}'/'{}' reg, named '{}', with settings: {}".format(self.type, self._long_type, self._name, '{'+', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), parameters.items()))+'}')
+        logger.info("Built '{}'/'{}' reg, named '{}', with settings: {}".format(self.type, self._long_type, self._name, '{'+', '.join(map(lambda x: '{}={}'.format(x[0], x[1]), parameters.items()))+'}'))
 
     @classmethod
     def register_subclass(cls, regularizer_type):
@@ -117,11 +117,10 @@ class SmoothSparseRegularizerWrapper(ArtmRegularizerWrapper):
         :param params_dict:
         :param targeted_topics:
         """
-        assert 'name' in params_dict
         if len(targeted_topics) == 0:
-            # T.O.D.O below: the warning should fire if smooth is active because then there must be defined
-            # non overlapping sets of 'domain' and 'background' topics
-            warn("Set Smooth regularizer to target all topics. This is valid only if you do use 'domain' topics for other regularizers; ie in case you emulate an LDA model because smoothing achieves this behaviour.")
+            logger.warning("Did not specify topics to target with the '{}' {} regularizer. By default the Smooth regularizer will target all topics. "
+                           "This is recommended only if all your regularizers target all topics (no notion of background-domain separation). "
+                           "If you are modeling an LDA (plsa_formula + smoothing regularization over all topics), ignore this warning.".format(params_dict['name'], type(self).__name__))
             targeted_topics = None
         super(SmoothSparseRegularizerWrapper, self).__init__(dict(params_dict, **{'topic_names': targeted_topics}))
 

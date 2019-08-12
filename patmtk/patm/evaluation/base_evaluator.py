@@ -90,7 +90,9 @@ class ArtmEvaluator(AbstractEvaluator):
 class PerplexityEvaluator(ArtmEvaluator):
     attributes = ('normalizer', 'raw', 'value')  # smaller the "value", better. bigger the "raw", better
     def __init__(self, name, dictionary, modality_class):
-        super(PerplexityEvaluator, self).__init__(name, PerplexityScore(name=name, class_ids=modality_class, dictionary=dictionary), self.attributes)
+        super(PerplexityEvaluator, self).__init__(name,
+                                                  PerplexityScore(name=name, class_ids=modality_class, dictionary=dictionary),
+                                                  self.attributes)
         super(PerplexityEvaluator, self)._set_settings({'modality': modality_class})
 
 
@@ -98,7 +100,9 @@ class SparsityPhiEvaluator(ArtmEvaluator):
     attributes = ('total_tokens', 'value', 'zero_tokens') # bigger value, better.
     def __init__(self, name, modality):
         assert modality in (DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME)
-        super(SparsityPhiEvaluator, self).__init__(name, SparsityPhiScore(name=name, class_id=modality), self.attributes)
+        super(SparsityPhiEvaluator, self).__init__(name,
+                                                   SparsityPhiScore(name=name, class_id=modality),
+                                                   self.attributes)
         super(SparsityPhiEvaluator, self)._set_settings({'modality': modality})
         self._modality = modality
 
@@ -110,7 +114,9 @@ class SparsityPhiEvaluator(ArtmEvaluator):
 class SparsityThetaEvaluator(ArtmEvaluator):
     attributes = ('total_topics', 'value', 'zero_topics')  # bigger value, better.
     def __init__(self, name, domain_topics):
-        super(SparsityThetaEvaluator, self).__init__(name, SparsityThetaScore(name=name, topic_names=domain_topics), self.attributes)
+        super(SparsityThetaEvaluator, self).__init__(name,
+                                                     SparsityThetaScore(name=name, topic_names=domain_topics),
+                                                     self.attributes)
         super(SparsityThetaEvaluator, self)._set_settings({'topic_names': domain_topics})
 
 
@@ -124,7 +130,10 @@ class KernelEvaluator(ArtmEvaluator):
         assert 0 < threshold < 1
         if threshold < 0.5:
             warnings.warn("The value of 'probability_mass_threshold' parameter should be set to 0.5 or higher")
-        super(KernelEvaluator, self).__init__(name, TopicKernelScore(name=name, class_id=DEFAULT_CLASS_NAME, topic_names=domain_topics, probability_mass_threshold=threshold, dictionary=dictionary), self.attributes)
+        super(KernelEvaluator, self).__init__(name,
+                                              TopicKernelScore(name=name, class_id=DEFAULT_CLASS_NAME, topic_names=domain_topics,
+                                                               probability_mass_threshold=threshold, dictionary=dictionary),
+                                              self.attributes)
         super(KernelEvaluator, self)._set_settings({'topic_names': domain_topics, 'threshold': threshold})
         self._probability_mass_threshold = threshold
 
@@ -137,7 +146,10 @@ class TopTokensEvaluator(ArtmEvaluator):
     attributes = ('average_coherence', 'coherence', 'num_tokens', 'tokens', 'weights')
     def __init__(self, name, domain_topics, dictionary, nb_top_tokens):
         assert 0 < nb_top_tokens
-        super(TopTokensEvaluator, self).__init__(name, TopTokensScore(name=name, class_id=DEFAULT_CLASS_NAME, topic_names=domain_topics, num_tokens=nb_top_tokens, dictionary=dictionary), self.attributes)
+        super(TopTokensEvaluator, self).__init__(name,
+                                                 TopTokensScore(name=name, class_id=DEFAULT_CLASS_NAME, topic_names=domain_topics,
+                                                                num_tokens=nb_top_tokens, dictionary=dictionary),
+                                                 self.attributes)
         super(TopTokensEvaluator, self)._set_settings({'topic_names': domain_topics, 'top_tokens': nb_top_tokens})
         self._top_tokens = nb_top_tokens
 
@@ -160,7 +172,10 @@ class BackgroundTokensRatioEvaluator(ArtmEvaluator):
         :param float delta_threshold: the threshold for KL-div between p(t|w) and p(t) to get token into background. Should be non-negative
         """
         assert 0 <= delta_threshold
-        super(BackgroundTokensRatioEvaluator, self).__init__(name, BackgroundTokensRatioScore(name=name, class_id=DEFAULT_CLASS_NAME, delta_threshold=delta_threshold, save_tokens=True), self.attributes)
+        super(BackgroundTokensRatioEvaluator, self).__init__(name,
+                                                             BackgroundTokensRatioScore(name=name, class_id=DEFAULT_CLASS_NAME,
+                                                                                        delta_threshold=delta_threshold, save_tokens=True),
+                                                             self.attributes)
         super(BackgroundTokensRatioEvaluator, self)._set_settings({'delta_threshold': delta_threshold})
         self._delta_threshold = delta_threshold
 
