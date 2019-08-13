@@ -1,6 +1,12 @@
 import os
-import cPickle as pickle
 from patm.definitions import COLLECTIONS_DIR_PATH
+
+import sys
+if sys.version_info[0] < 3:
+    import cPickle as pickle
+else:
+    import pickle as pickle
+
 
 class TextDataset(object):
     def __init__(self, name, _id, nb_docs, unique_words, nb_words, weights_file, words_file, vowpal_file):

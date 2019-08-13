@@ -37,12 +37,12 @@ if __name__ == '__main__':
     ph = PipeHandler(COLLECTIONS_DIR_PATH, args.category, sample=nb_docs)
     ph.pipeline = args.config
     # ph.create_pipeline(args.config)
-    print '\n', ph.pipeline, '\n'
+    print('\n', ph.pipeline, '\n')
 
     uci_dt = ph.preprocess(args.collection, not args.exclude_class_labels_from_vocab)
-    print uci_dt
+    print(uci_dt)
 
-    print '\nBuilding coocurences information'
+    print('\nBuilding coocurences information')
     coherence_builder = CoherenceFilesBuilder(os.path.join(COLLECTIONS_DIR_PATH, args.collection))
     coherence_builder.create_files(cooc_window=args.window,
                                    min_tf=args.min_tf,

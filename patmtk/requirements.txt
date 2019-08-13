@@ -1,5 +1,12 @@
+in_place
 tqdm
-artm
-easyplot
+gensim
 matplotlib
 numpy
+attrs
+future
+nltk
+click
+pattern  # only used to support the lemmatization feature during preprocessing. takes around 65 MB in a venv
+
+easyplot

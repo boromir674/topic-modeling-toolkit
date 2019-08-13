@@ -1,7 +1,7 @@
 #!/usr/bin/python3.5
 
 import argparse
-from reporting import model_reporter
+from reporting import ModelReporter
 from reporting.reporter import InvalidMetricException
 
 
@@ -35,7 +35,8 @@ if __name__ == '__main__':
     cli_args = get_cli_arguments()
 
     sort_metric = cli_args.sort
-
+    from patm.definitions import COLLECTIONS_DIR_PATH
+    model_reporter = ModelReporter(COLLECTIONS_DIR_PATH)
     while 1:
         try:
             s = model_reporter.get_formatted_string(cli_args.dataset, columns=COLUMNS, metric=sort_metric, verbose=True)

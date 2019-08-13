@@ -1,4 +1,4 @@
-from processor import StateLessProcessor
+from .processor import StateLessProcessor
 
 
 class GeneratorProcessor(StateLessProcessor):

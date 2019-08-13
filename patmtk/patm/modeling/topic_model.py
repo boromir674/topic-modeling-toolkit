@@ -123,11 +123,13 @@ class TopicModel(object):
         """Returns the mostly agreed list of topic names found in all evaluators"""
         c = Counter()
         for definition, evaluator in self._definition2evaluator.items():
-            if hasattr(evaluator.artm_score, 'topic_names'):
+            tn = getattr(evaluator, 'topic_names', None)
+            if tn:
+            # if hasattr(evaluator.artm_score, 'topic_names'):
                 # print definition, evaluator.artm_score.topic_names
-                tn = evaluator.artm_score.topic_names
-                if tn:
-                    c['+'.join(tn)] += 1
+                # tn = evaluator.artm_score.topic_names
+                # if tn:
+                c['+'.join(tn)] += 1
         if len(c) > 2:
             warnings.warn("There exist {} different subsets of all the topic names targeted by evaluators".format(len(c)))
         # print c.most_common()

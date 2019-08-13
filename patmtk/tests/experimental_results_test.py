@@ -182,6 +182,18 @@ class TestExperimentalResults(object):
         self._exp_res_obj_assertions(exp_res, experiment, train_settings)
         self._assert_tokens_loading_correctness(experiment, exp_res)
 
+    def test_attributes(self, exp_res_obj1):
+        # assert hasattr(exp_res_obj1.track, 'top10')
+        assert hasattr(exp_res_obj1.tracked, 'top_tokens_100')
+        assert hasattr(exp_res_obj1.tracked, 'top100')
+        assert getattr(exp_res_obj1, 'top1000', 2) == 2
+        assert getattr(exp_res_obj1.tracked, 'top100') == exp_res_obj1.tracked.top_100 == exp_res_obj1.tracked.top_tokens_100
+        with(pytest.raises(AttributeError)):
+            _ = exp_res_obj1.tracked.dibou
+
+        with(pytest.raises(AttributeError)):
+            _ = exp_res_obj1.a
+
     # @pytest.mark.skip()
     def test_loaded_model(self, loaded_model_n_experiment, train_settings):
         model, experiment = loaded_model_n_experiment

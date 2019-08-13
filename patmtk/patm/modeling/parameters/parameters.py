@@ -1,5 +1,5 @@
 import abc
-
+from functools import reduce
 from builtins import object  # python 2-3 cross support
 
 
@@ -11,7 +11,7 @@ class Parameter(object):
         raise NotImplemented
 
 class AbstractImmutableParameter(Parameter):
-    __slots__ = ['value']
+    # __slots__ = ['value']
 
     def value(self):
         raise NotImplementedError
@@ -87,7 +87,7 @@ class ParameterGrid(object):
         self._span_lens = [len(_) for _ in self._spans]
         self._inds = [0] * len(self._spans)
         self._to_increment = len(self._spans) - 1
-        self._parameter_vector = map(next, self._spans)
+        self._parameter_vector = [next(x) for x in self._spans]
 
     def _increment(self):
         """Should change the self._parameter_vector to the next state to yield in self.__iter__"""

@@ -1,18 +1,16 @@
 
 import pytest
-
-from patm.modeling.parameters import ParameterGrid, TrajectoryBuilder
-
 from patm.modeling.parameters.parameters import ParameterSpan
+from patm.modeling.parameters import ParameterGrid, TrajectoryBuilder
 from patm.modeling.parameters.trajectory import IterationChunks, IterChunk, get_fit_iteration_chunks
 
 
 @pytest.fixture(scope='module')
 def parameter_grid():
-    sp1 = ParameterSpan([1, 2, 3])
-    sp2 = ParameterSpan(['a', 'b'])
-    sp3 = ParameterSpan([10, 0])
-    return ParameterGrid([sp1, sp2, sp3])
+    return ParameterGrid([
+        ParameterSpan([1, 2, 3]),
+        ParameterSpan(['a', 'b']),
+        ParameterSpan([10, 0])])
 
 
 def test_parameter_grid(parameter_grid):

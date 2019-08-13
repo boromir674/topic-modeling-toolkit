@@ -51,6 +51,9 @@ class ExperimentalResults(object):
             indent = 2
         else:
             indent = None
+        import os
+        if not os.path.isdir(os.path.dirname(file_path)):
+            raise FileNotFoundError("Directory in path '{}' has not been created.".format(os.path.dirname(file_path)))
         with open(file_path, 'w') as fp:
             json.dump(self, fp, cls=RoundTripEncoder, indent=indent)
 
@@ -330,7 +333,7 @@ class ValueTracker(object):
             return self.scores[key]
         elif key in self._rest:
             return self._rest[key]
-        raise KeyError(
+        raise AttributeError(
             "Requested item '{}', converted to '{}' after parsed as {}. It was not found either in ValueTracker.scores [{}] nor in ValueTracker._rest [{}]".format(
                 item, key, d, ', '.join(sorted(self.scores.keys())), ', '.join(sorted(self._rest.keys()))))
 
@@ -470,7 +473,7 @@ class SteadyTrackedItems(object):
         background_tokens_threshold = 0  # no distinction between background and "domain" tokens
         for eval_def in data['tracked']:
             if eval_def.startswith('background-tokens-ratio'):
-                background_tokens_threshold = float(eval_def.split('-')[-1])
+                background_tokens_threshold = max(background_tokens_threshold, float(eval_def.split('-')[-1]))
         return SteadyTrackedItems(steady['dir'], steady['label'], data['scalars']['dataset_iterations'], steady['nb_topics'],
                                   steady['document_passes'], steady['background_topics'], steady['domain_topics'], background_tokens_threshold, steady['modalities'])
 

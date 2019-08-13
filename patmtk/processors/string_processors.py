@@ -3,7 +3,7 @@ from gensim.utils import deaccent as gen_deaccent
 from gensim.utils import lemmatize as gen_lemmatize
 from nltk.corpus import stopwords
 
-from processor import StateLessProcessor
+from .processor import StateLessProcessor
 
 en_stopwords = set(stopwords.words('english'))
 
@@ -32,7 +32,10 @@ def utf8encode(a_string):
 
 
 def lemmatize(a_string):
-    return ' '.join(map(lambda x: x.split('/')[0], gen_lemmatize(a_string, stopwords=en_stopwords, min_length=2, max_length=50)))
+    try:
+        return ' '.join(x[0] for x in [str(x).split('/') for x in gen_lemmatize(a_string, stopwords=en_stopwords, min_length=2, max_length=50)])
+    except TypeError as e:
+        raise TypeError("Error: {}. Input {} of type {}".format(e, a_string, type(a_string).__name__))
 
 
 class LowerCaser(StringProcessor):

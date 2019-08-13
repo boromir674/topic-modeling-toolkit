@@ -31,6 +31,8 @@ class Experiment:
         self._topic_model = None
         self.collection_passes = []
         self.trackables = None
+        # self.train_results_handler = ResultsWL.from_experiment(self)
+        # self.phi_matrix_handler = ModelWL.from_experiment(self)
         self.train_results_handler = ResultsWL(self)
         self.phi_matrix_handler = ModelWL(self)
         self.failed_top_tokens_coherence = {}
@@ -111,8 +113,8 @@ class Experiment:
     def update(self, topic_model, span):
         self.collection_passes.append(span) # iterations performed on the train set for the current 'steady' chunk
 
-        for unique_reg_type, reg_settings in topic_model.get_regs_param_dict().items():
-            for param_name, param_value in reg_settings.items():
+        for unique_reg_type, reg_settings in list(topic_model.get_regs_param_dict().items()):
+            for param_name, param_value in list(reg_settings.items()):
                 self.regularizers_dynamic_parameters[unique_reg_type][param_name].extend([param_value] * span)
         for evaluator_name, evaluator_definition in zip(topic_model.evaluator_names, topic_model.evaluator_definitions):
             reportable_to_results = topic_model.get_evaluator(evaluator_name).evaluate(topic_model.artm_model)
@@ -125,18 +127,18 @@ class Experiment:
                 self.trackables[definition_with_max_decimals][1].extend(reportable_to_results['average_contrast'][-span:])
                 self.trackables[definition_with_max_decimals][2].extend(reportable_to_results['average_purity'][-span:])
                 self.trackables[definition_with_max_decimals][3].extend(reportable_to_results['average_size'][-span:])
-                for topic_name, topic_metrics in self.trackables[definition_with_max_decimals][4].items():
-                    topic_metrics['coherence'].extend(map(lambda x: x[topic_name], reportable_to_results['coherence'][-span:]))
-                    topic_metrics['contrast'].extend(map(lambda x: x[topic_name], reportable_to_results['contrast'][-span:]))
-                    topic_metrics['purity'].extend(map(lambda x: x[topic_name], reportable_to_results['purity'][-span:]))
-                    topic_metrics['size'].extend(map(lambda x: x[topic_name], reportable_to_results['size'][-span:]))
+                for topic_name, topic_metrics in list(self.trackables[definition_with_max_decimals][4].items()):
+                    topic_metrics['coherence'].extend([x[topic_name] for x in reportable_to_results['coherence'][-span:]])
+                    topic_metrics['contrast'].extend([x[topic_name] for x in reportable_to_results['contrast'][-span:]])
+                    topic_metrics['purity'].extend([x[topic_name] for x in reportable_to_results['purity'][-span:]])
+                    topic_metrics['size'].extend([x[topic_name] for x in reportable_to_results['size'][-span:]])
             elif evaluator_definition.startswith('top-tokens-'):
                 self.trackables[evaluator_definition][0].extend(reportable_to_results['average_coherence'][-span:])
 
                 assert 'coherence' in reportable_to_results
-                for topic_name, topic_metrics in self.trackables[evaluator_definition][1].items():
+                for topic_name, topic_metrics in list(self.trackables[evaluator_definition][1].items()):
                     try:
-                        topic_metrics.extend(map(lambda x: x[topic_name], reportable_to_results['coherence'][-span:]))
+                        topic_metrics.extend([x[topic_name] for x in reportable_to_results['coherence'][-span:]])
                     except KeyError:
                         if len(self.failed_top_tokens_coherence[evaluator_definition][topic_name]) == 0:
                             self.failed_top_tokens_coherence[evaluator_definition][topic_name].append((self._total_passes, span))
@@ -197,8 +199,8 @@ class Experiment:
             raise RuntimeError("Tracked: {}, dynamic reg params: {}".format(results.tracked, results.tracked.regularization_dynamic_parameters))
         self.trackables = self._get_trackables(results)
         self.final_tokens = {
-            'topic-kernel': {kernel_def: {t_name: list(tokens) for t_name, tokens in topics_tokens} for kernel_def, topics_tokens in results.final.kernel_hash.items()},
-            'top-tokens': {top_tokens_def: {t_name: list(tokens) for t_name, tokens in topics_tokens} for top_tokens_def, topics_tokens in results.final.top_hash.items()},
+            'topic-kernel': {kernel_def: {t_name: list(tokens) for t_name, tokens in topics_tokens} for kernel_def, topics_tokens in list(results.final.kernel_hash.items())},
+            'top-tokens': {top_tokens_def: {t_name: list(tokens) for t_name, tokens in topics_tokens} for top_tokens_def, topics_tokens in list(results.final.top_hash.items())},
             'background-tokens': list(results.final.background_tokens),
         }
         return self._topic_model
@@ -261,7 +263,7 @@ class DegenerationChecker(object):
 
     def get_degeneration_info(self, dict_list):
         self._initialize()
-        return dict(map(lambda x: (x, self.get_degenerated_tuples(x, self._get_struct(dict_list))), self._keys))
+        return dict([(x, self.get_degenerated_tuples(x, self._get_struct(dict_list))) for x in self._keys])
 
     # def get_degen_info_0(self, dict_list):
     #     self.build(dict_list)
@@ -279,7 +281,7 @@ class DegenerationChecker(object):
         :param list struct: output of self._get_struct(dict_list)
         :return: a list of tuples indicating starting and finishing train iterations when the information has been degenerated (missing)
         """
-        _ = filter(None, map(lambda x: self._build_tuple(key, x[1], x[0]), enumerate(struct)))
+        _ = [_f for _f in [self._build_tuple(key, x[1], x[0]) for x in enumerate(struct)] if _f]
         self._add_final(key, _)
         return _
 
@@ -323,10 +325,10 @@ class DegenerationChecker(object):
                     self._building[key] = False
 
     def _get_struct(self, dict_list):
-        return map(lambda x: self._get_degen_keys(self._keys, x), dict_list)
+        return [self._get_degen_keys(self._keys, x) for x in dict_list]
 
     def _get_degen_keys(self, key_list, a_dict):
-        return filter(None, map(lambda x: x if self._has_degenerated(x, a_dict) else None, key_list))
+        return [_f for _f in [x if self._has_degenerated(x, a_dict) else None for x in key_list] if _f]
 
     def _has_degenerated(self, key, a_dict):
         if key not in a_dict or len(a_dict[key]) == 0 or not a_dict[key]: return True

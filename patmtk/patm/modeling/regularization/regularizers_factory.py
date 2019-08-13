@@ -5,7 +5,7 @@ from configparser import ConfigParser
 from patm.utils import cfg2model_settings
 from patm.definitions import REGULARIZERS_CFG, DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME  # this is the name of the default modality. it is irrelevant to class lebels or document lcassification
 
-from regularizers import ArtmRegularizerWrapper
+from .regularizers import ArtmRegularizerWrapper
 
 import logging
 logger = logging.getLogger(__name__)

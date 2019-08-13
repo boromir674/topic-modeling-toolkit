@@ -60,7 +60,7 @@ class StaticAndExplorableMixture(AbstractParameterMixture):
         coefficient trajectory definitions found withing the static and explorable parameters
         """
         res = OrderedDict()
-        for k, v in self._static.items() + self._explorable.items():
+        for k, v in list(self._static.items()) + list(self._explorable.items()):
             if k.startswith('sparse_'):
                 nk = k.split('.')[0]
                 if nk not in res:
@@ -70,7 +70,7 @@ class StaticAndExplorableMixture(AbstractParameterMixture):
 
     @property
     def parameter_spans(self):
-        return self._explorable.values()
+        return list(self._explorable.values())
 
     @property
     def static_parameters(self):

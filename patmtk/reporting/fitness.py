@@ -1,14 +1,10 @@
+import sys
 from abc import ABCMeta
 from collections import defaultdict
 from functools import reduce
 
-# import sys to use with: sys._getframe(1).f_code.co_name
 
-
-import sys
-
-
-class FitnessValue:
+class FitnessValue(object):
     def __init__(self, value):
         self.value = value
     def __abs__(self):
@@ -23,7 +19,7 @@ class FitnessValue:
         return "{:.2f}".format(self.value)
 class NaturalFitnessValue(FitnessValue):
     def __init__(self, value):
-        super().__init__(value)
+        super(NaturalFitnessValue, self).__init__(value)
     def __lt__(self, other):
         return self.value < other.value
     def __le__(self, other):
@@ -34,7 +30,7 @@ class NaturalFitnessValue(FitnessValue):
         return self.value >= other.value
 class ReversedFitnessValue(FitnessValue):
     def __init__(self, value):
-        super().__init__(value)
+        super(ReversedFitnessValue, self).__init__(value)
     def __lt__(self, other):
         return self.value > other.value
     def __le__(self, other):
@@ -50,7 +46,7 @@ _INITIAL_BEST = defaultdict(lambda: 0, perplexity=float('inf'))
 _FITNESS_VALUE_CONSTRUCTORS_HASH = {'natural': NaturalFitnessValue, 'reversed': ReversedFitnessValue}
 
 
-class FitnessFunctionBuilder:
+class FitnessFunctionBuilder(object):
     def __init__(self):
         self._column_definitions = []
         self._extractors = []
@@ -82,7 +78,7 @@ class FitnessFunctionBuilder:
 function_builder = FitnessFunctionBuilder()
 
 
-class FitnessFunction:
+class FitnessFunction(object):
     def __init__(self, extractors, coefficients, names, ordering='natural'):
         self._extr = extractors
         self._coeff = coefficients
@@ -100,7 +96,11 @@ class FitnessFunction:
         return self._order
 
     def compute(self, individual):
-        c = [x(individual) for x in self._extr]
+        try:
+            c = [x(individual) for x in self._extr]
+        except IndexError as e:
+            raise IndexError("Error: {}. Current builder column definitions: [{}], Input: [{}]".format(e, ', '.join(str(_) for _ in sorted(function_builder._column_definitions)),
+                                                                                                       ', '.join(str(_) for _ in sorted(individual))))
         c1 = [self._wrap(x) for x in c]
         c2 = [self._coeff[i] * x for i,x in enumerate(c1)]
         c3 = reduce(lambda i,j: i+j, c2)
@@ -119,9 +119,9 @@ class FitnessFunction:
         return ' + '.join(['{}*{}'.format(x[0], x[1]) for x in zip(self._names, self._coeff)])
 
 
-class FitnessCalculator:
+class FitnessCalculator(object):
     def __new__(cls, *args, **kwargs):
-        x = super().__new__(cls)
+        x = super(FitnessCalculator, cls).__new__(cls)
         x._func = None
         x._column_defs, x._best = [], []
         x._highlightable_columns = []
@@ -130,9 +130,8 @@ class FitnessCalculator:
     def __init__(self, single_metric=None, column_definitions=None):
         if type(single_metric) == str and type(column_definitions) == list:
         # FitnessFunctionBuilder.start(column_definitions).coefficient(single_metric, 1).build()
-            ff = function_builder.start(column_definitions, ordering=_ORDERING_HASH[single_metric]).coefficient(single_metric, 1).build()
-            assert isinstance(ff, FitnessFunction)
-            self.function = ff
+            self._func = function_builder.start(column_definitions, ordering=_ORDERING_HASH[single_metric]).coefficient(single_metric, 1).build()
+            assert isinstance(self._func, FitnessFunction)
             self._column_defs = column_definitions
 
     # def initialize(self, fitness_function, column_definitions):
@@ -161,9 +160,9 @@ class FitnessCalculator:
     def function(self):
         return self._func
 
-    @function.setter
-    def function(self, a_fitness_function):
-        self._func = a_fitness_function
+    # @function.setter
+    # def function(self, a_fitness_function):
+    #     self._func = a_fitness_function
 
     def pass_vector(self, values_vector):
         self._update_best(values_vector)
