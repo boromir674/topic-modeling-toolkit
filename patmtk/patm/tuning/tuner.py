@@ -127,7 +127,7 @@ class Tuner(object):
         else:
             raise TypeError
         if 2 < self._vb:
-            print "Tuner: activated regs: [{}]".format(', '.join(sorted([_ for _ in self._active_regs.keys()])))
+            print("Tuner: activated regs: [{}]".format(', '.join(sorted([_ for _ in self._active_regs.keys()]))))
 
     @property
     def static_regularization_specs(self):
@@ -187,11 +187,11 @@ class Tuner(object):
                                                 append_static=append_static,
                                                 overwrite=force_overwrite)
         if 1 < self._vb:
-            print 'Taking {} samples for grid-search'.format(len(self._parameter_grid_searcher))
+            print('Taking {} samples for grid-search'.format(len(self._parameter_grid_searcher)))
         if force_overwrite:
-            print 'Overwritting any existing results and phi matrices found'
+            print('Overwritting any existing results and phi matrices found')
         if self._vb:
-            print 'Tuning..'
+            print('Tuning..')
             generator = tqdm(self._parameter_grid_searcher, total=len(self._parameter_grid_searcher), unit='model')
         else:
             generator = iter(self._parameter_grid_searcher)
@@ -226,15 +226,15 @@ class Tuner(object):
             'sparse-theta': {'alpha_iter': 1, 'tau': 'linear_-3_-13', 'start': 4}}
         """
         if self._vb:
-            print 'Initializing Tuner..'
+            print('Initializing Tuner..')
         self._static_params_hash = tuner_definition.static_parameters
         self._expl_params_hash = tuner_definition.explorable_parameters
         self._check_parameters()
         self._tau_traj_to_build = tuner_definition.valid_trajectory_defs()
         self._parameter_grid_searcher = ParameterGrid(tuner_definition.parameter_spans)
         if 1 < self._vb:
-            print 'Constants: [{}]\nExplorables: [{}]'.format(', '.join(self.constants), ', '.join(self.explorables))
-            print 'Search space', tuner_definition.parameter_spans
+            print('Constants: [{}]\nExplorables: [{}]'.format(', '.join(self.constants), ', '.join(self.explorables)))
+            print('Search space', tuner_definition.parameter_spans)
         if static_regularizers_specifications:
             # for which ever of the activated regularizers there is a missing setting, then use a default value
             self._reg_specs = self._create_reg_specs(static_regularizers_specifications, self.active_regularizers)
@@ -262,7 +262,7 @@ class Tuner(object):
         # transform potential False boolean input to empty list
         self._define_labeling_scheme((lambda y: [] if not y else y)(append_explorables), (lambda y: [] if not y else y)(append_static))
         if 1 < self._vb:
-            print 'Automatically labeling files using parameter values: [{}]'.format(', '.join(self._labeling_params))
+            print('Automatically labeling files using parameter values: [{}]'.format(', '.join(self._labeling_params)))
 
         if not overwrite:
             maximal_model_labels = map(self._build_label, self._parameter_grid_searcher)  # depends on self.parameter_grid_searcher and self._labeling_params
@@ -276,11 +276,11 @@ class Tuner(object):
             self._required_labels = [x for i, x in enumerate(maximal_model_labels) if i not in common.indices]
             if 2 < self._vb:
                 for obj in (_ for _ in (common, only_mods, only_res) if _):
-                    print obj.msg(maximal_model_labels)
+                    print(obj.msg(maximal_model_labels))
             if 2 < self._vb:
-                print 'Models to create:', '[{}]'.format(', '.join(self._required_labels))
+                print('Models to create:', '[{}]'.format(', '.join(self._required_labels)))
             if 1 < self._vb:
-                print 'Ommiting creating a total of {} files'.format(len(common)+len(only_res)+len(only_mods))
+                print('Ommiting creating a total of {} files'.format(len(common)+len(only_res)+len(only_mods)))
             self._labeler = lambda index: self._required_labels[index]
         else:
             self._labeler = lambda index: self._build_label(self.parameter_vector)

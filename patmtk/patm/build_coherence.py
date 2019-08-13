@@ -3,9 +3,12 @@
 import os
 import re
 import in_place
-import warnings
 import subprocess
 from glob import glob
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CoherenceFilesBuilder:
@@ -17,7 +20,7 @@ class CoherenceFilesBuilder:
         except IndexError:
             raise VocabularyNotFoundError("Glob pattern '{}' did not match any file in '{}'".format("vocab*.txt", self._root))
         if self._col_name not in os.path.basename(self._vocab):
-            warnings.warn("{} Instead '{}' found.".format("Vocabulary file usually has the format 'vocab.{col_name}.txt.", os.path.basename(self._vocab)))
+            logger.warning("{} Instead '{}' found.".format("Vocabulary file usually has the format 'vocab.{col_name}.txt.", os.path.basename(self._vocab)))
 
         self._splits = sorted([(re.search("vowpal\.{}-?([\w\-]*)\.txt".format(self._col_name), f).group(1), f) for f in self._glob("vowpal*.txt")], key=lambda x: x[0], reverse=True)
         if [_[0] for _ in self._splits] != [''] and [_[0] for _ in self._splits] != ['train', 'test']:

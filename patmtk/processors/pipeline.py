@@ -1,5 +1,5 @@
 from collections import OrderedDict
-import ConfigParser
+from configparser import ConfigParser
 
 from processors.string_processors import MonoSpacer, StringProcessor, LowerCaser, UtfEncoder, DeAccenter, StringLemmatizer
 from processors.generator_processors import GeneratorProcessor, MinLengthFilter, MaxLengthFilter, WordToNgramGenerator
@@ -7,7 +7,7 @@ from processors.string2generator import StringToTokenGenerator
 from processors import Processor, InitializationNeededComponent, FinalizationNeededComponent, BaseDiskWriterWithPrologue
 from processors.mutators import GensimDictTokenGeneratorToListProcessor, OneElemListOfListToGenerator
 
-from disk_writer_processors import UciFormatWriter, VowpalFormatWriter
+from .disk_writer_processors import UciFormatWriter, VowpalFormatWriter
 
 
 settings_value2processors = {
@@ -38,13 +38,13 @@ class Pipeline(object):
         self.str2gen_processor_index = 0
         self.token_gen2list_index = 0
         if not self._check_processors_pipeline():
-            print self
-            raise ProcessorsOrderNotSoundException('the first n components of the pipeline have to be StringProcessors and the following m GeneratorProcessors with n,m>0')
+            print(self)
+            raise ProcessorsOrderNotSoundException('The first n components of the pipeline have to be StringProcessors and the following m GeneratorProcessors with n,m>0')
         if any(isinstance(x, MonoSpacer) for x in self.processors):
             # self._insert(0, StringToTokenGenerator(' '), 'single-space-tokenizer')
             self.str2gen_processor = StringToTokenGenerator(' ')
         else:
-            print self
+            print(self)
             raise SupportedTokenizerNotFoundException('The implemented \'single-space\' tokenizer requires the presence of a MonoSpacer processor in the pipeline')
         self._inject_connectors()
 
@@ -132,7 +132,7 @@ class Pipeline(object):
 
     @classmethod
     def from_cfg(cls, cfg_file_path):
-        config = ConfigParser.ConfigParser()
+        config = ConfigParser()
         config.read(cfg_file_path)
         pipe_settings = OrderedDict([item for sublist in map(lambda x: [(x[0], encode_pipeline_cfg[x[0]](x[1]))] if x[0] != 'format' else [(x[0] + str(i + 1), out_frmt) for i, out_frmt in enumerate(x[1].split(','))], config.items('preprocessing')) for item in sublist])
         # print 'Pipe-Config:\n' + ',\n'.join('{}: {}'.format(key, value) for key, value in pipe_settings.items())

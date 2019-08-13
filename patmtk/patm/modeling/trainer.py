@@ -72,7 +72,7 @@ class ModelTrainer(object):
         topic_model.artm_model.cache_theta = cache_theta
         if not trajectories_data:
             if effects:
-                print "Training, keeping regularizers' coefficients constant.."
+                print("Training, keeping regularizers' coefficients constant..")
                 from patm.utils import Spinner
                 spinner = Spinner(delay=0.2)
                 spinner.start()
@@ -91,7 +91,7 @@ class ModelTrainer(object):
             iter_sum = 0
             gener = all_iter_chunks
             if effects:
-                print 'Will fit on {} chunks ({} steady) and train with tau trajectories for regs [{}]'.format(len(all_iter_chunks), len(steady_iter_chunks), ', '.join((_[0] for _ in trajectories_data)))
+                print('Will fit on {} chunks ({} steady) and train with tau trajectories for regs [{}]'.format(len(all_iter_chunks), len(steady_iter_chunks), ', '.join((_[0] for _ in trajectories_data))))
                 from tqdm import tqdm
                 gener = tqdm(all_iter_chunks, total=len(all_iter_chunks), unit='fit-operation')
             for chunk in gener:
@@ -151,7 +151,7 @@ class TrainerFactory(object):
                                                                      cooc_file_path=os.path.join(self._root_dir, name),
                                                                      vocab_file_path=vocab,
                                                                      symmetric_cooc_values=True)
-                print "Loaded positive pmi dictionary with min_{} = {} from '{}' text file".format(matc.group(2), matc.group(1), name)
+                print("Loaded positive pmi dictionary with min_{} = {} from '{}' text file".format(matc.group(2), matc.group(1), name))
         if not 'tf' in self._mod_tr.cooc_dicts:
             raise RuntimeError("Key 'tf' should be in the coocurrences dictionaries hash: Instead these is the hash: [{}]".format('{}: {}'.format(k, v) for k,v in self._mod_tr.cooc_dicts.items()))
         self._mod_tr.dictionary = self._mod_tr.cooc_dicts['tf']['obj']
@@ -172,13 +172,13 @@ class TrainerFactory(object):
                                                                data_path=self._data_path_hash[use_ideology_information],
                                                                data_format=self.ideology_flag2data_format[use_ideology_information],
                                                                target_folder=self._batches_target_dir)
-        print "Vectorizer initialized from '{}' file".format(self.ideology_flag2data_format[use_ideology_information])
+        print("Vectorizer initialized from '{}' file".format(self.ideology_flag2data_format[use_ideology_information]))
 
     def load_batches(self, batch_files_list):
         self._mod_tr.batch_vectorizer = artm.BatchVectorizer(collection_name=self._col,
                                                        data_path=self._batches_target_dir,
                                                        data_format='batches')
-        print "Vectorizer initialized from [{}] 'batch' files found in '{}'".format(', '.join(batch_files_list), self._batches_target_dir)
+        print("Vectorizer initialized from [{}] 'batch' files found in '{}'".format(', '.join(batch_files_list), self._batches_target_dir))
 
 
 if __name__ == '__main__':

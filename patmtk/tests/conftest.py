@@ -1,7 +1,7 @@
 
 
 import os
-import ConfigParser
+from configparser import ConfigParser
 import pytest
 
 from processors import Pipeline, PipeHandler
@@ -72,7 +72,7 @@ def test_dataset(collections_root_dir, pipe_n_quantities):
 # PARSE UNITTEST CFG FILES
 
 def parse_cfg(cfg):
-    config = ConfigParser.ConfigParser()
+    config = ConfigParser()
     config.read(cfg)
     return {section: dict(config.items(section)) for section in config.sections()}
 

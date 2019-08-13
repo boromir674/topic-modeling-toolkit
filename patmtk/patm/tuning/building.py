@@ -271,7 +271,7 @@ if __name__ == '__main__':
     radb = RegularizersActivationDefinitionBuilder()
     activated_regularizer_types = radb.activate.smoothing.theta.phi.sparsing.phi.build()
 
-    print 'REGS', activated_regularizer_types
+    print('REGS', activated_regularizer_types)
     #
     #
     # d1 = tdb.initialize()._nb_topics(20).collection_passes(100).document_passes(1).background_topics_pct(0.1).\

@@ -151,7 +151,7 @@ class RegularizersFactory:
         :param RegularizersData regs_data:
         """
         self._regs_data = regs_data
-        print "GG", self._regs_data
+        print("GG", self._regs_data)
         self._back_t, self._domain_t = regs_data.background_topics, regs_data.domain_topics
         self._reg_settings = regs_data.regularizers_parameters
 
@@ -216,9 +216,9 @@ def _parse_active_regs(regs):
                                                 'dict': lambda x: x.items(),
                                                 'str': lambda x: cfg2model_settings(x)['regularizers'],
                                                 'list': lambda x: x}
-    print "IN", regs
+    print("IN", regs)
     _ = dict(active_regularizers_type2tuples_enlister[type(regs).__name__](regs))  # reg-def, reg-name tuples in a list
-    print "OUT", _
+    print("OUT", _)
     return _
 
 def _valid_active_regs(instance, attribute, value):

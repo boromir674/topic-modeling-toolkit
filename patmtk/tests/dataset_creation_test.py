@@ -1,7 +1,7 @@
 
 
 import os
-import ConfigParser
+from configparser import ConfigParser
 from collections import OrderedDict
 import pytest
 
@@ -45,7 +45,7 @@ class TestDatasetTransformation:
         return lambda x: x if x in ['lowercase', 'monospace', 'unicode', 'deaccent'] else '{}-{}'.format(x, pipe_settings[x])
 
     def _id(self, full_docs, cfg):
-        config = ConfigParser.ConfigParser()
+        config = ConfigParser()
         config.read(cfg)
         d = OrderedDict([(var, value) for var, value in config.items('preprocessing')])
         formatter = self._formatter(d)

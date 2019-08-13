@@ -63,7 +63,7 @@ class PipeHandler(object):
         self.sample = num_docs
         self.cat2textgen_proc = get_posts_generator(nb_docs=self.sample)
         self.text_generator = self.cat2textgen_proc.process(category)
-        print self.cat2textgen_proc, '\n'
+        print(self.cat2textgen_proc, '\n')
 
     # TODO refactor in OOP style preprocess
     def preprocess(self, collection, add_class_labels_to_vocab=True):
@@ -71,7 +71,7 @@ class PipeHandler(object):
         self._col_dir = os.path.join(self._cols_root, collection)
         if not os.path.exists(self._col_dir):
             os.makedirs(self._col_dir)
-            print 'Created \'{}\' as target directory for persisting'.format(self._col_dir)
+            print("Created '{}' as target directory for persisting".format(self._col_dir))
         self.set_doc_gen(self.category, num_docs=self.sample)
 
         self.uci_file = os.path.join(self._cols_root, self._collection, 'docword.{}.txt'.format(self._collection))
@@ -96,7 +96,7 @@ class PipeHandler(object):
         # print '\nnum_pos', self.dct.num_pos, '\nnum_nnz', self.dct.num_nnz, '\n{} items in dictionary'.format(len(self.dct.items()))
         print
         self._print_dict_stats()
-        print "SAMPLE LEXICAL ITEMS:\n{}".format('\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted(self.dct.iteritems(), key=itemgetter(0))[:5])))
+        print("SAMPLE LEXICAL ITEMS:\n{}".format('\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted(self.dct.iteritems(), key=itemgetter(0))[:5]))))
 
         tokens = [[token for token in tok_gen] for tok_gen in doc_gens]
 
@@ -104,11 +104,11 @@ class PipeHandler(object):
         c = [self.dct.doc2bow(doc_tokens) for doc_tokens in tokens]
         self._print_bow_model_stats(c)
 
-        print ' -- filter extremes -- '
+        print(' -- filter extremes -- ')
         self.dct.filter_extremes(no_below=self._pipeline.settings['nobelow'], no_above=self._pipeline.settings['noabove'])
         self._print_dict_stats()
 
-        print ' -- compactify -- '
+        print(' -- compactify -- ')
         self.dct.compactify()
         self._print_dict_stats()
 
@@ -158,11 +158,11 @@ class PipeHandler(object):
                         f.write('{}\n'.format(string.encode('utf-8')))
                     except UnicodeEncodeError as e:
                         # f.write('\n'.join(map(lambda x: '{}'.format(str(x[1])), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0)))))
-                        print 'FAILED', type(string_id), string
+                        print('FAILED', type(string_id), string)
                         raise e
-                print 'Created \'{}\' file'.format(self.vocab_file)
+                print("Created '{}' file".format(self.vocab_file))
         else:
-            print 'File \'{}\' already exists'.format(self.vocab_file)
+            print("File '{}' already exists. Skipping.".format(self.vocab_file))
 
     def _vocab_tokens_generator(self, include_class_labels=True):
         for gram_id, gram_string in self.dct.iteritems():
@@ -177,10 +177,10 @@ class PipeHandler(object):
         return str(len(self.corpus)) + '_' + idd[:ri] + '.' + idd[ri + 1:]
 
     def _print_dict_stats(self):
-        print "GENSIM-DICT:\nnum_pos (processes words): {}\nnum_nnz (nb of bow-tuples) {}\nvocab size: {}".format(
-            self.dct.num_pos, self.dct.num_nnz, len(self.dct.items()))
+        print("GENSIM-DICT:\nnum_pos (processes words): {}\nnum_nnz (nb of bow-tuples) {}\nvocab size: {}".format(
+            self.dct.num_pos, self.dct.num_nnz, len(self.dct.items())))
 
     @classmethod
     def _print_bow_model_stats(cls, bow_corpus):
-        print "BOW-MODEL:\nnumber of word position (num_pos): {}\ntotal number of tuples (num_nnz): {}\n number of docs: {}\nempty docs: {}".format(
-            sum(sum(bow_tuple[1] for bow_tuple in doc) for doc in bow_corpus), sum(len(_) for _ in bow_corpus), len(bow_corpus), len([_ for _ in bow_corpus if not _]))
+        print("BOW-MODEL:\nnumber of word position (num_pos): {}\ntotal number of tuples (num_nnz): {}\n number of docs: {}\nempty docs: {}".format(
+            sum(sum(bow_tuple[1] for bow_tuple in doc) for doc in bow_corpus), sum(len(_) for _ in bow_corpus), len(bow_corpus), len([_ for _ in bow_corpus if not _])))

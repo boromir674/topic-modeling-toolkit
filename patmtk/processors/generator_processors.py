@@ -12,14 +12,14 @@ def gen_ngrams(word_generator, degree):
     total = 0
     queue = []
     while total < degree:
-        queue.append(word_generator.next())
+        queue.append(next(word_generator))
         total += 1
     yield '_'.join(queue)
     total = 1  # total unigrams generated
     while not gen_empty:
         try:
             del queue[0]
-            queue.append(word_generator.next())
+            queue.append(next(word_generator))
             yield '_'.join(queue)
             total += 1
         except StopIteration:

@@ -1,4 +1,4 @@
-from processor import BaseDiskWriter, BaseDiskWriterWithPrologue
+from .processor import BaseDiskWriter, BaseDiskWriterWithPrologue
 
 
 class UciFormatWriter(BaseDiskWriterWithPrologue):
