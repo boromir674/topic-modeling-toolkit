@@ -32,7 +32,7 @@ class BaseWriterLoader(WriterLoader):
         self._extension = extension
         if not os.path.isdir(self._loc):
             os.mkdir(self._loc)
-            print 'Created \'{}\' dir to persist experimental results'.format(self._loc)
+            print('Created \'{}\' dir to persist experimental results'.format(self._loc))
         self._saved = []
 
     @property

@@ -193,7 +193,7 @@ class Experiment:
         try:
             self.regularizers_dynamic_parameters = dict(results.tracked.regularization_dynamic_parameters)
         except KeyError as e:
-            print e
+            print(e)
             raise RuntimeError("Tracked: {}, dynamic reg params: {}".format(results.tracked, results.tracked.regularization_dynamic_parameters))
         self.trackables = self._get_trackables(results)
         self.final_tokens = {

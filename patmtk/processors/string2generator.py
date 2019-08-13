@@ -1,7 +1,7 @@
 from gensim.utils import lemmatize as gen_lemmatize
 from nltk.corpus import stopwords
 
-from processor import StateLessProcessor
+from .processor import StateLessProcessor
 
 en_stopwords = set(stopwords.words('english'))
 

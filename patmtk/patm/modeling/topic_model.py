@@ -199,7 +199,7 @@ class TopicModel(object):
                     # self.artm_model.regularizers[reg_name].__setattr__(reg_param, parameter_name2encoder[reg_param](value))
                     self.artm_model.regularizers[reg_name].__setattr__(reg_param, value)
                 except (AttributeError, TypeError) as e:
-                    print e
+                    print(e)
             else:
                 raise ParameterNameNotFoundException("Regularizer '{}' with name '{}' has no attribute (parameter) '{}'".format(type(self.artm_model.regularizers[reg_name]).__name__, reg_name, reg_param))
         else:

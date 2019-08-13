@@ -1,7 +1,4 @@
-
 import os
-import ConfigParser
-
 import pytest
 
 

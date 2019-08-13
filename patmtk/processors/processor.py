@@ -139,7 +139,7 @@ if __name__ == '__main__':
     s = Processor(lambda x: x + '_proc')
     # a = s.process('_builder')
     # print a
-    print isinstance(s, MetaProcessor)
+    print(isinstance(s, MetaProcessor))
     sl = StateLessProcessor(lambda x: x + '_less')
     # sf = StateUpdatableProcessor(lambda x: x + '_full', [1, 2], 'append')
     # sf = PreUpdateSFProcessor(lambda x: x + '_full', [1, 2], 'append')

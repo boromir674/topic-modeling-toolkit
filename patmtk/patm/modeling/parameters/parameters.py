@@ -1,5 +1,8 @@
 import abc
 
+from builtins import object  # python 2-3 cross support
+
+
 class Parameter(object):
     __metaclass__ = abc.ABCMeta
 
@@ -24,20 +27,28 @@ class ImmutableParameter(object):
         raise AttributeError('{} is immutable'.format(self.__class__))
 
 
+# Python 2 'def __iter__ ' returning self, 'def next', client as obj.next()
+# Python 3  Define an __iter__() method which returns an object with a __next__() method. If the class defines __next__(), then __iter__() can just return self:
+
 class ParameterSpan(object):
+
     def __init__(self, list_span):
         self.span = list_span
         self._index = -1
+
     def __iter__(self):
-        for _ in self.span:
-            yield _
+        return self
+
     def __getitem__(self, item):
         return self.span[item]
+
     def __len__(self):
         return len(self.span)
-    def next(self):
+
+    def __next__(self):  # this works on python 3 because of futures. On python 3 it is the correct syntax already
         self._index = (self._index + 1) % len(self.span)
         return self.span[self._index]
+
     def __str__(self):
         return str(self.span)
 
@@ -67,10 +78,6 @@ class ParameterGrid(object):
     def __len__(self):
         return len([_ for _ in self._get_filtered_generator()])
 
-        # if len(self._filtered_out_indices) == len(self._spans):
-        #     return 0
-        # return reduce(lambda x, y: x * y, map(len, self._generate_spans()))
-
     def _generate_spans(self):
         for i, sp in enumerate(self._spans):
             if i not in self._filtered_out_indices:
@@ -80,15 +87,15 @@ class ParameterGrid(object):
         self._span_lens = [len(_) for _ in self._spans]
         self._inds = [0] * len(self._spans)
         self._to_increment = len(self._spans) - 1
-        self._parameter_vector = map(lambda x: x.next(), self._spans)
+        self._parameter_vector = map(next, self._spans)
 
     def _increment(self):
         """Should change the self._parameter_vector to the next state to yield in self.__iter__"""
-        cur_value = self._spans[self._to_increment].next()
+        cur_value = next(self._spans[self._to_increment])
         self._parameter_vector[self._to_increment] = cur_value
         while cur_value == self._spans[self._to_increment][0] and self._to_increment > 0:
             self._to_increment -= 1
-            cur_value = self._spans[self._to_increment].next()
+            cur_value = next(self._spans[self._to_increment])
             self._parameter_vector[self._to_increment] = cur_value
         self._to_increment = len(self._spans) - 1
 
