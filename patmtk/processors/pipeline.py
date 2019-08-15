@@ -8,6 +8,7 @@ from processors import Processor, InitializationNeededComponent, FinalizationNee
 from processors.mutators import GensimDictTokenGeneratorToListProcessor, OneElemListOfListToGenerator
 
 from .disk_writer_processors import UciFormatWriter, VowpalFormatWriter
+from .processor import BaseDiskWriter
 
 
 settings_value2processors = {
@@ -67,10 +68,15 @@ class Pipeline(object):
         for pr_name, pr in zip(self.processors_names, self.processors):
             yield pr_name, pr
 
-    def initialize(self):
+    def initialize(self, *args, **kwargs):
+        file_names = kwargs.get('file_names', [])
         for pr_name, pr_obj in self:
             if isinstance(pr_obj, InitializationNeededComponent):
-                pr_obj.initialize()
+                if isinstance(pr_obj, BaseDiskWriter):
+                    pr_obj.initialize(file_name=file_names[0])
+                    file_names = file_names[1:]
+                else:
+                    pr_obj.initialize()
 
     def pipe_through(self, data, depth):
         for proc in self.processors[:depth]:
@@ -138,6 +144,13 @@ class Pipeline(object):
         # print 'Pipe-Config:\n' + ',\n'.join('{}: {}'.format(key, value) for key, value in pipe_settings.items())
         return Pipeline(pipe_settings)
 
+    @classmethod
+    def from_tuples(cls, data):
+        return Pipeline(OrderedDict([item for sublist in
+                                     map(lambda x: [(x[0], encode_pipeline_cfg[x[0]](x[1]))] if x[0] != 'format' else [(x[0] + str(i + 1)
+                                                                                                                        , out_frmt)
+                                                                                                                       for i, out_frmt in
+                                                                                                                       enumerate(x[1].split(','))], data) for item in sublist]))
 
 encode_pipeline_cfg = {
     'lowercase': lambda x: bool(eval(x)),

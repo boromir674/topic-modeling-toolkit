@@ -14,6 +14,8 @@ from patm import TextDataset
 from processors import Pipeline
 
 from patm.definitions import poster_id2ideology_label, IDEOLOGY_CLASS_NAME, COOCURENCE_DICT_FILE_NAMES, CLASS_LABELS  # = ['cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
+import logging
+logger = logging.getLogger(__name__)
 
 
 class PipeHandler(object):
@@ -34,7 +36,7 @@ class PipeHandler(object):
         self.vocab_file = ''
         self.uci_file = ''
         self.vowpal_file = ''
-        self.ideology_labels = []
+        self.outlet_ids = []
         self._pack_data = None
         self._data_models = {}
         self._data_model2constructor = {'counts': lambda x: x,
@@ -43,7 +45,7 @@ class PipeHandler(object):
                          'tfidf': lambda bow_model: (_ for _ in map(lambda x: self._data_models['tfidf'][x], bow_model))}
         self._format_data_tr = {
             'uci': lambda x: x[1],
-            'vowpal': lambda x: [map(lambda y: (self.dct[y[0]], y[1]), x[1]), {IDEOLOGY_CLASS_NAME: self.ideology_labels[x[0]]}]
+            'vowpal': lambda x: [map(lambda y: (self.dct[y[0]], y[1]), x[1]), {IDEOLOGY_CLASS_NAME: self.label(self.outlet_ids[x[0]], poster_id2ideology_label)}]
         }
 
     @property
@@ -59,34 +61,50 @@ class PipeHandler(object):
         else:
             self._pipeline = pipeline
 
+    def pass_through(self, collection):
+        self._initialize(collection, create_dir=False)
+        self._pass_through()
+
+    def preprocess(self, collection, add_class_labels_to_vocab=True):
+        self._initialize(collection, create_dir=True)
+        self._prepare_output_file_writing_process()
+        self._pass_through()
+        return self._finalize(add_class_labels_to_vocab=add_class_labels_to_vocab)
+
+    def label(self, outlet_id, classes_hash):
+        return classes_hash[outlet_id]
+
+    def labels(self, poster2ideology_hash):
+        return [self.label(x, poster2ideology_hash) for x in self.outlet_ids]
+
+    def _initialize(self, collection, create_dir=True):
+        self._collection = collection
+        self._col_dir = os.path.join(self._cols_root, collection)
+        if create_dir:
+            self._prepare_output_file_writing_process()
+        self.set_doc_gen(self.category, num_docs=self.sample)
+        self.uci_file = os.path.join(self._cols_root, self._collection, 'docword.{}.txt'.format(self._collection))
+        self.vowpal_file = os.path.join(self._cols_root, self._collection, 'vowpal.{}.txt'.format(self._collection))
+        self.pipeline.initialize(file_names=[self.uci_file, self.vowpal_file])
+
     def set_doc_gen(self, category, num_docs='all'):
         self.sample = num_docs
         self.cat2textgen_proc = get_posts_generator(nb_docs=self.sample)
         self.text_generator = self.cat2textgen_proc.process(category)
         print(self.cat2textgen_proc, '\n')
 
-    # TODO refactor in OOP style preprocess
-    def preprocess(self, collection, add_class_labels_to_vocab=True):
-        self._collection = collection
-        self._col_dir = os.path.join(self._cols_root, collection)
+    def _prepare_output_file_writing_process(self):
         if not os.path.exists(self._col_dir):
             os.makedirs(self._col_dir)
             print("Created '{}' as target directory for persisting".format(self._col_dir))
-        self.set_doc_gen(self.category, num_docs=self.sample)
 
-        self.uci_file = os.path.join(self._cols_root, self._collection, 'docword.{}.txt'.format(self._collection))
-        self.vowpal_file = os.path.join(self._cols_root, self._collection, 'vowpal.{}.txt'.format(self._collection))
-        self.pipeline[-2][1].fname = self.uci_file
-        self.pipeline[-1][1].fname = self.vowpal_file
-
-        self.pipeline.initialize()
-
-        # PASS DATA THROUGH PIPELINE
+    def _pass_through(self):
         doc_gens = []
+        self.outlet_ids = []
         self.doc_gen_stats['corpus-tokens'] = 0
         for i, doc in enumerate(self.text_generator):
-            doc_gens.append(self._pipeline.pipe_through(doc['text'], len(self._pipeline)-2))
-            self.ideology_labels.append(poster_id2ideology_label[str(doc['poster_id'])])  # index class labels
+            doc_gens.append(self._pipeline.pipe_through(doc['text'], len(self._pipeline) - 2))
+            self.outlet_ids.append(str(doc['poster_id']))  # index outlets (document authors) ids
 
         self.dct = self._pipeline[self._pipeline.processors_names.index('dict-builder')][1].state
         # self.corpus = [self.dct.doc2bow([token for token in tok_gen]) for tok_gen in doc_gens]
@@ -96,7 +114,8 @@ class PipeHandler(object):
         # print '\nnum_pos', self.dct.num_pos, '\nnum_nnz', self.dct.num_nnz, '\n{} items in dictionary'.format(len(self.dct.items()))
         print
         self._print_dict_stats()
-        print("SAMPLE LEXICAL ITEMS:\n{}".format('\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted(self.dct.iteritems(), key=itemgetter(0))[:5]))))
+        print("SAMPLE LEXICAL ITEMS:\n{}".format(
+            '\n'.join(map(lambda x: '{}: {}'.format(x[0], x[1]), sorted(self.dct.iteritems(), key=itemgetter(0))[:5]))))
 
         tokens = [[token for token in tok_gen] for tok_gen in doc_gens]
 
@@ -105,7 +124,8 @@ class PipeHandler(object):
         self._print_bow_model_stats(c)
 
         print(' -- filter extremes -- ')
-        self.dct.filter_extremes(no_below=self._pipeline.settings['nobelow'], no_above=self._pipeline.settings['noabove'])
+        self.dct.filter_extremes(no_below=self._pipeline.settings['nobelow'],
+                                 no_above=self._pipeline.settings['noabove'])
         self._print_dict_stats()
 
         print(' -- compactify -- ')
@@ -116,11 +136,16 @@ class PipeHandler(object):
         self.corpus = [self.dct.doc2bow(doc_tokens) for doc_tokens in tokens]
         self._print_bow_model_stats(self.corpus)
 
-        # Remove empty docs
-        self.corpus = [_ for _ in self.corpus if _]
+        # REMOVE EMPTY DOCS
+        c = [_ for _ in self.corpus if _]
+        self.corpus, self.outlet_ids = (list(x) for x in zip(*[[doc, label] for doc, label in zip(self.corpus, self.outlet_ids) if doc]))
+        assert len(c) == len(self.corpus) == len(self.outlet_ids)
         self._print_bow_model_stats(self.corpus)
         print
 
+    def _finalize(self, add_class_labels_to_vocab=True):
+        # if len(self.corpus) == len(self.outlet_ids):
+        #     logger.warning("Please fix the logic because there is a missmatch between documents and labels: {} != {}".format(len(self.corpus), len(self.outlet_ids)))
         # DO SOME MANUAL FILE WRITING
         self._write_vocab(add_class_labels=add_class_labels_to_vocab)
         self._write()  # write uci and vowpal formatted files
@@ -132,7 +157,7 @@ class PipeHandler(object):
         self.pipeline.finalize([prologue_lines])
         self.dataset = TextDataset(self._collection, self._get_dataset_id(),
                                    len(self.corpus), len(self.dct.items()), sum(len(_) for _ in self.corpus), self.uci_file, self.vocab_file, self.vowpal_file)
-        self.dataset.root_dir = os.path.join(self._cols_root, collection)
+        self.dataset.root_dir = os.path.join(self._cols_root, self._collection)
         self.dataset.save()
         return self.dataset
 
@@ -168,7 +193,7 @@ class PipeHandler(object):
         for gram_id, gram_string in self.dct.iteritems():
             yield gram_id, gram_string
         if include_class_labels:
-            for class_label in [_ for _ in CLASS_LABELS if _ in set(self.ideology_labels)]:
+            for class_label in [_ for _ in CLASS_LABELS if _ in set(self.labels(poster_id2ideology_label))]:
                 yield 'class_modality', '{} {}'.format(class_label, IDEOLOGY_CLASS_NAME)
 
     def _get_dataset_id(self):

@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
 from functools import reduce
 
+
 class MetaProcessor(object):
     __metaclass__ = ABCMeta
 
@@ -27,7 +28,7 @@ class StateFullMetaProcessor(MetaProcessor):
 class InitializationNeededComponent(object):
     __metaclass__ = ABCMeta
     @abstractmethod
-    def initialize(self):
+    def initialize(self, *args, **kwargs):
         raise NotImplemented
 
 class FinalizationNeededComponent(object):
@@ -101,7 +102,8 @@ class BaseDiskWriter(Processor, DiskWriterMetaProcessor):
             print('count:', self.doc_num, data[0])
             return None
 
-    def initialize(self):
+    def initialize(self, *args, **kwargs):
+        self.fname = kwargs['file_name']
         self.file_handler = open(self.fname, 'w+')
 
     def finalize(self):
