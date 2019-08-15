@@ -10,11 +10,11 @@ from results import ExperimentalResults
 
 
 def parse_sort(sort_def):
-    _ = re.search('^([a-zA-Z]+)-?(?:(0\.)?(\d\d?))?', sort_def).groups()
+    _ = re.search(r'^([a-zA-Z]+)-?(?:(0\.)?(\d\d?))?', sort_def).groups()
     return {'type': _[0], 'threshold': _threshold(_[1], _[2])}
 
 def parse_tokens_type(tokens_type_def):
-    _ = re.search('^((?:[a-zA-Z\-]+)*(?:[a-zA-Z]+))-?(?:(0\.)?(\d\d?))?', tokens_type_def).groups()
+    _ = re.search(r'^((?:[a-zA-Z\-]+)*(?:[a-zA-Z]+))-?(?:(0\.)?(\d\d?))?', tokens_type_def).groups()
     return {'type': _[0], 'threshold': _threshold(_[1], _[2])}
 
 
@@ -25,9 +25,9 @@ def _threshold(el1, el2):
         return '0.' + el2
     return '0.' + el2 + '0'
 
-class Metric:
+class Metric(object):
     def __new__(cls, *args, **kwargs):
-        x = super().__new__(cls)
+        x = super(Metric, cls).__new__(cls)
         x._attr_getter = None
         x._reverse = True
         return x
@@ -54,7 +54,7 @@ class KernelMetric(Metric):
             return threshold + '0'
         return threshold
 
-class MetricsContainer:
+class MetricsContainer(object):
     abbrvs = {'coh': 'coherence', 'con': 'contrast', 'pur': 'purity'}
     def __init__(self):
         self._ab = AlphabeticalOrder()
@@ -76,7 +76,7 @@ class MetricsContainer:
 metrics_container = MetricsContainer()
 
 
-class TopicsHandler:
+class TopicsHandler(object):
     sep = ' |'
     headers_sep = ' ' * len(sep)
     token_extractor = {'top-tokens': lambda x: x[0].top_tokens, # a topic and any other parameter that is not used
@@ -167,7 +167,8 @@ class TopicsHandler:
         tokens_info = parse_tokens_type(tokens_type)
         sort_info = parse_sort(sort)
         assert tokens_info['type'] in ('top-tokens', 'kernel')
-        assert sort_info['type'] in self.metrics
+        if sort_info['type'] not in self.metrics:
+            raise RuntimeError("Metric '{}' not supported. Use from [{}]".format(sort_info['type'], ', '.join("'{}'".format(x) for x in self.metrics)))
         if sort_info['threshold'] is None:
             if sort_info['type'] == 'name':
                 if tokens_info['type'] == 'kernel' and tokens_info['threshold'] is None:
@@ -211,7 +212,7 @@ class TopicsHandler:
         b = title
         for r in range(int(ceil(len(topics) / self._columns))):
             row_topics = topics[r*self._columns:(r+1)*self._columns]
-            b += self._build_headers(range(r*self._columns, (r+1)*self._columns)) + \
+            b += self._build_headers(r*self._columns, (r+1)*self._columns) + \
                  '\n'.join(self._line(l, tokens_type, row_topics) for l in range(min(self._max_tokens_per_row[r], nb_tokens))) + '\n'
             b += '\n'
         return b
@@ -222,8 +223,8 @@ class TopicsHandler:
                 return iter([next(it)[0], self._topic_metrics_header(t, float(self._threshold))] for t in topics)
         return it
 
-    def _build_headers(self, indices):
-        it = iter([r +' ' * (self._max_token_length_per_column[i] - len(r)) for r in item] for i, item in enumerate(self._topic_headers[slice(indices.start, indices.stop)]))
+    def _build_headers(self, start, stop):
+        it = iter([r +' ' * (self._max_token_length_per_column[i] - len(r)) for r in item] for i, item in enumerate(self._topic_headers[slice(start, stop)]))
         e = reduce(lambda i, j: [ie + self.headers_sep + je for ie, je in zip(i, j)], it)
         return '{}\n'.format('\n'.join(_ for _ in e))
 
@@ -251,7 +252,7 @@ class TopicsHandler:
         return list(cls.token_extractor[tokens_type]([topic, threshold]))
 
 
-class ModelTopics:
+class ModelTopics(object):
 
     @property
     def domain(self):
@@ -292,7 +293,7 @@ class ModelTopics:
         return getattr(final_obj, topic_name).tokens
 
 
-class TopicsSet:
+class TopicsSet(object):
     def __init__(self, name, topics):
         """
 
@@ -331,13 +332,13 @@ class TopicsSet:
         return self._topics
 
 
-class Topic:
+class Topic(object):
     """
     Can be queried for its tokens with {'top_tokens' property to get a list of tokens sorted on p(w|t).\n
     Can be queried per defined kernel: eg topic_object.kernel60.tokens, topic_object.kernel80.tokens
                                        eg topic_object.kernel60.coherence, topic_object.kernel25.purity
     """
-    class Kernel:
+    class Kernel(object):
         def __init__(self, threshold, tokens, metrics):
             """
             :param float threshold:

@@ -215,6 +215,7 @@ class ValueTracker(object):
 
             d = self.parser(tracked_definition, encode=True, debug=False)
             key = '-'.join(d.values())
+            # print("DEF: {}, d: {}, key: {}".format(tracked_definition, d, key))
             try:
                 tracked_type = d['score-type']
             except KeyError:

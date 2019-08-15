@@ -133,7 +133,11 @@ class TopicModel(object):
         if len(c) > 2:
             warnings.warn("There exist {} different subsets of all the topic names targeted by evaluators".format(len(c)))
         # print c.most_common()
-        return c.most_common(1)[0][0].split('+')
+        try:
+            return c.most_common(1)[0][0].split('+')
+        except IndexError:
+            raise IndexError("Failed to compute domain topic names. Please enable at least one score with topics=domain_names argument. Scores: {}".
+                             format(['{}: {}'.format(x.name, x.settings) for x in self.evaluators]))
 
     @property
     def background_topics(self):

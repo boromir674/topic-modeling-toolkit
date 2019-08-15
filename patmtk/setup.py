@@ -26,6 +26,7 @@ setup(
     license='GNU GPLv3',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     install_requires=['numpy', 'nltk', 'gensim', 'tqdm', 'in-place', 'protobuf', 'click', 'future', 'attrs',
+                      'PyInquirer',  # # for the transform.py interface
                       'configparser'],  # to make statement 'from configparser import ConfigParser' python 2 and 3 compatible
     include_package_data=True,
     test_suite='patm.tests',

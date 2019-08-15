@@ -33,7 +33,6 @@ class TestTrain(object):
             train_settings['regularizers'],
             train_settings['scores']
         )
-
+        assert 'sparsity-phi-@ic' in trained_model_n_experiment[1].trackables
     def test_model_loading(self, trained_model_n_experiment, train_settings):
         model, experiment = trained_model_n_experiment
-        experiment.save_experiment(save_phi=True)

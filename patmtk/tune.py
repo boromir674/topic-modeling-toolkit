@@ -1,136 +1,72 @@
-#!/home/kostas/software_and_libs/anaconda2/bin/python
+#!/usr/bin/env python
 
-import argparse
-from patm.tuning import Tuner
-from patm.tuning.building import tuner_definition_builder as tdb
+from os import path
+import re
+import click
+from patm.definitions import COLLECTIONS_DIR_PATH
+from patm.tuning.tuner import Tuner
 
-def get_cli_arguments():
-    parser = argparse.ArgumentParser(description='Performs grid-search over the parameter space by creating and training topic models', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('dataset', metavar='collection_name', help='the collection to report models trained on')
-    parser.add_argument('--prefix', '-p', default='', help='a custom label to prepend to every model created; useful to indicate same grouping')
-    parser.add_argument('--force-overwrite', '--f-o', action='store_true', dest='overwrite', help='whether to overwrite existing files in case of name colision happens with the newly generated ones')
-    parser.add_argument('--include-constants-to-label', '--i-c', action='store_true', default=False, dest='append_static',
-                        help='whether to use a concatenation of the (constants) static parameter names as part of the automatically generated labels that are used to name the artifacts of the training process')
-    parser.add_argument('--include-explorables-to-label', '--i-e', action='store_true', default=False, dest='append_explorables',
-                        help='whether to use a concatenation of the explorable parameter names as part of the automatically generated labels that are used to name the artifacts of the training process')
-    parser.add_argument('--verbose', '-v', type=int, default=3, help='controls the amount of outputing to stdout. Sensible values are {1,2,3,4,5}')
-    return parser.parse_args()
+#parser = argparse.ArgumentParser(description='Performs grid-search over the parameter space by creating and training topic models', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+class ParameterNamesParser(click.Option):
+    def type_cast_value(self, ctx, value):
+        try:
+            return re.compile(r'([\w\.\-]+)').findall(value)
+        except:
+            raise click.BadParameter(value)
+
+@click.command(context_settings=dict(help_option_names=['-h', '--help']))
+@click.argument('dataset')
+@click.option('--prefix', '-p', help='a custom label to prepend to every model created; useful to indicate same grouping')
+@click.option('--overwrite/--no-overwrite', default=False, show_default=True, help='whether to overwrite existing files in case of name colision happens with the newly generated ones')
+@click.option('--labeling-parameters', '-lp', cls=ParameterNamesParser, default='', help='If given, then model names use the input parameter names to  uses the Selects model(s) solely based on the names provided and ignores all other selection and sorting options below')
+@click.option('--constants/--no-constants', default=False, show_default=True, help='whether to use a concatenation of the (constants) static parameter names as part of the automatically generated labels that are used to name the artifacts of the training process')
+@click.option('--explorables/--no-explorables', default=True, show_default=True, help='whether to use a concatenation of the explorable parameter names as part of the automatically generated labels that are used to name the artifacts of the training process')
+@click.option('--parameter-set', '-ps', type=click.Choice(['all', 'training', 'regularization']), default='training', show_default=True, help="If no 'labeling-parameters' are inputted then it can narrow down where to look for the static and explorable parameters to include in name building")
+@click.option('--verbose', '-v', type=int, default=5, help='controls the amount of outputing to stdout. Sensible values are {1,2,3,4,5}')
+def main(dataset, prefix, overwrite, labeling_parameters, constants, explorables, parameter_set, verbose):
+    tuner = Tuner(path.join(COLLECTIONS_DIR_PATH, dataset), {
+        'perplexity': 'per',
+        'sparsity-phi-@dc': 'sppd',
+        'sparsity-phi-@ic': 'sppi',
+        'sparsity-theta': 'spt',
+        'topic-kernel-0.60': 'tk60',
+        'topic-kernel-0.65': 'tk65',
+        'topic-kernel-0.80': 'tk80',
+        'top-tokens-10': 'top10',
+        'top-tokens-100': 'top100',
+        'background-tokens-ratio-0.3': 'btr3',
+        'background-tokens-ratio-0.2': 'btr2'
+    })
+
+    tuner.training_parameters = [('nb-topics', 40),
+                                 ('collection-passes', 100),
+                                 ('document-passes', 1),
+                                 ('background-topics-pct', 0.1),
+                                 ('default-class-weight', 1),
+                                 ('ideology-class-weight', [1, 2, 5, 10])]
+    tuner.regularization_specs = [
+        # ('smooth-phi', [('tau', 1.0)]),
+        # ('smooth-theta', [('tau', 1.0)]),
+        # ('sparse-theta', [('tau', ['0_linear_-1_-10', '2_linear_-4_-20'])]),
+        # ('sparse-phi', [('tau', [1.0, 2])]),
+        ('label-regularization-phi-dom-cls', [('tau', [1e3, 1e4, 1e5])]),
+        # ('label-regularization-phi-dom-cls', [('tau', [1e3])]),
+        ('smooth-phi-dom-cls', [('tau', 1)]),
+        # ('decorrelate-phi-dom-def', [('tau', 1e4)])
+    ]
+
+    tuner.tune(prefix_label=prefix,
+               append_static=constants,
+               append_explorables=explorables,
+               force_overwrite=overwrite,
+               cache_theta=True,
+               verbose=verbose,
+               interactive = False,
+               labeling_params=labeling_parameters,
+               preserve_order=True,
+               parameter_set=parameter_set
+               )
 
 if __name__ == '__main__':
-    args = get_cli_arguments()
-    from patm.definitions import COLLECTIONS_DIR_PATH
-    from os import path
-    tuner = Tuner(path.join(COLLECTIONS_DIR_PATH, args.dataset))
-    tuning_definition = tdb.initialize()\
-        .nb_topics(40)\
-        .collection_passes(100)\
-        .document_passes(1)\
-        .background_topics_pct(0.2) \
-        .ideology_class_weight(0, 1) \
-        .build()
-
-        # .sparse_phi()\
-        #     .deactivate(8)\
-        #     .kind('linear')\
-        #     .start(-1)\
-        #     .end(-10, -100)\
-        # .sparse_theta()\
-        #     .deactivate(10)\
-        #     .kind('linear')\
-        #     .start(-1)\
-        #     .end(-10, -100)\
-
-    #LDA
-    # tuner.activate_regularizers.smoothing.phi.theta.done()
-    # DLDA
-    # tuner.activate_regularizers.smoothing.phi.theta.decorrelate_phi_all.done()
-    # CLDA
-    # "label-regularization-phi-def"
-    # tuner.activate_regularizers.smoothing.phi.theta.label_regularization.done()
-
-    tuner.active_regularizers = [
-        # 'smooth-phi',
-        # 'smooth-theta',
-        # 'label-regularization-phi-dom-def',
-        'decorrelate-phi-domain',
-        'decorrelate-phi-background'
-    ]
-    tuner.tune(tuning_definition,
-               prefix_label=args.prefix,
-               append_explorables=args.append_explorables,
-               append_static=args.append_static,
-               force_overwrite=args.overwrite,
-               verbose=args.verbose)
-
-    #ILDA
-    # tuner.activate_regularizers.smoothing.phi.theta.improve_coherence_phi.done()
-
-    #DCLDA
-    # tuner.activate_regularizers.smoothing.phi.theta.decorrelate_phi_domain.label_regularization.done()
-
-    # SLDA
-    # tuner.activate_regularizers \
-    #     .smoothing \
-    #         .phi \
-    #         .theta \
-    #     .sparsing \
-    #         .theta \
-    #         .phi \
-    # .done()
-
-    # SCLDA
-    # tuner.activate_regularizers \
-    #     .smoothing \
-    #         .phi \
-    #         .theta \
-    #     .label_regularization \
-    #     .sparsing \
-    #         .theta \
-    #         .phi \
-    # .done()
-
-    #     .label_regularization \
-    # .done()
-        # .sparsing\
-        #     .phi\
-        #     .theta\
-    # .done()
-
-    #     .label_regularization\
-    # .done()
-
-
-    # tuner.static_regularization_specs = {'smooth-phi': {'tau': 1.0},
-    #                                      'smooth-theta': {'tau': 1.0},
-    #                                      'sparse-theta': {'alpha_iter': 1}}
-    # 'sparse-theta': {'alpha_iter': 'linear_1_4'}}
-
-
-# def get_model_settings(label, dataset):
-#     results = load_results(os.path.join(collection_dir, dataset, '/results', label + '-train.json'))
-#     reg_set = results['reg_parameters'][-1][1]
-#     back_topics = {}
-#     domain_topics = {}
-#     reg_tau_trajectories = {}
-#     reg_specs = [0, {}]
-#     for k,v  in reg_set.items():
-#         print k
-#         reg_specs[1][k] = v
-#         if re.match('^smooth-(?:phi|theta)|^decorrelator-phi', k):
-#             print 'm1', reg_set[k].keys()
-#             back_topics[k] = reg_set[k]['topic_names']
-#         if re.match('^sparse-(?:phi|theta)', k):
-#             print 'm2', reg_set[k].keys()
-#             domain_topics[k] = reg_set[k]['topic_names']
-#             reg_tau_trajectories[k] = [_ for sublist in map(lambda x: [x[1][k]['tau']] * x[0], results['reg_parameters']) for _ in sublist]
-#     for k in sorted(back_topics.keys()):
-#         print k, back_topics[k]
-#     for k in sorted(domain_topics.keys()):
-#         print k, domain_topics[k]
-#     if back_topics:
-#         assert len(set(map(lambda x: '.'.join(x), back_topics.values()))) == 1  # assert that all sparsing adn smoothing regularizers
-#         # have the same domain and background topics respectively to comply with the restriction in 'tune' method that all regularizers "share" the same domain and background topics.
-#         assert len(set(map(lambda x: '.'.join(x), domain_topics.values()))) == 1
-#         reg_specs[0] = float(len(back_topics.values()[0])) / (len(back_topics.values()[0]) + len(domain_topics.values()[0]))
-#         return reg_specs, reg_tau_trajectories
-#     return None
+    main()

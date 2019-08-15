@@ -22,7 +22,7 @@ class CoherenceFilesBuilder:
         if self._col_name not in os.path.basename(self._vocab):
             logger.warning("{} Instead '{}' found.".format("Vocabulary file usually has the format 'vocab.{col_name}.txt.", os.path.basename(self._vocab)))
 
-        self._splits = sorted([(re.search("vowpal\.{}-?([\w\-]*)\.txt".format(self._col_name), f).group(1), f) for f in self._glob("vowpal*.txt")], key=lambda x: x[0], reverse=True)
+        self._splits = sorted([(re.search(r"vowpal\.{}-?([\w\-]*)\.txt".format(self._col_name), f).group(1), f) for f in self._glob("vowpal*.txt")], key=lambda x: x[0], reverse=True)
         if [_[0] for _ in self._splits] != [''] and [_[0] for _ in self._splits] != ['train', 'test']:
             raise InvalidSplitsError("Either 'train' and 'test' splits must be defined or a '' split no splitting; all dataset used for training)")
 
@@ -55,7 +55,7 @@ class CoherenceFilesBuilder:
                 for key, path in _file[s].items():
                     with in_place.InPlace(path, backup_ext='.bak') as fp:
                         for line in fp:
-                            match_obj = re.search('^(\d+) (\d+) (.+)$', line).groups()
+                            match_obj = re.search(r'^(\d+) (\d+) (.+)$', line).groups()
                             fp.write('{} {} {}\n'.format(int(match_obj[0])-1, int(match_obj[1])-1 , match_obj[2]))
 
     @staticmethod

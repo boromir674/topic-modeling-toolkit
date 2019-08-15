@@ -9,129 +9,11 @@ from results.experimental_results import TrackedKernel, RoundTripDecoder
 from patm.modeling import Experiment
 
 
-@pytest.fixture(scope='module')
-def json_path(collections_root_dir, test_collection_name):
-    return os.path.join(collections_root_dir, test_collection_name, 'results', 'exp-results-test-model_1.json')
-
-
-@pytest.fixture(scope='module')
-def kernel_data_0():
-    return [
-        [[1, 2], [3, 4], [5, 6], [120, 100]],
-        {'t01': {'coherence': [1, 2, 3],
-                 'contrast': [6, 3],
-                 'purity': [1, 8]},
-         't00': {'coherence': [10, 2, 3],
-                 'contrast': [67, 36],
-                 'purity': [12, 89]},
-         't02': {'coherence': [10, 11],
-                 'contrast': [656, 32],
-                 'purity': [17, 856]}}
-    ]
-
 
 @pytest.fixture(scope='module')
 def kernel_object_0(kernel_data_0):
     return TrackedKernel(*kernel_data_0)
 
-
-@pytest.fixture(scope='module')
-def kernel_data_1():
-    return [[[10,20], [30,40], [50,6], [80, 90]], {'t01': {'coherence': [3, 9],
-                                                             'contrast': [96, 3],
-                                                             'purity': [1, 98]},
-                                                     't00': {'coherence': [19,2,93],
-                                                             'contrast': [7, 3],
-                                                             'purity': [2, 89]},
-                                                     't02': {'coherence': [0,11],
-                                                             'contrast': [66, 32],
-                                                             'purity': [17, 85]}
-                                                     }]
-
-
-@pytest.fixture(scope='module')
-def exp_res_obj1(kernel_data_0, kernel_data_1, json_path, test_collection_dir):
-
-    exp = ExperimentalResults.from_dict({
-        'scalars': {
-            'dir': 'a-dataset-dir',
-            'label': 'a-model-label',
-            'dataset_iterations': 3,  # LEGACY '_' (underscore) usage
-            'nb_topics': 5,  # LEGACY '_' (underscore) usage
-            'document_passes': 2,  # LEGACY '_' (underscore) usage
-            'background_topics': ['t0', 't1'],  # LEGACY '_' (underscore) usage
-            'domain_topics': ['t2', 't3', 't4'],  # LEGACY '_' (underscore) usage
-            'modalities': {'dcn': 1, 'icn': 5}
-        },
-        'tracked': {
-            'perplexity': [1, 2, 3],
-            'sparsity-phi-@dc': [-2, -4, -6],
-            'sparsity-phi-@ic': [-56, -12, -32],
-            'sparsity-theta': [2, 4, 6],
-            'background-tokens-ratio-0.3': [0.4, 0.3, 0.2],
-            'topic-kernel': {
-                '0.60': {
-                    'avg_coh': kernel_data_0[0][0],
-                    'avg_con': kernel_data_0[0][1],
-                    'avg_pur': kernel_data_0[0][2],
-                    'size': kernel_data_0[0][3],
-                    'topics': kernel_data_0[1]
-                },
-                '0.80': {
-                    'avg_coh': kernel_data_1[0][0],
-                    'avg_con': kernel_data_1[0][1],
-                    'avg_pur': kernel_data_1[0][2],
-                    'size': kernel_data_1[0][3],
-                    'topics': kernel_data_1[1]
-                }
-            },
-            'top-tokens': {
-                '10': {
-                    'avg_coh': [5, 6, 7],
-                    'topics': {'t01': [12, 22, 3], 't00': [10, 2, 3], 't02': [10, 11]}
-                },
-                '100': {
-                    'avg_coh': [10, 20, 30],
-                    'topics': {'t01': [5, 7, 9], 't00': [12, 32, 3], 't02': [11, 1]}
-                }
-            },
-            'tau-trajectories': {'phi': [1, 2, 3], 'theta': [5, 6, 7]},
-            'regularization-dynamic-parameters': {'type-a': {'tau': [1, 2, 3]},
-                                                  'type-b': {'tau': [-1, -1, -2], 'alpha': [1, 1.2]}},
-            'collection-passes': [3]
-        },
-        'final': {
-            'topic-kernel': {
-                '0.60': {'t00': ['a', 'b', 'c'],
-                         't01': ['d', 'e', 'f'],
-                         't02': ['g', 'h', 'i']},
-                '0.80': {'t00': ['j', 'k', 'l'],
-                         't01': ['m', 'n', 'o'],
-                         't02': ['p', 'q', 'r']}
-            },
-            'top-tokens': {
-                '10': {
-                    't00': ['s', 't', 'u'],
-                    't01': ['v', 'x', 'y'],
-                    't02': ['z', 'a1', 'b1']
-                },
-                '100': {
-                    't00': ['c1', 'd1', 'e1'],
-                    't01': ['f1', 'g1', 'h1'],
-                    't02': ['i1', 'j1', 'k1']
-                }
-            },
-            'background-tokens': ['l1', 'm1', 'n1']
-        },
-        'regularizers': ['reg1_params_pformat', 'reg2_params_pformat'],
-        'reg_defs': {'type-a': 'reg1', 'type-b': 'reg2'},
-        'score_defs': {'perplexity': 'prl', 'top-tokens-10': 'top10'}
-    })
-
-    if not os.path.isdir(os.path.join(test_collection_dir, 'results')):
-        os.mkdir(os.path.join(test_collection_dir, 'results'))
-    exp.save_as_json(json_path)
-    return exp
 
 
 class TestExperimentalResults(object):
@@ -181,6 +63,8 @@ class TestExperimentalResults(object):
         exp_res = ExperimentalResults.create_from_experiment(experiment)
         self._exp_res_obj_assertions(exp_res, experiment, train_settings)
         self._assert_tokens_loading_correctness(experiment, exp_res)
+        assert sorted(exp_res.tracked.modalities_initials) == ['d', 'i']
+        # assert 'sparsity_phi_i' in exp_res.phi_sparsities
 
     def test_attributes(self, exp_res_obj1):
         # assert hasattr(exp_res_obj1.track, 'top10')

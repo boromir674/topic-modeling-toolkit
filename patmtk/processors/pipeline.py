@@ -8,7 +8,11 @@ from processors import Processor, InitializationNeededComponent, FinalizationNee
 from processors.mutators import GensimDictTokenGeneratorToListProcessor, OneElemListOfListToGenerator
 
 from .disk_writer_processors import UciFormatWriter, VowpalFormatWriter
+from .processor import BaseDiskWriter
 
+
+import logging
+logger = logging.getLogger(__name__)
 
 settings_value2processors = {
     'lowercase': lambda x: LowerCaser() if x else None,
@@ -18,9 +22,9 @@ settings_value2processors = {
     'normalize': lambda x: StringLemmatizer() if x == 'lemmatize' else None,
     'minlength': lambda x: MinLengthFilter(x) if x else None,
     'maxlength': lambda x: MaxLengthFilter(x) if x else None,
+    'ngrams': lambda x: WordToNgramGenerator(x) if x else None,
     'nobelow': lambda x: x if x else None,
     'noabove': lambda x: x if x else None,
-    'ngrams': lambda x: WordToNgramGenerator(x) if x else None,
     'weight': lambda x: x if x else None,
     'format': lambda x: {'uci': UciFormatWriter(), 'vowpal': VowpalFormatWriter()}[x] if x else None
 }
@@ -66,17 +70,77 @@ class Pipeline(object):
     def __iter__(self):
         for pr_name, pr in zip(self.processors_names, self.processors):
             yield pr_name, pr
+    @property
+    def transformers(self):
+        return [(name, proc_obj) for name, proc_obj in self if isinstance(proc_obj, BaseDiskWriter)]
 
-    def initialize(self):
+    @property
+    def disk_writers(self):
+        return [(name, proc_obj) for name, proc_obj in self if isinstance(proc_obj, BaseDiskWriter)]
+
+    def initialize(self, *args, **kwargs):
+        """Call this method to initialize each of the pipeline's processors"""
+        if self.disk_writers and not 'file_paths' in kwargs:
+            logger.error("You have to supply the 'file_paths' list as a key argument, with each element being the target file path one per BaseDiskWriter processor.")
+            return
+        disk_writer_index = 0
         for pr_name, pr_obj in self:
             if isinstance(pr_obj, InitializationNeededComponent):
-                pr_obj.initialize()
+                pr_obj.initialize(file_paths=kwargs.get('file_paths', []), disk_writer_index=disk_writer_index)
+                if isinstance(pr_obj, BaseDiskWriter):
+                    disk_writer_index += 1
+
+    # def initilialize_processing_units(self):
+    #     for pr_name, pr_obj in self:
+    #         if isinstance(pr_obj, InitializationNeededComponent) and not isinstance(pr_obj, BaseDiskWriter):
+    #             pr_obj.initialize()
+    #
+    # def initilialize_disk_writting_units(self, file_paths):
+    #     i = -1
+    #     for pr_name, pr_obj in self:
+    #         if isinstance(pr_obj, BaseDiskWriter):
+    #             i += 1
+    #             pr_obj.initialize(file_name=file_paths[i])
+    #
+    # def initialize(self, *args, **kwargs):
+    #     self.initilialize_processing_units()
+    #     if 'format' in self.processors_names:
+    #         self.initilialize_disk_writting_units(kwargs.get('file_paths', []))
+
+    # def initialize(self, *args, **kwargs):
+    #
+    #     depth = len(self)
+    #     if args:
+    #         depth = args[0]
+    #     file_names = kwargs.get('file_names', [])
+    #     writer_index = 0
+    #     for pr_name, pr_obj in self[:depth]:
+    #         if isinstance(pr_obj, InitializationNeededComponent):
+    #             if isinstance(pr_obj, BaseDiskWriter):
+    #                 pr_obj.initialize(file_name=file_names[writer_index])
+    #                 writer_index += 1
+    #                 file_names = file_names[1:]
+    #             else:
+    #                 pr_obj.initialize()
+    #     self._init_index = depth
 
     def pipe_through(self, data, depth):
         for proc in self.processors[:depth]:
             if isinstance(proc, Processor):
                 data = proc.process(data)
         return data
+
+    def pipe_through_processing_units(self, data):
+        for proc in self.processors:
+            if isinstance(proc, Processor) and not isinstance(proc, BaseDiskWriter):
+                data = proc.process(data)
+        return data
+
+    def pipe_through_disk_writers(self, data, file_paths):
+        for i, (name, proc) in enumerate(self.disk_writers):
+            proc.initialize(file_paths, i)
+        for name, proc in self.disk_writers:
+            data = proc.process(data)
 
     def finalize(self, prologs=tuple([])):
         i = 0
@@ -93,7 +157,9 @@ class Pipeline(object):
 
     def _inject_connectors(self):
         assert (self.str2gen_processor_index != 0 and self.token_gen2list_index != 0)
+        # STRING PROCESSORS (strings are passing through)
         self._insert(self.str2gen_processor_index, self.str2gen_processor, 'str2token_gen')
+        # generators passing thorugh
         self._insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
         self._insert(self.token_gen2list_index + 2, OneElemListOfListToGenerator(), 'list2generator')
 
@@ -138,6 +204,13 @@ class Pipeline(object):
         # print 'Pipe-Config:\n' + ',\n'.join('{}: {}'.format(key, value) for key, value in pipe_settings.items())
         return Pipeline(pipe_settings)
 
+    @classmethod
+    def from_tuples(cls, data):
+        return Pipeline(OrderedDict([item for sublist in
+                                     map(lambda x: [(x[0], encode_pipeline_cfg[x[0]](x[1]))] if x[0] != 'format' else [(x[0] + str(i + 1)
+                                                                                                                        , out_frmt)
+                                                                                                                       for i, out_frmt in
+                                                                                                                       enumerate(x[1].split(','))], data) for item in sublist]))
 
 encode_pipeline_cfg = {
     'lowercase': lambda x: bool(eval(x)),

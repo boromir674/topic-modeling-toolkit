@@ -28,12 +28,12 @@ class CategoryToFieldsGenerator(StringToFieldsGenerator):
                 self.nb_processed += 1
 
 
-def get_text_generator(nb_docs='all'):
-    return CategoryToFieldsGenerator('text', nb_docs=nb_docs)
+# def get_text_generator(nb_docs='all'):
+#     return CategoryToFieldsGenerator('text', nb_docs=nb_docs)
 
 
-def get_posts_generator(nb_docs='all'):
-    return CategoryToFieldsGenerator(('text', 'poster_id'), nb_docs=nb_docs)
+# def get_posts_generator(nb_docs='all'):
+#     return CategoryToFieldsGenerator(('text', 'poster_id'), nb_docs=nb_docs)
 
 
 def gen_fields(category, cat2files, sample_docs=None, fields=tuple('text')):

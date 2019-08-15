@@ -19,13 +19,14 @@ class ModelFactory(object):
 
     @classmethod
     def _key(cls, *args):
-        return '_'.join(sorted([getattr(x, 'name', str(x)) for x in [args[0]] + [v['obj'] for v in args[1].values()]]))
+        # return '_'.join(sorted([getattr(x, 'name', str(x)) for x in [args[0]] + [v['obj'] for v in args[1].values()]]))
+        return getattr(args[0], 'name', str(args[0]))
 
     def __new__(cls, *args, **kwargs):
         if cls._key(*args) not in cls._instances:
             cls._instances[cls._key(*args)] = super(ModelFactory, cls).__new__(cls)
-            cls._instances[cls._key(*args)].dict = args[0]
-            cls._instances[cls._key(*args)]._eval_factory = EvaluationFactory(args[0], args[1], abbreviation2class_name=cls.abbreviation2_class_name.copy())
+            cls._instances[cls._key(*args)].coherence_dict = args[0]
+            cls._instances[cls._key(*args)]._eval_factory = EvaluationFactory(args[0], abbreviation2class_name=cls.abbreviation2_class_name.copy())
             cls._instances[cls._key(*args)]._regularizers_factory = RegularizersFactory(args[0])
             cls._instances[cls._key(*args)]._tm = None
             cls._instances[cls._key(*args)]._artm = None
@@ -40,26 +41,11 @@ class ModelFactory(object):
             cls._instances[cls._key(*args)]._progress_bars = False
         return cls._instances[cls._key(*args)]
 
-    def __init__(self, dictionary, cooc_dict):
+    def __init__(self, dictionary):
         """
         :param dictionary: this dictionary is passed to artm.ARTM constructor. IT should be the one holding the pmi values computed for token pairs
         :param cooc_dict:
         """
-        # self.dict = dictionary
-        # self._eval_factory = EvaluationFactory(self.dict, cooc_dict, abbreviation2class_name=self.abbreviation2_class_name)
-        # self._regularizers_factory = RegularizersFactory(self.dict)
-        # self._tm = None
-        # self._artm = None
-        # self._col_passes = 0
-        # self._nb_topics = 0
-        # self._nb_document_passes = 0
-        # self.cooc_dict = cooc_dict
-        # self._modality_weights = {}
-        # self.topic_model_evaluators = {}
-        # self._eval_def2name = {}
-        # self._reg_types2names = {}
-        # self._progress_bars = False
-
     def create_model(self, label, train_cfg, reg_cfg=None, show_progress_bars=False):
         """
         Call this method to create a new TopicModel. Before training on it you mush invoke the create_train_specs of the ModelFactory
@@ -113,7 +99,7 @@ class ModelFactory(object):
         All regularizers and scores will be forgotten. It is strongly recommend to reset all important parameters of the ARTM model, used earlier.\n
 
         Given a phi file path, a unique label and a dictionary of experimental tracked_metrics_dict, initializes a TopicModel object with the restored state of a model stored in disk. Configures to track the same
-        evaluation metrics/scores. Uses the self.dictionary for indexing.\n
+        evaluation metrics/scores. Uses the self.coherence_dict for indexing.\n
         It copies the tau trajectory definitions found in loaded model. This means that tau will foloow the same trajectory from scratch
         Sets the below parameters with the latest corresponding values found in the experimental tracked_metrics_dict:\n
         - number of phi-matrix-updates/passes-per-document\n
@@ -130,7 +116,7 @@ class ModelFactory(object):
         # BUILD
         bgt, dmt = results.scalars.background_topics, results.scalars.domain_topics
         self._eval_factory.domain_topics = dmt
-        self._artm = artm.ARTM(topic_names=bgt + dmt, dictionary=self.dict, show_progress_bars=show_progress_bars)
+        self._artm = artm.ARTM(topic_names=bgt + dmt, dictionary=self.coherence_dict, show_progress_bars=show_progress_bars)
         self._artm.load(phi_file_path)
         if self._artm.get_phi().shape[1] != len(bgt + dmt):
             raise RuntimeError("Quite unfortunate! The loaded phi p(w|t) matrix, loaded from {}, has {} columns, but the total length of background and domain topics in the experimental results".format(self._artm.get_phi().shape[1], phi_file_path, len(bgt + dmt)))
@@ -159,7 +145,7 @@ class ModelFactory(object):
     # TODO replace calls to _build_artm with _build_artm_new
     def _build_artm(self, background_topics, domain_topics, modalities_dict=None, phi_path=''):
         self._eval_factory.domain_topics = domain_topics
-        self._artm = artm.ARTM(num_topics=self._nb_topics, dictionary=self.dict, show_progress_bars=self._progress_bars)
+        self._artm = artm.ARTM(num_topics=self._nb_topics, dictionary=self.coherence_dict, show_progress_bars=self._progress_bars)
         if phi_path:
             self._artm.load(phi_path)
         self._artm.topic_names = background_topics + domain_topics
@@ -175,7 +161,8 @@ class ModelFactory(object):
         self._eval_factory.modalities = self._modality_weights
         for evaluator_definition, eval_instance_name in self._eval_def2name.items():
             if evaluator_definition.split('-')[-1][0] == '@' and self.abbreviation2_class_name[evaluator_definition.split('-')[-1]] not in self._modality_weights:
-                logger.warning("Skipping score definition {}".format({evaluator_definition: eval_instance_name}))
+                # raise RuntimeError("Skipping score definition {}. weights: {}, struct: {}".format({evaluator_definition: eval_instance_name}, self._modality_weights, self.abbreviation2_class_name))
+                logger.warning("Skipping score definition {} because its respective modality weight is 0".format({evaluator_definition: eval_instance_name}))
                 continue
             self.topic_model_evaluators[evaluator_definition] = self._eval_factory.create_evaluator(evaluator_definition, eval_instance_name)
             self._artm.scores.add(self.topic_model_evaluators[evaluator_definition].artm_score)

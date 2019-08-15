@@ -9,4 +9,9 @@ nltk
 click
 pattern  # only used to support the lemmatization feature during preprocessing. takes around 65 MB in a venv
 
+# for the transform.py interface
+PyInquirer
+prompt-toolkit==1.0.14  # fixed requirement of PyInquirer !
+
+# for the python3 only feature of graph building
 easyplot
