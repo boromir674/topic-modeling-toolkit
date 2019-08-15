@@ -5,7 +5,7 @@ import argparse
 from operator import itemgetter
 from collections import OrderedDict
 import pandas as pd
-import ConfigParser
+from configparser import ConfigParser
 from gensim.corpora import Dictionary
 from gensim.models.tfidfmodel import TfidfModel
 

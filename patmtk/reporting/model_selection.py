@@ -84,8 +84,8 @@ class ResultsHandler(object):
     DEFAULT_COLUMNS = ['nb-topics', 'collection-passes', 'document-passes', 'total-phi-updates', 'perplexity'] +\
                       DYNAMIC_COLUMNS[:-1] + ['sparsity-theta'] + [DYNAMIC_COLUMNS[-1]] + ['regularizers']
 
-    def __init__(self, collection_root_path, results_dir_name='results'):
-        self._collection_root_path = collection_root_path
+    def __init__(self, collections_root_path, results_dir_name='results'):
+        self._collections_root = collections_root_path
         self._results_dir_name = results_dir_name
         self._results_hash = {}
         self._fitness_function_hash = {}
@@ -104,7 +104,7 @@ class ResultsHandler(object):
         :return: the ExperimentalResults objects
         :rtype: list
         """
-        result_paths = glob('{}/*.json'.format(os.path.join(self._collection_root_path, collection_name, self._results_dir_name)))
+        result_paths = glob('{}/*.json'.format(os.path.join(self._collections_root, collection_name, self._results_dir_name)))
         if type(selection) == list and all(type(x) == str for x in selection):  # if input list contains model labels
             e = self._get_experimental_results([_ for _ in result_paths if re.search('/(?:{})\.json'.format('|'.join(selection)), _)])
             try:
@@ -187,8 +187,7 @@ class ResultsHandler(object):
     @staticmethod
     def get_all_columns(exp_results, requested_entities):
         return reduce(lambda i, j: i + j,
-                      [COLUMNS_HASH[x]['definitions'](exp_results) if x in ResultsHandler.DYNAMIC_COLUMNS else [x] for x
-                       in requested_entities])
+                      [COLUMNS_HASH[x]['definitions'](exp_results) if x in ResultsHandler.DYNAMIC_COLUMNS else [x] for x in requested_entities])
 
     ###### UTILITY FUNCTIONS ######
     @staticmethod

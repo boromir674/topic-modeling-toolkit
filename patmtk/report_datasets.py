@@ -80,11 +80,11 @@ if __name__ == '__main__':
         l = []
         for i, line in enumerate(multiline_datasets_strings):
             if args.dataset_label in line:
-                print line
+                print(line)
                 break
                 # l.extend([line] + multiline_datasets_strings[i + 1 : i + 5])
                 # break
         # print('\n'.join(l))
     # b = '\n'.join(dt_rprt.get_infos(details=args.details))
     else:
-        print '\n'.join(multiline_datasets_strings)
+        print('\n'.join(multiline_datasets_strings))

@@ -5,8 +5,13 @@ from glob import glob
 from collections import Iterable
 
 from .fitness import FitnessCalculator
-from . import results_handler
+from .model_selection import ResultsHandler
 from functools import reduce
+
+
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel('INFO')
 
 
 class ModelReporter:
@@ -16,6 +21,7 @@ class ModelReporter:
 
     def __init__(self, collections_root_path, results_dir_name='results'):
         self._collections_dir = collections_root_path
+        self.results_handler = ResultsHandler(self._collections_dir, results_dir_name=results_dir_name)
         self._results_dir_name = results_dir_name
         self._label_separator = ':'
         self._columns_to_render = []
@@ -44,21 +50,36 @@ class ModelReporter:
                                    self._columns_titles[-1])
         return head + '\n' + body
 
+    @property
+    def exp_results(self):
+        """
+        :rtype: list of results.experimental_results.ExperimentalResults
+        """
+        return self.results_handler.get_experimental_results(self._collection_name, selection='all')
+
     def _initialize(self, collection_name, columns=None, metric='', verbose=False):
         self._collection_name = collection_name
         self._result_paths = glob('{}/*.json'.format(os.path.join(self._collections_dir, collection_name, self._results_dir_name)))
         self._model_labels = [ModelReporter._get_label(x) for x in self._result_paths]
         if not self._model_labels:
-            print("Either wrong dataset label '{}' was given or the collection/dataset has no trained models".format(collection_name))
-            sys.exit(1)
+            raise RuntimeError("Either wrong dataset label '{}' was given or the collection/dataset has no trained models. Dataset root: '{}', contents: [{}]. results contents: [{}]".format(
+                collection_name, os.path.join(self._collections_dir, collection_name), ', '.join(os.path.basename(x) for x in os.listdir(os.path.join(self._collections_dir, collection_name))),
+                ', '.join(os.path.basename(x) for x in os.listdir(os.path.join(self._collections_dir, collection_name, 'results')))))
         self._max_label_len = max([len(x) for x in self._model_labels])
         self._columns_to_render, self._columns_failed = [], []
+        self.maximal_requested_columns = self.determine_maximal_set_of_renderable_columns_debug(self.exp_results)
+
+        # for res in self.exp_results:
+        #     if set(self._containing_column(res)) != set(self.maximal_requested_columns):
+        #         logger.warning("This fails in unittesting because trackables differ per model results. Maximal discovered: [{}] diff current model = {}, label: {}".format(
+        #             ', '.join(sorted(list(set(self.maximal_requested_columns)))), ', '.join(sorted([_ for _ in self.maximal_requested_columns if _ not in self._containing_column(res)])), res.scalars.model_label))
+
         self._maximal_renderable_columns = self._get_maximal_renderable_columns()
 
         if not columns:
             self.columns_to_render = self._maximal_renderable_columns
         else:
-            self.columns_to_render, self._columns_failed = ModelReporter._get_renderable(self._maximal_renderable_columns, columns)
+            self.columns_to_render, self._columns_failed = self._get_renderable(self._maximal_renderable_columns, columns)
 
         if metric and metric not in self.columns_to_render:
             raise InvalidMetricException("Metric '{}' is not recognized within [{}]".format(metric, ', '.join(self.columns_to_render)))
@@ -68,7 +89,7 @@ class ModelReporter:
             print('Using: [{}]'.format(', '.join(self.columns_to_render)))
             print('Ommiting: [{}]'.format(', '.join({_ for _ in self._maximal_renderable_columns if _ not in self.columns_to_render})))
             print('Failed: [{}]'.format(', '.join(self._columns_failed)))
-        self._columns_titles = results_handler.get_titles(self.columns_to_render)
+        self._columns_titles = self.results_handler.get_titles(self.columns_to_render)
         self._max_col_lens = [len(x) for x in self._columns_titles]
         self.fitness_computer.highlightable_columns = [_ for _ in self.columns_to_render if ModelReporter._get_hash_key(_) in self._column_keys_to_highlight]
 
@@ -93,14 +114,44 @@ class ModelReporter:
     ########## COLUMNS DEFINITIONS ##########
     def _get_maximal_renderable_columns(self):
         """Call this method to get a list of all the inferred columns allowed to render."""
-        return ModelReporter._get_column_definitions(results_handler.DEFAULT_COLUMNS,
-                                                     ModelReporter.determine_maximal_set_of_renderable_columns(results_handler.get_experimental_results(self._collection_name)))
+        _ = ModelReporter._get_column_definitions(self.results_handler.DEFAULT_COLUMNS,
+                                                     self.maximal_requested_columns)
+        if len(_) != len(self.maximal_requested_columns):
+            raise RuntimeError("Discovered columns (from results): [{}]. Computed: [{}. Missmatch with supported DYNAMIC [{}] and DEFAULT [{}] columns.".format(
+                ', '.join(sorted(self.maximal_requested_columns)),
+                ', '.join(sorted(_)),
+                ', '.join(sorted(self.results_handler.DYNAMIC_COLUMNS)),
+                ', '.join(sorted(self.results_handler.DEFAULT_COLUMNS))
+            ))
+        return _
 
     @staticmethod
-    def determine_maximal_set_of_renderable_columns(exp_results_list):
+    def _get_column_definitions(supported_columns, requested_column_definitions):
+        """Given a list of allowed column definitions, returns a sublist of it based on the selected supported_columns. The returned list is ordered
+         based on the given supported_columns."""
+        return reduce(lambda i,j: i+j, [sorted([_ for _ in requested_column_definitions if _.startswith(x)]) for x in supported_columns])
+
+    def _containing_column(self, exp_res_obj):
+        return self.results_handler.get_all_columns(exp_res_obj, self.results_handler.DEFAULT_COLUMNS)
+
+    def determine_maximal_set_of_renderable_columns(self, exp_results_list):
         return reduce(lambda i, j: i.union(j),
-                      [set(results_handler.get_all_columns(x, results_handler.DEFAULT_COLUMNS)) for x in
+                      [set(self.results_handler.get_all_columns(x, self.results_handler.DEFAULT_COLUMNS)) for x in
                        exp_results_list])
+
+    def determine_maximal_set_of_renderable_columns_debug(self, exp_results_list):
+        res = set()
+        for exp_res in exp_results_list:
+            colums = self.results_handler.get_all_columns(exp_res, self.results_handler.DEFAULT_COLUMNS)
+            logger.debug("Model: {}, columns: [{}]".format(exp_res.scalars.model_label, ', '.join(sorted(colums))))
+            c = set(colums)
+            assert len(colums) == len(c)
+            res = res.union(set(colums))
+        return res
+        # return reduce(lambda i, j: i.union(j),
+        #               [set(self.results_handler.get_all_columns(x, self.results_handler.DEFAULT_COLUMNS)) for x in
+        #                exp_results_list])
+
 
     def _compute_rows(self):
         self._model_labels, values_lists = self._get_labels_n_values()
@@ -109,9 +160,14 @@ class ModelReporter:
     def _get_labels_n_values(self):
         """Call this method to get a list of model labels and a list of lists of reportable values that correspond to each label
         Fitness_computer finds the maximum values per eligible column definition that need to be highlighted."""
+        if len(self.columns_to_render) < 1:
+            raise RuntimeError("No valid columns to compute")
         if self._metric:
             self.fitness_computer.__init__(single_metric=self._metric, column_definitions=self.columns_to_render)
-            return [list(t) for t in zip(*sorted(zip(self._model_labels, self._results_value_vectors), key=lambda y: self.fitness_computer(y[1]), reverse=True))]
+            try:
+                return [list(t) for t in zip(*sorted(zip(self._model_labels, self._results_value_vectors), key=lambda y: self.fitness_computer(y[1]), reverse=True))]
+            except IndexError as e:
+                raise IndexError("Error: Probably no vectors (one per model holding the columns/metric values to report) computed: [{}]. ModelsL [{}]".format(', '.join(str(_) for _ in self._results_value_vectors), ', '.join(x.scalars.model_label for x in self.exp_results)))
         return self._model_labels, [self.fitness_computer.pass_vector(x) for x in self._results_value_vectors]
 
     ########## STRING OPERATIONS ##########
@@ -127,7 +183,7 @@ class ModelReporter:
     def _to_string(self, value, column_definition):
         _ = '-'
         if value is not None:
-            _ = results_handler.stringnify(column_definition, value)
+            _ = self.results_handler.stringnify(column_definition, value)
             self._max_col_lens[self.columns_to_render.index(column_definition)] = max(self._max_col_lens[self.columns_to_render.index(column_definition)], len(_))
         if column_definition in self.fitness_computer.best and value == self.fitness_computer.best[column_definition]:
             return self.highlight_pre_fix + _ + self.highlight_post_fix
@@ -142,15 +198,24 @@ class ModelReporter:
     ########## EXTRACTION ##########
     @property
     def _results_value_vectors(self):
-        return [self._extract_all(x) for x in results_handler.get_experimental_results(self._collection_name, selection='all')]
+        return [self._extract_all(x) for x in self.exp_results]
+
+    def _extract(self, exp_res, column):
+        # try:
+        return self.results_handler.extract(exp_res, column, 'last')
+        # except KeyError as e:
+        #     return None
+                # if column.startswith('topic-kernel') or column.startswith('top-tokens') or column.startswith('background-tokens-ratio'):
+        #     if column in exp_res.tracked
 
     def _extract_all(self, exp_results):  # get a list (vector) of extracted values; it shall contain integers, floats, Nones
         # (for metrics not tracked for the specific model) a single string for representing the regularization specifications and nan for the 'sparsity-phi-i' metric
-        return [results_handler.extract(exp_results, x, 'last') for x in self.columns_to_render]
+        _ = [self._extract(exp_results, x) for x in self.columns_to_render]
+        if len(_) < 1:
+            raise RuntimeError("Empty vector!: {}. Failed to extract all [{}]".format(_, ', '.join(sorted(str(x) for x in self.columns_to_render))))
+        return _
 
-    ########## STATIC ##########
-    @staticmethod
-    def _get_renderable(allowed_renderable, columns):
+    def _get_renderable(self, allowed_renderable, columns):
         """
         Call this method to get the list of valid renderable columns and the list of invalid ones. The renderable columns
         are inferred from the selected 'columns' and the 'allowed' ones.\n
@@ -161,25 +226,27 @@ class ModelReporter:
         """
         return [[_f for _f in reduce(lambda i,j: i+j, x) if _f]
                 for x in zip(*[list(z)
-                               for z in [ModelReporter._build_renderable(y, allowed_renderable)
+                               for z in [self._build_renderable(y, allowed_renderable)
                                          for y in columns]])]
 
-    @staticmethod
-    def _build_renderable(requested_column, allowed_renderable):
+    def _build_renderable(self, requested_column, allowed_renderable):
         if requested_column in allowed_renderable:
             return [requested_column], [None]
-        elif requested_column in results_handler.DYNAMIC_COLUMNS:
+        elif requested_column in self.results_handler.DYNAMIC_COLUMNS:
             return sorted([_ for _ in allowed_renderable if _.startswith(requested_column)]), [None]
-        elif requested_column in results_handler.DEFAULT_COLUMNS:  # if c is one of the columns that map to exactly one column to render; ie 'perplexity'
+        elif requested_column in self.results_handler.DEFAULT_COLUMNS:  # if c is one of the columns that map to exactly one column to render; ie 'perplexity'
             return [requested_column], [None]
         else: # requested column is invalid: is not on of the allowed renderable columns
+            logger.warning("One of the discovered models requires to render the '{}' column but it is not within the infered allowed columns [{}], nor in the DYNAMIC [{}] or DEFAULT (see ResultsHandler) [{}].".format(
+                requested_column,
+                ', '.join(sorted(allowed_renderable)),
+                ', '.join(sorted(self.results_handler.DYNAMIC_COLUMNS)),
+                ', '.join(sorted(self.results_handler.DEFAULT_COLUMNS))
+            ))
             return [None], [requested_column]
 
-    @staticmethod
-    def _get_column_definitions(columns, column_definitions):
-        """Given a list of allowed column definitions, returns a sublist of it based on the selected columns. The returned list is ordered
-         based on the given columns."""
-        return reduce(lambda i,j: i+j, [sorted([_ for _ in column_definitions if _.startswith(x)]) for x in columns])
+    ########## STATIC ##########
+
 
     @staticmethod
     def _get_invalid_column_definitions(column_defs, allowed_renderable):
@@ -212,10 +279,5 @@ class ModelReporter:
             return True
 
 
-class InvalidColumnsException(Exception):
-    def __init__(self, msg):
-        super(InvalidColumnsException, self).__init__(msg)
-
-class InvalidMetricException(Exception):
-    def __init__(self, msg):
-        super(InvalidMetricException, self).__init__(msg)
+class InvalidColumnsException(Exception): pass
+class InvalidMetricException(Exception): pass

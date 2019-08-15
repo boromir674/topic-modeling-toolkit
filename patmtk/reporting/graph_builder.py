@@ -8,8 +8,7 @@ import matplotlib.pyplot as plt
 plt.ion()
 
 from easyplot import EasyPlot
-
-from . import results_handler
+from .model_selection import ResultsHandler
 
 
 class GraphMaker(object):
@@ -18,8 +17,9 @@ class GraphMaker(object):
     LINES = ['m', 'y', 'b', 'g', 'k', 'c', 'r', '#4D79D1']
     # linestyle / ls: Plot linestyle['-', '--', '-.', ':', 'None', ' ', '']
     # marker: '+', 'o', '*', 's', 'D', ',', '.', '<', '>', '^', '1', '2'
-    def __init__(self, collections_root_path, plot_dir_name='graphs'):
+    def __init__(self, collections_root_path, plot_dir_name='graphs', results_dir_name='results'):
         self._collections_dir_path = collections_root_path
+        self.results_handler = ResultsHandler(self._collections_dir_path, results_dir_name=results_dir_name)
         self._plot_dir_name = plot_dir_name
         self._verbose_save = True
         self._save_lambdas = {True: lambda z: self._save_plot_n_return(z[0], z[1], verbose=self._verbose_save),
@@ -69,7 +69,7 @@ class GraphMaker(object):
         :param bool verbose:
         """
         self._prepare_output_folder(collection_name)
-        self._exp_results_list = results_handler.get_experimental_results(collection_name, sort=metric, selection=selection)
+        self._exp_results_list = self.results_handler.get_experimental_results(collection_name, sort=metric, selection=selection)
         print("Retrieved {} models from collection '{}', sorted on '{}'.\nModels: [{}]".format(
             len(self._exp_results_list), collection_name, (lambda x: x if x else 'their labels alphabetically')(metric),
             ', '.join((_.scalars.model_label for _ in self._exp_results_list))))
@@ -112,9 +112,9 @@ class GraphMaker(object):
         if metric in ('phi', 'theta'):
             measure_name = 'τ_{}'.format(metric)
         else:
-            measure_name = results_handler.get_abbreviation(metric).replace('-', '.')
+            measure_name = self.results_handler.get_abbreviation(metric).replace('-', '.')
         try:
-            extractor = self._tau_traj_extractor.get(metric, lambda x: results_handler.extract(x, metric, 'all'))
+            extractor = self._tau_traj_extractor.get(metric, lambda x: self.results_handler.extract(x, metric, 'all'))
 
             ys, xs = self._get_ys_n_xs(exp_results_list, extractor, nb_points=limit_iteration)
             return '{}-{}'.format(self._model_label_joiner.join(labels), measure_name), \
@@ -135,16 +135,14 @@ class GraphMaker(object):
         self._results_indices = list(range(len(ys)))
         return ys, [list(range(len(_))) for _ in ys]
 
-
-    @classmethod
-    def determine_metrics_usable_for_comparison(cls, exp_results):
+    def determine_metrics_usable_for_comparison(self, exp_results):
         """
         If 2 or more models are found to contain information about the same metric (ie kernel-contrast-0.80) then the metric is included in the returning list.\n
         :param list exp_results:
         :return: list of strings; the metric definitions
         :rtype: list
         """
-        return sorted([k for k, v in Counter(reduce(lambda i, j: i + j, [results_handler.get_all_columns(x, cls.SUPPORTED_GRAPHS) for x in exp_results])).items() if v > 1])
+        return sorted([k for k, v in Counter(reduce(lambda i, j: i + j, [self.results_handler.get_all_columns(x, self.SUPPORTED_GRAPHS) for x in exp_results])).items() if v > 1])
 
     @staticmethod
     def build_graph(xs, ys, line_designs, labels, title, xlabel, ylabel, grid='on'):

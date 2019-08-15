@@ -1,6 +1,6 @@
 import os
 import json
-from base_evaluator import *
+from .base_evaluator import *
 from patm.definitions import DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 
 import logging

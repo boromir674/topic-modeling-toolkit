@@ -3,7 +3,7 @@
 import sys
 import argparse
 
-from reporting import graph_maker
+from reporting import GraphMaker
 
 
 def get_cl_arguments():
@@ -41,7 +41,8 @@ def get_cl_arguments():
 if __name__ == '__main__':
     args = get_cl_arguments()
     print(args)
-
+    from patm.definitions import COLLECTIONS_DIR_PATH
+    graph_maker = GraphMaker(COLLECTIONS_DIR_PATH)
     graph_maker.build_graphs_from_collection(args.collection, args.selection,
                                              metric=args.sort,
                                              score_definitions=args.metrics,

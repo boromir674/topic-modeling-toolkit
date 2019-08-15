@@ -3,26 +3,26 @@ from abc import ABCMeta, abstractmethod
 from artm.scores import *
 from patm.definitions import DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 
-
-class MetaEvaluator:
-    __metaclass__ = ABCMeta
-
-    def __init__(self):
-        self.__mro__ = [AbstractEvaluator]
-
-    @abstractmethod
-    def evaluate(self, data):
-        raise NotImplementedError
-
-    def __str__(self):
-        return type(self).__name__
-
-    @classmethod
-    def __subclasshook__(cls, C):
-        if cls is AbstractEvaluator:
-            if any('evaluate' in B.__dict__ for B in C.__mro__):
-                return True
-        return NotImplemented
+#
+# class MetaEvaluator:
+#     __metaclass__ = ABCMeta
+#
+#     def __init__(self):
+#         self.__mro__ = [AbstractEvaluator]
+#
+#     @abstractmethod
+#     def evaluate(self, data):
+#         raise NotImplementedError
+#
+#     def __str__(self):
+#         return type(self).__name__
+#
+#     @classmethod
+#     def __subclasshook__(cls, C):
+#         if cls is AbstractEvaluator:
+#             if any('evaluate' in B.__dict__ for B in C.__mro__):
+#                 return True
+#         return NotImplemented
 
 
 class AbstractEvaluator(object):
@@ -184,4 +184,4 @@ class BackgroundTokensRatioEvaluator(ArtmEvaluator):
         return '{}-{:.2f}'.format(self, self._delta_threshold)
 
 
-MetaEvaluator.register(AbstractEvaluator)
+# MetaEvaluator.register(AbstractEvaluator)

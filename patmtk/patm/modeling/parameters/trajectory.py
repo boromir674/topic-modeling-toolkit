@@ -1,4 +1,5 @@
 import numpy as np
+from functools import reduce
 
 
 class ParameterTrajectory(object):
@@ -12,7 +13,7 @@ class ParameterTrajectory(object):
     def __init__(self, param_name, values_list):
         self._param = param_name
         self._values = values_list
-        self.steady_chunks = IterationChunks(map(lambda x: IterDuo(x), self._steady_iteration_ranges(self.group_iterations())))
+        self.steady_chunks = IterationChunks([IterDuo(x) for x in self._steady_iteration_ranges(self.group_iterations())])
 
     def __getattr__(self, item):
         if item == self._param:
@@ -76,7 +77,7 @@ class ParameterTrajectory(object):
 class IterationChunks(object):
     def __init__(self, chunks_ref_list):
         if chunks_ref_list and (type(chunks_ref_list[0]) == list or chunks_ref_list[0] == 1):
-            self.chunks = map(lambda x: IterSingle() if x == 1 else IterDuo(x), chunks_ref_list)
+            self.chunks = [IterSingle() if x == 1 else IterDuo(x) for x in chunks_ref_list]
         else:
             self.chunks = chunks_ref_list
         self._res = []
@@ -131,7 +132,7 @@ class IterationChunks(object):
         self._ref = duo
         self._done = False
         ind = 0
-        ll = filter(None, map(lambda x: x if x.right > self._ref.left else None, duo_list))
+        ll = [_f for _f in [x if x.right > self._ref.left else None for x in duo_list] if _f]
         while not self._done and ind < len(ll):
             cand = ll[ind]
             if self._cand_left_smaller_than_ref_left(cand) and self._cond(cand) or self._cand_left_equal_to_ref_left(cand):

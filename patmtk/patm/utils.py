@@ -4,7 +4,7 @@ import threading
 import json
 from configparser import ConfigParser
 from collections import OrderedDict
-from definitions import TRAIN_CFG
+from .definitions import TRAIN_CFG
 
 
 _section2encoder = {
@@ -44,8 +44,10 @@ def cfg2model_settings(cfg_file):
     """
     config = ConfigParser()
     config.read(u'{}'.format(cfg_file))
-    return OrderedDict([(section.encode('utf-8'), OrderedDict([(setting_name.encode('utf-8'), _section2encoder[section](value)) for setting_name, value in config.items(section) if value])) for section in config.sections()])
-
+    # return OrderedDict([(section.encode('utf-8'), OrderedDict([(setting_name.encode('utf-8'), _section2encoder[section](value)) for setting_name, value in config.items(section) if value])) for section in config.sections()])
+    return OrderedDict([(section, OrderedDict(
+        [(setting_name, _section2encoder[section](value)) for setting_name, value in
+         config.items(section) if value])) for section in config.sections()])
 
 class GenericTopicNamesBuilder:
     def __init__(self, nb_topics=0, background_topics_pct=0.0):

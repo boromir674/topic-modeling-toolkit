@@ -106,7 +106,8 @@ class TrainerFactory(object):
     def __new__(cls, *args, **kwargs):
         if cls.__instance is None:
             cls.__instance = super(TrainerFactory, cls).__new__(cls)
-        cls.__instance._collections_root = kwargs.get('collections_root_dir', COLLECTIONS_DIR_PATH)
+        if 'collections_root_dir' in kwargs:
+            cls.__instance._collections_root = kwargs['collections_root_dir']
         return cls.__instance
 
     ideology_flag2data_format = {True: 'vowpal_wabbit', False: 'bow_uci'}
@@ -115,14 +116,14 @@ class TrainerFactory(object):
     def create_trainer(self, collection, exploit_ideology_labels=False, force_new_batches=False):
         """
         Creates an object that can train any topic model on a specific dataset/collection.\n
-        :param str collection: the collection name which matches the root directory of all the files related to the collection
+        :param str collection: the collection dir path which matches the root directory of all the files related to the collection
         :param bool exploit_ideology_labels: whether to use the calss labels for each document. If true then vowpal-formatted dataset has to be found (because it can encode label information per document) to create batches from
         :param bool force_new_batches: whether to force the creation of new batches regardless of fiding any existing ones. Potentially overrides old batches found
         :return: the ready-to-train created object
         :rtype: ModelTrainer
         """
-        self._col = collection
-        self._root_dir = os.path.join(self._collections_root, self._col)
+        self._col = os.path.basename(collection)
+        self._root_dir = collection
         self._mod_tr = ModelTrainer()
         self._batches_dir_name = self.ideology_flag2batches_dir_name[exploit_ideology_labels]
         self._batches_target_dir = os.path.join(self._root_dir, self._batches_dir_name)

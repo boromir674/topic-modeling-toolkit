@@ -2,7 +2,7 @@
 
 import click
 
-from reporting import topic_handler
+from reporting import TopicsHandler
 
 
 @click.command()
@@ -30,6 +30,8 @@ from reporting import topic_handler
 @click.option('--show_title/--no-show_title', show_default=True, default=False,
               help="Whether to print a title on top of the table of topics ")
 def main(dataset, model_label, topics_set, tokens_type, sort, columns, number_of_tokens, show_metrics, show_title):
+    from patm.definitions import COLLECTIONS_DIR_PATH
+    topic_handler = TopicsHandler(COLLECTIONS_DIR_PATH)
     if topics_set == 'background':
         b = topic_handler.pformat_background([dataset, model_label],
                                              columns=columns,

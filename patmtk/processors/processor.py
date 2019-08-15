@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
-
+from functools import reduce
 
 class MetaProcessor(object):
     __metaclass__ = ABCMeta
@@ -97,8 +97,8 @@ class BaseDiskWriter(Processor, DiskWriterMetaProcessor):
             self.doc_num += 1
             return _
         except UnicodeEncodeError as e:
-            print 'Document vector below, produced a UnicodeEncodeError:'
-            print 'count:', self.doc_num, data[0]
+            print('Document vector below, produced a UnicodeEncodeError:')
+            print('count:', self.doc_num, data[0])
             return None
 
     def initialize(self):

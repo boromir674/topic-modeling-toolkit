@@ -8,7 +8,6 @@ from patm.modeling import TrainerFactory, Experiment
 from patm.definitions import COLLECTIONS_DIR_PATH, REGULARIZERS_CFG
 
 
-
 def get_cl_arguments():
     parser = argparse.ArgumentParser(prog='train.py', description='Trains an artm topic model and stores \'evaluation\' scores', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('collection', help='the name for the collection to train on')
@@ -28,7 +27,7 @@ if __name__ == '__main__':
     args = get_cl_arguments()
     root_dir = os.path.join(COLLECTIONS_DIR_PATH, args.collection)
 
-    model_trainer = TrainerFactory().create_trainer(args.collection, exploit_ideology_labels=True, force_new_batches=args.new_batches)
+    model_trainer = TrainerFactory().create_trainer(root_dir, exploit_ideology_labels=True, force_new_batches=args.new_batches)
     experiment = Experiment(root_dir, model_trainer.cooc_dicts)
     model_trainer.register(experiment)  # when the model_trainer trains, the experiment object keeps track of evaluation metrics
 
@@ -45,12 +44,12 @@ if __name__ == '__main__':
     # import pprint
     # pprint.pprint({k: dict(v, **{setting_name: setting_value for setting_name, setting_value in {'target topics': (lambda x: 'all' if len(x) == 0 else '[{}]'.format(', '.join(x)))(topic_model.get_reg_obj(topic_model.get_reg_name(k)).topic_names), 'mods': getattr(topic_model.get_reg_obj(topic_model.get_reg_name(k)), 'class_ids', None)}.items()}) for k, v in self.static_regularization_specs.items()})
     # pprint.pprint(tm.modalities_dictionary)
-    print 'Initialized Model:'
-    print topic_model.pformat_regularizers
-    print topic_model.pformat_modalities
+    print("Initialized Model:")
+    print(topic_model.pformat_regularizers)
+    print(topic_model.pformat_modalities)
     model_trainer.train(topic_model, train_specs, effects=True, cache_theta=True)
-    print 'Iterated {} times through the collection and {} times over each document: total phi updates = {}'.format(train_specs.collection_passes, topic_model.document_passes, train_specs.collection_passes * topic_model.document_passes)
+    print('Iterated {} times through the collection and {} times over each document: total phi updates = {}'.format(train_specs.collection_passes, topic_model.document_passes, train_specs.collection_passes * topic_model.document_passes))
 
     if args.save:
         experiment.save_experiment(save_phi=True)
-        print "Saved results and model '{}'".format(args.label)
+        print("Saved results and model '{}'".format(args.label))
