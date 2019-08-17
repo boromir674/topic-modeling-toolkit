@@ -165,6 +165,12 @@ DISCRETIZATION = {
     #     ('conservative', [])
     # ]
 }
+from .discreetization import PoliticalSpectrumManager
+pm = PoliticalSpectrumManager(SCALE_PLACEMENT, DISCRETIZATION)
+poster_id2ideology_label = pm.poster_id2ideology_label
+CLASS_LABELS = pm.class_names
+
+
 #
 # AUDIENCE_IDEOLOGICAL_PLACEMENT_DISCRETIZATION = {
 #
@@ -245,10 +251,6 @@ DISCRETIZATION = {
 #     # def _iter(self, outlet_names):
 #     #     return (_ for _ in SCALE_PLACEMENT if _[0] in outlet_names)
 
-from .discreetization import PoliticalSpectrumManager
-pm = PoliticalSpectrumManager(SCALE_PLACEMENT, DISCRETIZATION)
-poster_id2ideology_label = pm.poster_id2ideology_label
-CLASS_LABELS = pm.class_names
 
 #
 # @attr.s(cmp=True, repr=True, str=True, slots=True)

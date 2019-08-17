@@ -9,7 +9,7 @@ from configparser import ConfigParser
 from gensim.corpora import Dictionary
 from gensim.models.tfidfmodel import TfidfModel
 
-from patm.modeling.dataset_extraction import get_posts_generator
+from patm.modeling.dataset_extraction import CategoryToFieldsGenerator
 from patm import TextDataset
 from processors import Pipeline
 
@@ -42,8 +42,23 @@ class PipeHandler(object):
                          'tfidf': lambda bow_model: (_ for _ in map(lambda x: self._data_models['tfidf'][x], bow_model))}
         self._format_data_tr = {
             'uci': lambda x: x[1],
-            'vowpal': lambda x: [map(lambda y: (self.dct[y[0]], y[1]), x[1]), {IDEOLOGY_CLASS_NAME: self.label(self.outlet_ids[x[0]], poster_id2ideology_label)}]
+            'vowpal': lambda x: [map(lambda y: (self.dct[y[0]], y[1]), x[1]), {IDEOLOGY_CLASS_NAME: self.label(self.outlet_ids[x[0]])}]
         }
+        self._labels_hash = {}
+
+    @property
+    def labels_hash(self):
+        return self._labels_hash
+
+    @labels_hash.setter
+    def labels_hash(self, outlet_id2document_label_hash):
+        self._labels_hash = outlet_id2document_label_hash
+
+    def label(self, outlet_id):
+        return self._labels_hash[outlet_id]
+    @property
+    def labels(self):
+        return [self.label(x) for x in self.outlet_ids]
 
     @property
     def pipeline(self):
@@ -60,36 +75,33 @@ class PipeHandler(object):
     #
     # def pass_through(self, category, collection_path, sample='all'):
     #     self._initialize(collection_path, num_docs=sample, create_dir=False)
-    #     self._pass_through()
+    #     self.pipe_through_processors()
 
     def preprocess(self, category, collection_path, sample='all', add_class_labels_to_vocab=True):
-        self._initialize(category, collection_path, num_docs=sample, create_dir=True)
-        self._pass_through()
-        return self._finalize(add_class_labels_to_vocab=add_class_labels_to_vocab)
+        self._initialize(collection_path)
+        self.pipe_through_processors(category, num_docs=sample)
 
-    def label(self, outlet_id, classes_hash):
-        return classes_hash[outlet_id]
+        self.labels_hash = poster_id2ideology_label
+        self.pipe_through_disk_writers()
+        self.class_names = CLASS_LABELS
+        self.write_vocab(add_class_labels=add_class_labels_to_vocab)
+        return self.create_dataset()
 
-    def labels(self, poster2ideology_hash):
-        return [self.label(x, poster2ideology_hash) for x in self.outlet_ids]
-
-    def _initialize(self, category, dataset_path, num_docs='all', create_dir=True):
+    def _initialize(self, dataset_path):
         self._collection = os.path.basename(dataset_path)
         self._col_dir = dataset_path
-        self.set_doc_gen(category, num_docs=num_docs)
         self.uci_file = os.path.join(dataset_path, 'docword.{}.txt'.format(self._collection))
         self.vowpal_file = os.path.join(dataset_path, 'vowpal.{}.txt'.format(self._collection))
         self.pipeline.initialize(file_paths=[self.uci_file, self.vowpal_file])
 
-    def set_doc_gen(self, category, num_docs='all'):
-        self.cat2textgen_proc = get_posts_generator(nb_docs=num_docs)
-        self.text_generator = self.cat2textgen_proc.process(category)
-        print(self.cat2textgen_proc, '\n')
-
-    def _pass_through(self):
+    #####
+    def pipe_through_processors(self, category, num_docs='all'):
         doc_gens = []
         self.outlet_ids = []
         self.doc_gen_stats['corpus-tokens'] = 0
+        self.cat2textgen_proc = CategoryToFieldsGenerator(('text', 'poster_id'), nb_docs=num_docs)
+        self.text_generator = self.cat2textgen_proc.process(category)
+        print(self.cat2textgen_proc, '\n')
         for i, doc in enumerate(self.text_generator):
             doc_gens.append(self._pipeline.pipe_through(doc['text'], len(self._pipeline) - 2))
             self.outlet_ids.append(str(doc['poster_id']))  # index outlets (document authors) ids
@@ -131,37 +143,28 @@ class PipeHandler(object):
         self._print_bow_model_stats(self.corpus)
         print
 
-    def _finalize(self, add_class_labels_to_vocab=True):
-        # if len(self.corpus) == len(self.outlet_ids):
-        #     logger.warning("Please fix the logic because there is a missmatch between documents and labels: {} != {}".format(len(self.corpus), len(self.outlet_ids)))
-        # DO SOME MANUAL FILE WRITING
-        self._write_vocab(add_class_labels=add_class_labels_to_vocab)
-        self._write()  # write uci and vowpal formatted files
+    def pipe_through_disk_writers(self):
+        """Call to pass through the last BaseDiskWriter processors of the pieline. Assumes the last non BaseDsikWriter processor in the pipeline is a 'weight' so that a 'counts 'or 'tfidf' token weight model is computed"""
+        if len(self.corpus) == len(self.outlet_ids):
+            logger.warning("Please fix the logic because there is a missmatch between documents and labels: {} != {}".format(len(self.corpus), len(self.outlet_ids)))
+        self.labels_hash = poster_id2ideology_label
+        for _, processor in self.pipeline.disk_writers:
+            for i, vector in enumerate(self._get_iterable_data_model(self.pipeline.settings['weight'])):  # 'counts' only supported (future work: 'tfidf')
+                processor.process(self._format_data_tr[processor.to_id()]((i, vector)))
+        self.doc_gen_stats.update({'docs-gen': self.cat2textgen_proc.nb_processed, 'docs-failed': len(self.cat2textgen_proc.failed)})
 
         # the first 3 lines of a uci formatted file: correspond to nb_docs, vocab_size, sum of nb of tuples (representing the bow model) found in all documents.
         # They should be written on the top
         prologue_lines = map(lambda x: str(x), [self.dct.num_docs, len(self.dct.items()), sum(len(_) for _ in self.corpus)])
-        # pr2 = ['a', 'b'] # self.pipeline.finalize([prologue_lines, pr2])
         self.pipeline.finalize([prologue_lines])
-        self.dataset = TextDataset(self._collection, self._get_dataset_id(),
-                                   len(self.corpus), len(self.dct.items()), sum(len(_) for _ in self.corpus), self.uci_file, self.vocab_file, self.vowpal_file)
-        self.dataset.root_dir = self._col_dir
-        self.dataset.save()
-        return self.dataset
-
-    def _write(self):
-        for processor in self.pipeline.processors[-2:]: # iterate through the last two processors, which are the disk writers
-            for i, vector in enumerate(self._get_iterable_data_model(self.pipeline.settings['weight'])):  # 'counts' only supported (future work: 'tfidf')
-                processor.process(self._format_data_tr[processor.to_id()]((i, vector)))
-                # self.doc_gen_stats['nb-bows'] += len(vec)
-        self.doc_gen_stats.update({'docs-gen': self.cat2textgen_proc.nb_processed, 'docs-failed': len(self.cat2textgen_proc.failed)})
 
     def _get_iterable_data_model(self, data_model):
         if data_model not in self._data_models:
             self._data_models[data_model] = self._data_model2constructor[data_model](self.corpus)
         return self._vec_gen[data_model](self.corpus)
 
-    def _write_vocab(self, add_class_labels=True):
+    #######
+    def write_vocab(self, add_class_labels=True):
         # Define file and dump the vocabulary (list of unique tokens, one per line)
         self.vocab_file = os.path.join(self._col_dir, 'vocab.{}.txt'.format(self._collection))
         if not os.path.isfile(self.vocab_file):
@@ -181,14 +184,24 @@ class PipeHandler(object):
         for gram_id, gram_string in self.dct.iteritems():
             yield gram_id, gram_string
         if include_class_labels:
-            for class_label in [_ for _ in CLASS_LABELS if _ in set(self.labels(poster_id2ideology_label))]:
+            for class_label in [_ for _ in self.class_names if _ in set(self.labels)]:
                 yield 'class_modality', '{} {}'.format(class_label, IDEOLOGY_CLASS_NAME)
+
+    #######
+    def create_dataset(self):
+        dataset = TextDataset(self._collection, self._get_dataset_id(),
+                                   len(self.corpus), len(self.dct.items()), sum(len(_) for _ in self.corpus),
+                                   self.uci_file, self.vocab_file, self.vowpal_file)
+        dataset.root_dir = self._col_dir
+        dataset.save()
+        return dataset
 
     def _get_dataset_id(self):
         idd = self._pipeline.get_id()  # get_id(self._pipeline.settings)
         ri = idd.rfind('_')
         return str(len(self.corpus)) + '_' + idd[:ri] + '.' + idd[ri + 1:]
 
+    ###### UTILS
     def _print_dict_stats(self):
         print("GENSIM-DICT:\nnum_pos (processes words): {}\nnum_nnz (nb of bow-tuples) {}\nvocab size: {}".format(
             self.dct.num_pos, self.dct.num_nnz, len(self.dct.items())))

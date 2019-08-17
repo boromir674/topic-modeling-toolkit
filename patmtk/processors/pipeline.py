@@ -22,9 +22,9 @@ settings_value2processors = {
     'normalize': lambda x: StringLemmatizer() if x == 'lemmatize' else None,
     'minlength': lambda x: MinLengthFilter(x) if x else None,
     'maxlength': lambda x: MaxLengthFilter(x) if x else None,
+    'ngrams': lambda x: WordToNgramGenerator(x) if x else None,
     'nobelow': lambda x: x if x else None,
     'noabove': lambda x: x if x else None,
-    'ngrams': lambda x: WordToNgramGenerator(x) if x else None,
     'weight': lambda x: x if x else None,
     'format': lambda x: {'uci': UciFormatWriter(), 'vowpal': VowpalFormatWriter()}[x] if x else None
 }
@@ -70,6 +70,9 @@ class Pipeline(object):
     def __iter__(self):
         for pr_name, pr in zip(self.processors_names, self.processors):
             yield pr_name, pr
+    @property
+    def transformers(self):
+        return [(name, proc_obj) for name, proc_obj in self if isinstance(proc_obj, BaseDiskWriter)]
 
     @property
     def disk_writers(self):
@@ -132,6 +135,12 @@ class Pipeline(object):
             if isinstance(proc, Processor) and not isinstance(proc, BaseDiskWriter):
                 data = proc.process(data)
         return data
+
+    def pipe_through_disk_writers(self, data, file_paths):
+        for i, (name, proc) in enumerate(self.disk_writers):
+            proc.initialize(file_paths, i)
+        for name, proc in self.disk_writers:
+            data = proc.process(data)
 
     def finalize(self, prologs=tuple([])):
         i = 0
