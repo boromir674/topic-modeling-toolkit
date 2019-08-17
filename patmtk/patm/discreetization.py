@@ -7,10 +7,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def _correct_order(instance, attribute, converted_value):
-    instance._schemes = {k: OrderedDict([(class_label, [_ for _ in instance.scale if _ in outlet_names]) for class_label, outlet_names in scheme.items()])
-                         for k, scheme in converted_value.items()}
-
 def distr(ds_scheme, psm):
     # ds = DiscreetizationScheme.from_design(design, list(self.psm.scale.items()))
     outlet_id2name = OrderedDict([(_id, name) for name, _id in psm.scale.items()])
@@ -20,11 +16,22 @@ def distr(ds_scheme, psm):
     return [c[class_name] / float(n) for class_name, _ in ds]
 
 
-# def _build_schemes(self, attribute, schemes_dict):
-#     return {name: DiscreetizationScheme(scheme) for name, scheme in schemes_dict.items()}
+class PoliticalSpectrumManager(object):
+    _instance = None
+    def __new__(cls):
+        if not cls._instance:
+            cls._instance = PoliticalSpectrum(SCALE_PLACEMENT, DISCRETIZATION)
+        return cls._instance
+
+
+
+def _correct_order(instance, attribute, converted_value):
+    instance._schemes = {k: OrderedDict([(class_label, [_ for _ in instance.scale if _ in outlet_names]) for class_label, outlet_names in scheme.items()])
+                         for k, scheme in converted_value.items()}
+
 
 @attr.s
-class PoliticalSpectrumManager(object):
+class PoliticalSpectrum(object):
     scale = attr.ib(init=True, converter=lambda x: OrderedDict(x), repr=True)
     _schemes = attr.ib(init=True, converter=lambda x: {name: DiscreetizationScheme(scheme) for name, scheme in x.items()})
 

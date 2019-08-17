@@ -82,8 +82,8 @@ class PipeHandler(object):
         self.labels_hash = labels_hash
         self.pipe_through_disk_writers()
         self.class_names = class_names
-        self.write_vocab(add_class_labels=add_class_labels_to_vocab)
-        return self.create_dataset()
+        self.write_vocab(dataset_path, add_class_labels=add_class_labels_to_vocab)
+        return self.create_dataset(dataset_path)
 
     def preprocess(self, category, pipeline, collection_path, labels_hash, class_names, sample='all', add_class_labels_to_vocab=True):
         self.process(pipeline, category, sample=sample)
@@ -165,9 +165,9 @@ class PipeHandler(object):
         return self._vec_gen[data_model](self.corpus)
 
     #######
-    def write_vocab(self, add_class_labels=True):
+    def write_vocab(self, dataset_path, add_class_labels=True):
         # Define file and dump the vocabulary (list of unique tokens, one per line)
-        self.vocab_file = os.path.join(self._col_dir, 'vocab.{}.txt'.format(self._collection))
+        self.vocab_file = os.path.join(dataset_path, 'vocab.{}.txt'.format(os.path.basename(dataset_path)))
         if not os.path.isfile(self.vocab_file):
             with open(self.vocab_file, 'w') as f:
                 for string_id, string in self._vocab_tokens_generator(include_class_labels=add_class_labels):
@@ -189,11 +189,11 @@ class PipeHandler(object):
                 yield 'class_modality', '{} {}'.format(class_label, IDEOLOGY_CLASS_NAME)
 
     #######
-    def create_dataset(self):
-        dataset = TextDataset(self._collection, self._get_dataset_id(),
+    def create_dataset(self, dataset_path):
+        dataset = TextDataset(os.path.basename(dataset_path), self._get_dataset_id(),
                                    len(self.corpus), len(self.dct.items()), sum(len(_) for _ in self.corpus),
                                    self.uci_file, self.vocab_file, self.vowpal_file)
-        dataset.root_dir = self._col_dir
+        dataset.root_dir = dataset_path
         dataset.save()
         return dataset
 

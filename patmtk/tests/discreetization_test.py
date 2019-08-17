@@ -1,5 +1,5 @@
 import pytest
-from patm.discreetization import PoliticalSpectrumManager, SCALE_PLACEMENT, DISCRETIZATION, BinDesign, Bins
+from patm.discreetization import PoliticalSpectrum, SCALE_PLACEMENT, DISCRETIZATION, BinDesign, Bins
 
 @pytest.fixture(scope='module')
 def valid_design():
@@ -12,7 +12,7 @@ def in_valid_design():
 class TestDscreetization(object):
 
     def test_binning(self):
-        pm = PoliticalSpectrumManager(SCALE_PLACEMENT, DISCRETIZATION)
+        pm = PoliticalSpectrum(SCALE_PLACEMENT, DISCRETIZATION)
         assert pm.class_names == ['extreme_left', 'left', 'left_of_middle', 'right_of_middle', 'right', 'extreme_right']
         assert pm.poster_id2ideology_label['10513336322'] == 'extreme_left'
         assert pm.poster_id2ideology_label['19013582168'] == 'left'
