@@ -1,6 +1,6 @@
 from collections import Counter, OrderedDict
 from functools import reduce
-from .definitions import SCALE_PLACEMENT, DISCRETIZATION
+from .definitions import SCALE_PLACEMENT, DISCREETIZATION
 import attr
 
 import logging
@@ -20,7 +20,7 @@ class PoliticalSpectrumManager(object):
     _instance = None
     def __new__(cls):
         if not cls._instance:
-            cls._instance = PoliticalSpectrum(SCALE_PLACEMENT, DISCRETIZATION)
+            cls._instance = PoliticalSpectrum(SCALE_PLACEMENT, DISCREETIZATION)
         return cls._instance
 
 

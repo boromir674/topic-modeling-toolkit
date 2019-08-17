@@ -1,5 +1,7 @@
 import pytest
-from patm.discreetization import PoliticalSpectrum, SCALE_PLACEMENT, DISCRETIZATION, BinDesign, Bins
+from patm.discreetization import PoliticalSpectrum, BinDesign, Bins, Population, DiscreetizationScheme
+from patm.definitions import SCALE_PLACEMENT, DISCREETIZATION
+
 
 @pytest.fixture(scope='module')
 def valid_design():
@@ -8,11 +10,14 @@ def valid_design():
 def in_valid_design():
     return [8, 16, 10]
 
+@pytest.fixture(scope='module')
+def population(political_spectrum):
+    return Population(political_spectrum)
 
 class TestDscreetization(object):
 
     def test_binning(self):
-        pm = PoliticalSpectrum(SCALE_PLACEMENT, DISCRETIZATION)
+        pm = PoliticalSpectrum(SCALE_PLACEMENT, DISCREETIZATION)
         assert pm.class_names == ['extreme_left', 'left', 'left_of_middle', 'right_of_middle', 'right', 'extreme_right']
         assert pm.poster_id2ideology_label['10513336322'] == 'extreme_left'
         assert pm.poster_id2ideology_label['19013582168'] == 'left'
@@ -53,3 +58,12 @@ class TestDscreetization(object):
                                 'The Blaze'])
          ]
          assert [x[1] for x in sc1] == list(Bins.from_design([6, 12, 18, 20, 21], SCALE_PLACEMENT))
+
+    def test_population(self, preprocess_phase, population):
+        class_names = ['{}_Class'.format(x) for x in ['liberal', 'centre_liberal', 'centre_conservative', 'conservative']]
+        pool_size = 50
+        population.evolve(preprocess_phase.outlet_ids, len(class_names)-1, pool_size, prob=0.2, max_generation=50)
+        assert population.pool[0].fitness < 50
+        y = DiscreetizationScheme.from_design(list(population.pool[0]), SCALE_PLACEMENT, class_names=class_names)
+
+        # assert '' == str(y)

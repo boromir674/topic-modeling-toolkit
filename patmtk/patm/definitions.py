@@ -131,7 +131,7 @@ SCALE_PLACEMENT = [
     ('The Blaze', '140738092630206')
 ]
 
-DISCRETIZATION = {
+DISCREETIZATION = {
 
     'legacy-scheme': [
         ('extreme_left', ['The Guardian',
@@ -166,7 +166,7 @@ DISCRETIZATION = {
     # ]
 }
 # from .discreetization import PoliticalSpectrumManager
-# pm = PoliticalSpectrumManager(SCALE_PLACEMENT, DISCRETIZATION)
+# pm = PoliticalSpectrumManager(SCALE_PLACEMENT, DISCREETIZATION)
 # poster_id2ideology_label = pm.poster_id2ideology_label
 # CLASS_LABELS = pm.class_names
 
