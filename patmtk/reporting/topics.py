@@ -10,11 +10,11 @@ from results import ExperimentalResults
 
 
 def parse_sort(sort_def):
-    _ = re.search('^([a-zA-Z]+)-?(?:(0\.)?(\d\d?))?', sort_def).groups()
+    _ = re.search(r'^([a-zA-Z]+)-?(?:(0\.)?(\d\d?))?', sort_def).groups()
     return {'type': _[0], 'threshold': _threshold(_[1], _[2])}
 
 def parse_tokens_type(tokens_type_def):
-    _ = re.search('^((?:[a-zA-Z\-]+)*(?:[a-zA-Z]+))-?(?:(0\.)?(\d\d?))?', tokens_type_def).groups()
+    _ = re.search(r'^((?:[a-zA-Z\-]+)*(?:[a-zA-Z]+))-?(?:(0\.)?(\d\d?))?', tokens_type_def).groups()
     return {'type': _[0], 'threshold': _threshold(_[1], _[2])}
 
 

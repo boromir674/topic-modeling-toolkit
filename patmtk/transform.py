@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 from PyInquirer import prompt
+from patm.definitions import DISCREETIZATION
 
 
 def get_cl_arguments():
@@ -26,22 +27,15 @@ def get_cl_arguments():
     return parser.parse_args()
 
 
-def naming(prediction=''):
+def naming(psm):
     """Returns a parser of track hh:mm:ss multiline string"""
-    if prediction == 'timestamps':
-        choices = ['Timestamps (predicted)', 'Durations']
-    elif prediction == 'durations':
-        choices = ['Durations (predicted)', 'Timestamps']
-    else:
-        choices = ['Timestamps', 'Durations']
+
     questions = [
         {
             'type': 'list',  # navigate with arrows through choices
             'name': 'how-to-input-tracks',
-            # type of is the format you prefer to input for providing the necessary information to segment an album
-            'message': 'What does the expected "hh:mm:ss" input represent?',
-            'choices': choices,
-
+            'message': 'Use legacy discreetization scheme of classes [{}] with distribution [{}]? and bins:\n\n{}'.format(),
+            'choices': psm,
         }
     ]
     answers = prompt(questions)
@@ -57,6 +51,8 @@ if __name__ == '__main__':
     from processors import PipeHandler
     ph = PipeHandler()
     ph.process(args.config, args.category, sample=nb_docs, verbose=True)
+
+    from patm.definitions import DISCREETIZATION
 
     namings = [['liberal', 'centre', 'conservative'],
                ['liberal', 'centre_liberal', 'centre_conservative', 'conservative'],
@@ -77,4 +73,5 @@ if __name__ == '__main__':
                                    min_df=args.min_df,
                                    apply_zero_index=False)
     # ph.write_cooc_information(args.window, args.min_tf, args.min_df)
+
 

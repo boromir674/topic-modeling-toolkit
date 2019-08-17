@@ -255,7 +255,7 @@ class ModelReporter:
     @staticmethod
     def _get_label(json_path):
         try:
-            return re.search('/([\w\-\.\+@]+)\.json$', json_path).group(1)
+            return re.search(r'/([\w\-\.\+@]+)\.json$', json_path).group(1)
         except AttributeError as e:
             print('PATH', json_path)
             raise e

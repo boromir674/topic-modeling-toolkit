@@ -145,7 +145,7 @@ class TrainerFactory(object):
         # TODO replace with nested map/lambdas and regex
         for fname in os.listdir(self._root_dir):
             name = os.path.basename(fname)
-            matc = re.match('^ppmi_(\d+)_([td]f)\.txt$', name)
+            matc = re.match(r'^ppmi_(\d+)_([td]f)\.txt$', name)
             if matc:
                 self._mod_tr.cooc_dicts[matc.group(2)] = {'obj': artm.Dictionary(name=name), 'min': int(matc.group(1))}
                 self._mod_tr.cooc_dicts[matc.group(2)]['obj'].gather(data_path=self._root_dir,

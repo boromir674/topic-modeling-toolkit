@@ -14,6 +14,7 @@ def in_valid_design():
 def population(political_spectrum):
     return Population(political_spectrum)
 
+
 class TestDscreetization(object):
 
     def test_binning(self):
