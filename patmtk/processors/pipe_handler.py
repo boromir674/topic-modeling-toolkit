@@ -85,7 +85,7 @@ class PipeHandler(object):
         self.set_doc_gen(self.category, num_docs=self.sample)
         self.uci_file = os.path.join(self._cols_root, self._collection, 'docword.{}.txt'.format(self._collection))
         self.vowpal_file = os.path.join(self._cols_root, self._collection, 'vowpal.{}.txt'.format(self._collection))
-        self.pipeline.initialize(file_names=[self.uci_file, self.vowpal_file])
+        self.pipeline.initialize(file_paths=[self.uci_file, self.vowpal_file])
 
     def set_doc_gen(self, category, num_docs='all'):
         self.sample = num_docs

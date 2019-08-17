@@ -102,8 +102,9 @@ class BaseDiskWriter(Processor, DiskWriterMetaProcessor):
             print('count:', self.doc_num, data[0])
             return None
 
+
     def initialize(self, *args, **kwargs):
-        self.fname = kwargs['file_name']
+        self.fname = kwargs['file_paths'][kwargs['disk_writer_index']]
         self.file_handler = open(self.fname, 'w+')
 
     def finalize(self):

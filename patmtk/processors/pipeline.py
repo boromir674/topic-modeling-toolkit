@@ -11,6 +11,9 @@ from .disk_writer_processors import UciFormatWriter, VowpalFormatWriter
 from .processor import BaseDiskWriter
 
 
+import logging
+logger = logging.getLogger(__name__)
+
 settings_value2processors = {
     'lowercase': lambda x: LowerCaser() if x else None,
     'monospace': lambda x: MonoSpacer() if x else None,
@@ -68,19 +71,65 @@ class Pipeline(object):
         for pr_name, pr in zip(self.processors_names, self.processors):
             yield pr_name, pr
 
+    @property
+    def disk_writers(self):
+        return [(name, proc_obj) for name, proc_obj in self if isinstance(proc_obj, BaseDiskWriter)]
+
     def initialize(self, *args, **kwargs):
-        file_names = kwargs.get('file_names', [])
+        """Call this method to initialize each of the pipeline's processors"""
+        if self.disk_writers and not 'file_paths' in kwargs:
+            logger.error("You have to supply the 'file_paths' list as a key argument, with each element being the target file path one per BaseDiskWriter processor.")
+            return
+        disk_writer_index = 0
         for pr_name, pr_obj in self:
             if isinstance(pr_obj, InitializationNeededComponent):
+                pr_obj.initialize(file_paths=kwargs.get('file_paths', []), disk_writer_index=disk_writer_index)
                 if isinstance(pr_obj, BaseDiskWriter):
-                    pr_obj.initialize(file_name=file_names[0])
-                    file_names = file_names[1:]
-                else:
-                    pr_obj.initialize()
+                    disk_writer_index += 1
+
+    # def initilialize_processing_units(self):
+    #     for pr_name, pr_obj in self:
+    #         if isinstance(pr_obj, InitializationNeededComponent) and not isinstance(pr_obj, BaseDiskWriter):
+    #             pr_obj.initialize()
+    #
+    # def initilialize_disk_writting_units(self, file_paths):
+    #     i = -1
+    #     for pr_name, pr_obj in self:
+    #         if isinstance(pr_obj, BaseDiskWriter):
+    #             i += 1
+    #             pr_obj.initialize(file_name=file_paths[i])
+    #
+    # def initialize(self, *args, **kwargs):
+    #     self.initilialize_processing_units()
+    #     if 'format' in self.processors_names:
+    #         self.initilialize_disk_writting_units(kwargs.get('file_paths', []))
+
+    # def initialize(self, *args, **kwargs):
+    #
+    #     depth = len(self)
+    #     if args:
+    #         depth = args[0]
+    #     file_names = kwargs.get('file_names', [])
+    #     writer_index = 0
+    #     for pr_name, pr_obj in self[:depth]:
+    #         if isinstance(pr_obj, InitializationNeededComponent):
+    #             if isinstance(pr_obj, BaseDiskWriter):
+    #                 pr_obj.initialize(file_name=file_names[writer_index])
+    #                 writer_index += 1
+    #                 file_names = file_names[1:]
+    #             else:
+    #                 pr_obj.initialize()
+    #     self._init_index = depth
 
     def pipe_through(self, data, depth):
         for proc in self.processors[:depth]:
             if isinstance(proc, Processor):
+                data = proc.process(data)
+        return data
+
+    def pipe_through_processing_units(self, data):
+        for proc in self.processors:
+            if isinstance(proc, Processor) and not isinstance(proc, BaseDiskWriter):
                 data = proc.process(data)
         return data
 
