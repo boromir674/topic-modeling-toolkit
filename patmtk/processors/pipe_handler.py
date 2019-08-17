@@ -64,7 +64,6 @@ class PipeHandler(object):
 
     def preprocess(self, category, collection_path, sample='all', add_class_labels_to_vocab=True):
         self._initialize(category, collection_path, num_docs=sample, create_dir=True)
-        self._prepare_output_file_writing_process()
         self._pass_through()
         return self._finalize(add_class_labels_to_vocab=add_class_labels_to_vocab)
 
@@ -77,8 +76,6 @@ class PipeHandler(object):
     def _initialize(self, category, dataset_path, num_docs='all', create_dir=True):
         self._collection = os.path.basename(dataset_path)
         self._col_dir = dataset_path
-        if create_dir:
-            self._prepare_output_file_writing_process()
         self.set_doc_gen(category, num_docs=num_docs)
         self.uci_file = os.path.join(dataset_path, 'docword.{}.txt'.format(self._collection))
         self.vowpal_file = os.path.join(dataset_path, 'vowpal.{}.txt'.format(self._collection))
@@ -88,11 +85,6 @@ class PipeHandler(object):
         self.cat2textgen_proc = get_posts_generator(nb_docs=num_docs)
         self.text_generator = self.cat2textgen_proc.process(category)
         print(self.cat2textgen_proc, '\n')
-
-    def _prepare_output_file_writing_process(self):
-        if not os.path.exists(self._col_dir):
-            os.makedirs(self._col_dir)
-            print("Created '{}' as target directory for persisting".format(self._col_dir))
 
     def _pass_through(self):
         doc_gens = []

@@ -1,5 +1,10 @@
+import os
 from abc import ABCMeta, abstractmethod, abstractproperty
 from functools import reduce
+
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class MetaProcessor(object):
@@ -105,6 +110,7 @@ class BaseDiskWriter(Processor, DiskWriterMetaProcessor):
 
     def initialize(self, *args, **kwargs):
         self.fname = kwargs['file_paths'][kwargs['disk_writer_index']]
+        mkdir_p(os.path.dirname(self.fname))
         self.file_handler = open(self.fname, 'w+')
 
     def finalize(self):
@@ -137,6 +143,22 @@ class ElementCountingProcessor(StateLessProcessor):
         return super(StateLessProcessor, self).process(data)
 
 
+
+# Python > 2.5
+import errno
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+        logger.info("Created '{}' directory".format(path))
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+## Python > 3.2
+# os.makedirs(path, exist_ok=True)
+
 if __name__ == '__main__':
 
     s = Processor(lambda x: x + '_proc')
@@ -146,20 +168,4 @@ if __name__ == '__main__':
     sl = StateLessProcessor(lambda x: x + '_less')
     # sf = StateUpdatableProcessor(lambda x: x + '_full', [1, 2], 'append')
     # sf = PreUpdateSFProcessor(lambda x: x + '_full', [1, 2], 'append')
-    #
-    # print isinstance(sl, Processor)
 
-    # print isinstance(sf, Processor)
-    # print isinstance(sf, MetaProcessor)
-    #
-    # # print sl.process('_builder')
-    #
-    # print sf.state
-    # print sf.process('_builder')
-    # print sf.state
-    #
-    # sf.update(100)
-    # print
-    # print sf.state
-    # print sf.process('_builder')
-    # print sf.state
