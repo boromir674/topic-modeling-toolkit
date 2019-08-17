@@ -19,10 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class PipeHandler(object):
-    def __init__(self, collections_root, category, sample='all'):
-        self._cols_root = collections_root
-        self.category = category
-        self.sample = sample
+    def __init__(self):
         self.cat2textgen_proc = None
         self.text_generator = None
         self.doc_gen_stats = {}
@@ -60,13 +57,13 @@ class PipeHandler(object):
             self._pipeline = Pipeline.from_cfg(pipeline)
         else:
             self._pipeline = pipeline
+    #
+    # def pass_through(self, category, collection_path, sample='all'):
+    #     self._initialize(collection_path, num_docs=sample, create_dir=False)
+    #     self._pass_through()
 
-    def pass_through(self, collection):
-        self._initialize(collection, create_dir=False)
-        self._pass_through()
-
-    def preprocess(self, collection, add_class_labels_to_vocab=True):
-        self._initialize(collection, create_dir=True)
+    def preprocess(self, category, collection_path, sample='all', add_class_labels_to_vocab=True):
+        self._initialize(category, collection_path, num_docs=sample, create_dir=True)
         self._prepare_output_file_writing_process()
         self._pass_through()
         return self._finalize(add_class_labels_to_vocab=add_class_labels_to_vocab)
@@ -77,19 +74,18 @@ class PipeHandler(object):
     def labels(self, poster2ideology_hash):
         return [self.label(x, poster2ideology_hash) for x in self.outlet_ids]
 
-    def _initialize(self, collection, create_dir=True):
-        self._collection = collection
-        self._col_dir = os.path.join(self._cols_root, collection)
+    def _initialize(self, category, dataset_path, num_docs='all', create_dir=True):
+        self._collection = os.path.basename(dataset_path)
+        self._col_dir = dataset_path
         if create_dir:
             self._prepare_output_file_writing_process()
-        self.set_doc_gen(self.category, num_docs=self.sample)
-        self.uci_file = os.path.join(self._cols_root, self._collection, 'docword.{}.txt'.format(self._collection))
-        self.vowpal_file = os.path.join(self._cols_root, self._collection, 'vowpal.{}.txt'.format(self._collection))
+        self.set_doc_gen(category, num_docs=num_docs)
+        self.uci_file = os.path.join(dataset_path, 'docword.{}.txt'.format(self._collection))
+        self.vowpal_file = os.path.join(dataset_path, 'vowpal.{}.txt'.format(self._collection))
         self.pipeline.initialize(file_paths=[self.uci_file, self.vowpal_file])
 
     def set_doc_gen(self, category, num_docs='all'):
-        self.sample = num_docs
-        self.cat2textgen_proc = get_posts_generator(nb_docs=self.sample)
+        self.cat2textgen_proc = get_posts_generator(nb_docs=num_docs)
         self.text_generator = self.cat2textgen_proc.process(category)
         print(self.cat2textgen_proc, '\n')
 
@@ -157,7 +153,7 @@ class PipeHandler(object):
         self.pipeline.finalize([prologue_lines])
         self.dataset = TextDataset(self._collection, self._get_dataset_id(),
                                    len(self.corpus), len(self.dct.items()), sum(len(_) for _ in self.corpus), self.uci_file, self.vocab_file, self.vowpal_file)
-        self.dataset.root_dir = os.path.join(self._cols_root, self._collection)
+        self.dataset.root_dir = self._col_dir
         self.dataset.save()
         return self.dataset
 
@@ -175,7 +171,7 @@ class PipeHandler(object):
 
     def _write_vocab(self, add_class_labels=True):
         # Define file and dump the vocabulary (list of unique tokens, one per line)
-        self.vocab_file = os.path.join(self._cols_root, self._collection, 'vocab.{}.txt'.format(self._collection))
+        self.vocab_file = os.path.join(self._col_dir, 'vocab.{}.txt'.format(self._collection))
         if not os.path.isfile(self.vocab_file):
             with open(self.vocab_file, 'w') as f:
                 for string_id, string in self._vocab_tokens_generator(include_class_labels=add_class_labels):

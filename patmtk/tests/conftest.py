@@ -74,12 +74,13 @@ def pipe_n_quantities(sample_n_real, pairs_file_nb_lines):
 
 
 @pytest.fixture(scope='session')
-def test_dataset(collections_root_dir, pipe_n_quantities):
+def test_dataset(test_collection_dir, pipe_n_quantities):
     """A dataset ready to be used for topic modeling training. Depends on the input document sample size to take and resulting actual size"""
-    pipe_handler = PipeHandler(collections_root_dir, 'posts', sample=pipe_n_quantities[1])
+    sample = pipe_n_quantities[1]
+    pipe_handler = PipeHandler()
     pipe_handler.pipeline = Pipeline.from_cfg(pipe_n_quantities[0])
-    text_dataset = pipe_handler.preprocess(TEST_COLLECTION, add_class_labels_to_vocab=True)
-    coh_builder = CoherenceFilesBuilder(os.path.join(collections_root_dir, TEST_COLLECTION))
+    text_dataset = pipe_handler.preprocess('posts', test_collection_dir, sample=sample, add_class_labels_to_vocab=True)
+    coh_builder = CoherenceFilesBuilder(test_collection_dir)
     coh_builder.create_files(cooc_window=10, min_tf=0, min_df=0, apply_zero_index=False)
     return text_dataset
 
