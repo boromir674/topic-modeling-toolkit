@@ -270,7 +270,7 @@ class DegenerationChecker(object):
     #     return self._degen_info
     #
     # def build(self, dict_list):
-    #     self._initialize()
+    #     self._prepare_storing()
     #     for k in self._keys:
     #         self._build_degen_info(k, self._get_struct(dict_list))
     #         self._add_final(k, self._degen_info[k])

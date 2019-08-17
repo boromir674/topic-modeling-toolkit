@@ -29,7 +29,6 @@ class PipeHandler(object):
         self._pipeline = None
         self.dataset = None
         self._collection = ''
-        self._col_dir = ''
         self.vocab_file = ''
         self.uci_file = ''
         self.vowpal_file = ''
@@ -78,7 +77,7 @@ class PipeHandler(object):
         self.pipe_through_processors(category, num_docs=sample)
 
     def persist(self, dataset_path, labels_hash, class_names, add_class_labels_to_vocab=True):
-        self._initialize(dataset_path)
+        self._prepare_storing(dataset_path)
         self.labels_hash = labels_hash
         self.pipe_through_disk_writers()
         self.class_names = class_names
@@ -89,9 +88,8 @@ class PipeHandler(object):
         self.process(pipeline, category, sample=sample)
         return self.persist(collection_path, labels_hash, class_names, add_class_labels_to_vocab=add_class_labels_to_vocab)
 
-    def _initialize(self, dataset_path):
+    def _prepare_storing(self, dataset_path):
         self._collection = os.path.basename(dataset_path)
-        self._col_dir = dataset_path
         self.uci_file = os.path.join(dataset_path, 'docword.{}.txt'.format(self._collection))
         self.vowpal_file = os.path.join(dataset_path, 'vowpal.{}.txt'.format(self._collection))
         self.pipeline.initialize(file_paths=[self.uci_file, self.vowpal_file])
