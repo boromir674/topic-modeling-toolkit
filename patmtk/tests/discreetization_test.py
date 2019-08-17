@@ -1,5 +1,5 @@
 import pytest
-from patm.definitions import PoliticalSpectrumManager, SCALE_PLACEMENT, DISCRETIZATION, BinDesign, Bins
+from patm.discreetization import PoliticalSpectrumManager, SCALE_PLACEMENT, DISCRETIZATION, BinDesign, Bins
 
 @pytest.fixture(scope='module')
 def valid_design():
