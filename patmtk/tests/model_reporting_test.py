@@ -38,4 +38,4 @@ class TestReporterFunctionality(object):
         ]
 
         s = reporter.get_formatted_string(test_dataset.name, columns=COLUMNS, metric='perplexity', verbose=False)
-        assert 6 == len(s.split('\n'))
+        assert 7 == len(s.strip().split('\n'))

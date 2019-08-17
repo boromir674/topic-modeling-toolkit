@@ -1,44 +1,26 @@
-
-
 import os
 from configparser import ConfigParser
 from collections import OrderedDict
 import pytest
 
-from processors import PipeHandler, Pipeline
-from patm.build_coherence import CoherenceFilesBuilder
 
-MODULE_DIR = os.path.dirname(os.path.realpath(__file__))
-TEST_PIPELINE_CFG = os.path.join(MODULE_DIR, 'test-pipeline.cfg')
-TEST_COLLECTIONS_ROOT_DIR_NAME = 'unittests-collections'
+class TestDatasetTransformation(object):
 
-TEST_COLLECTION = 'unittest-dataset'
+    def test_transform(self, pipe_n_quantities, test_dataset):
+        assert test_dataset.name == os.path.basename(pipe_n_quantities['unittest-collection-dir'])
+        assert test_dataset.id == self._id(pipe_n_quantities['resulting-nb-docs'], pipe_n_quantities['unittest-pipeline-cfg'])
+        assert test_dataset._col_len == pipe_n_quantities['resulting-nb-docs']
+        assert test_dataset.nb_bows == pipe_n_quantities['nb-bows']
+        assert test_dataset._unique_words == pipe_n_quantities['word-vocabulary-length']
 
+        assert self.file_len(test_dataset.bowf) == pipe_n_quantities['nb-bows'] + 3
+        assert self.file_len(test_dataset.words) == pipe_n_quantities['nb-all-modalities-terms']  # this passes because the currently used sample (which takes the first 100 documents) includes only one label
+        assert self.file_len(test_dataset.vowpal) == pipe_n_quantities['resulting-nb-docs']
 
-
-@pytest.fixture(scope='module')
-def coherence_builder(collections_root_dir):
-    return CoherenceFilesBuilder(os.path.join(collections_root_dir, TEST_COLLECTION))
-
-
-class TestDatasetTransformation:
-
-    def test_transform(self, pipe_n_quantities, test_dataset, coherence_builder):
-        coherence_builder.create_files(cooc_window=10, min_tf=0, min_df=0, apply_zero_index=False)
-        assert test_dataset.name == TEST_COLLECTION
-        assert test_dataset.id == self._id(pipe_n_quantities[2], pipe_n_quantities[0])
-        assert test_dataset._col_len == pipe_n_quantities[2]
-        assert test_dataset.nb_bows == pipe_n_quantities[3]
-        assert test_dataset._unique_words == pipe_n_quantities[4]
-
-        assert self.file_len(test_dataset.bowf) == pipe_n_quantities[3] + 3
-        assert self.file_len(test_dataset.words) == pipe_n_quantities[5]  # this hack is used because the currently used sample (which takes the first 500 documents) of 500 docs includes only one label
-        assert self.file_len(test_dataset.vowpal) == pipe_n_quantities[2]
-
-        assert self.file_len(os.path.join(test_dataset.root_dir, 'cooc_0_tf.txt')) == pipe_n_quantities[6]
-        assert self.file_len(os.path.join(test_dataset.root_dir, 'cooc_0_df.txt')) == pipe_n_quantities[6]
-        assert self.file_len(os.path.join(test_dataset.root_dir, 'ppmi_0_tf.txt')) == pipe_n_quantities[6]
-        assert self.file_len(os.path.join(test_dataset.root_dir, 'ppmi_0_df.txt')) == pipe_n_quantities[6]
+        assert self.file_len(os.path.join(test_dataset.root_dir, 'cooc_0_tf.txt')) == pipe_n_quantities['nb-lines-cooc-n-ppmi-files']
+        assert self.file_len(os.path.join(test_dataset.root_dir, 'cooc_0_df.txt')) == pipe_n_quantities['nb-lines-cooc-n-ppmi-files']
+        assert self.file_len(os.path.join(test_dataset.root_dir, 'ppmi_0_tf.txt')) == pipe_n_quantities['nb-lines-cooc-n-ppmi-files']
+        assert self.file_len(os.path.join(test_dataset.root_dir, 'ppmi_0_df.txt')) == pipe_n_quantities['nb-lines-cooc-n-ppmi-files']
         assert os.path.isfile(os.path.join(test_dataset.root_dir, '{}.pkl'.format(test_dataset.id)))
 
     def _formatter(self, pipe_settings):

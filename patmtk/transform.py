@@ -3,10 +3,7 @@
 import argparse
 import os
 import sys
-
-from patm.definitions import COLLECTIONS_DIR_PATH
-from patm.build_coherence import CoherenceFilesBuilder
-from processors import PipeHandler
+from PyInquirer import prompt
 
 
 def get_cl_arguments():
@@ -29,15 +26,46 @@ def get_cl_arguments():
     return parser.parse_args()
 
 
+def naming(prediction=''):
+    """Returns a parser of track hh:mm:ss multiline string"""
+    if prediction == 'timestamps':
+        choices = ['Timestamps (predicted)', 'Durations']
+    elif prediction == 'durations':
+        choices = ['Durations (predicted)', 'Timestamps']
+    else:
+        choices = ['Timestamps', 'Durations']
+    questions = [
+        {
+            'type': 'list',  # navigate with arrows through choices
+            'name': 'how-to-input-tracks',
+            # type of is the format you prefer to input for providing the necessary information to segment an album
+            'message': 'What does the expected "hh:mm:ss" input represent?',
+            'choices': choices,
+
+        }
+    ]
+    answers = prompt(questions)
+    return answers['how-to-input-tracks']
+
+
 if __name__ == '__main__':
     args = get_cl_arguments()
     nb_docs = args.sample
     if nb_docs != 'all':
         nb_docs = int(nb_docs)
-    ph = PipeHandler(COLLECTIONS_DIR_PATH, args.category, sample=nb_docs)
-    ph.pipeline = args.config
-    # ph.create_pipeline(args.config)
-    print('\n', ph.pipeline, '\n')
+
+    from processors import PipeHandler
+    ph = PipeHandler()
+    ph.process(args.config, args.category, sample=nb_docs, verbose=True)
+
+    namings = [['liberal', 'centre', 'conservative'],
+               ['liberal', 'centre_liberal', 'centre_conservative', 'conservative'],
+               ['liberal', 'centre_liberal', 'centre', 'centre_conservative', 'conservative'],
+               ['more_liberal', 'liberal', 'centre_liberal', 'centre', 'centre_conservative', 'conservative']]
+
+    from patm import political_spectrum
+
+    political_spectrum.optimize()
 
     uci_dt = ph.preprocess(args.collection, not args.exclude_class_labels_from_vocab)
     print(uci_dt)
@@ -49,3 +77,4 @@ if __name__ == '__main__':
                                    min_df=args.min_df,
                                    apply_zero_index=False)
     # ph.write_cooc_information(args.window, args.min_tf, args.min_df)
+

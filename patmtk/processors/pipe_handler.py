@@ -72,8 +72,10 @@ class PipeHandler(object):
         else:
             self._pipeline = pipeline
 
-    def process(self, pipeline, category, sample='all'):
+    def process(self, pipeline, category, sample='all', verbose=False):
         self.pipeline = pipeline
+        if verbose:
+            print(pipeline)
         self.pipe_through_processors(category, num_docs=sample)
 
     def persist(self, dataset_path, labels_hash, class_names, add_class_labels_to_vocab=True):
@@ -145,7 +147,7 @@ class PipeHandler(object):
 
     def pipe_through_disk_writers(self):
         """Call to pass through the last BaseDiskWriter processors of the pieline. Assumes the last non BaseDsikWriter processor in the pipeline is a 'weight' so that a 'counts 'or 'tfidf' token weight model is computed"""
-        if len(self.corpus) == len(self.outlet_ids):
+        if len(self.corpus) != len(self.outlet_ids):
             logger.warning("Please fix the logic because there is a missmatch between documents and labels: {} != {}".format(len(self.corpus), len(self.outlet_ids)))
         for _, processor in self.pipeline.disk_writers:
             for i, vector in enumerate(self._get_iterable_data_model(self.pipeline.settings['weight'])):  # 'counts' only supported (future work: 'tfidf')

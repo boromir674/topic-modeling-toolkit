@@ -24,7 +24,6 @@ class PoliticalSpectrumManager(object):
         return cls._instance
 
 
-
 def _correct_order(instance, attribute, converted_value):
     instance._schemes = {k: OrderedDict([(class_label, [_ for _ in instance.scale if _ in outlet_names]) for class_label, outlet_names in scheme.items()])
                          for k, scheme in converted_value.items()}

@@ -7,8 +7,7 @@ from patm.build_coherence import CoherenceFilesBuilder
 from patm.modeling.trainer import TrainerFactory
 from patm.modeling import Experiment
 from patm import Tuner
-from patm import political_spectrum
-from patm.definitions import SCALE_PLACEMENT, DISCRETIZATION
+from patm import political_spectrum as political_spectrum_manager
 
 
 from processors import Pipeline, PipeHandler
@@ -18,7 +17,6 @@ from reporting import ResultsHandler
 MODULE_DIR = os.path.dirname(os.path.realpath(__file__))
 DATA_DIR = os.path.join(MODULE_DIR, 'data')
 
-TEST_PIPELINE_CFG = os.path.join(MODULE_DIR, 'test-pipeline.cfg')
 TRAIN_CFG = os.path.join(MODULE_DIR, 'test-train.cfg')
 REGS_CFG = os.path.join(MODULE_DIR, 'test-regularizers.cfg')
 
@@ -56,9 +54,6 @@ def test_collection_dir(collections_root_dir, test_collection_name, tmpdir_facto
 def results_handler(collections_root_dir):
     return ResultsHandler(collections_root_dir, results_dir_name='results')
 
-@pytest.fixture(scope='session', params=[[100, 100]])
-def sample_n_real(request):
-    return request.param
 
 @pytest.fixture(scope='session')
 def pairs_file_nb_lines():  # number of lines in cooc and ppmi files (771 in python2, 759 in python3)
@@ -67,21 +62,35 @@ def pairs_file_nb_lines():  # number of lines in cooc and ppmi files (771 in pyt
     return python3[2 < sys.version_info[0]]
 
 @pytest.fixture(scope='session')
-def pipe_n_quantities(sample_n_real, pairs_file_nb_lines):
-    return [TEST_PIPELINE_CFG] + sample_n_real + [1297,
-                                                  833,
-                                                  834,
-                                                  pairs_file_nb_lines]
-
+def pipe_n_quantities(test_collection_dir, pairs_file_nb_lines):
+    return {'unittest-pipeline-cfg': os.path.join(MODULE_DIR, 'test-pipeline.cfg'),
+            'unittest-collection-dir': test_collection_dir,
+            'category': 'posts',
+            'sample': 100,
+            'resulting-nb-docs': 100,
+            'nb-bows': 1297,
+            'word-vocabulary-length': 833,
+            'nb-all-modalities-terms': 834,  # corresponds to the number of lines in the vocabulary file created (must call persist of PipeHandler with add_class_labels_to_vocab=True, which is the default).
+            # the above probably will fail in case no second modality is used (only the @default_class is enabled)
+            'nb-lines-cooc-n-ppmi-files': pairs_file_nb_lines
+            }
 
 @pytest.fixture(scope='session')
-def test_dataset(test_collection_dir, pipe_n_quantities):
-    """A dataset ready to be used for topic modeling training. Depends on the input document sample size to take and resulting actual size"""
-    sample = pipe_n_quantities[1]
-    pipeline_cfg = pipe_n_quantities[0]
+def political_spectrum():
+    return political_spectrum_manager
+
+
+#### OPERATIONS ARTIFACTS
+@pytest.fixture(scope='session')
+def preprocess_phase(pipe_n_quantities):
     pipe_handler = PipeHandler()
-    # pipe_handler.pipeline = Pipeline.from_cfg(pipe_n_quantities[0])
-    text_dataset = pipe_handler.preprocess('posts', pipeline_cfg, test_collection_dir, political_spectrum.poster_id2ideology_label, political_spectrum.class_names, sample=sample, add_class_labels_to_vocab=True)
+    pipe_handler.process(pipe_n_quantities['unittest-pipeline-cfg'], pipe_n_quantities['category'], sample=pipe_n_quantities['sample'])
+    return pipe_handler
+
+@pytest.fixture(scope='session')
+def test_dataset(preprocess_phase, political_spectrum, test_collection_dir):
+    """A dataset ready to be used for topic modeling training. Depends on the input document sample size to take and resulting actual size"""
+    text_dataset = preprocess_phase.persist(test_collection_dir, political_spectrum.poster_id2ideology_label, political_spectrum.class_names, add_class_labels_to_vocab=True)
     coh_builder = CoherenceFilesBuilder(test_collection_dir)
     coh_builder.create_files(cooc_window=10, min_tf=0, min_df=0, apply_zero_index=False)
     return text_dataset
