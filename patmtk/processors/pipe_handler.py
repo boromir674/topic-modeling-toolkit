@@ -13,7 +13,7 @@ from patm.modeling.dataset_extraction import CategoryToFieldsGenerator
 from patm import TextDataset
 from processors import Pipeline
 
-from patm.definitions import poster_id2ideology_label, IDEOLOGY_CLASS_NAME, COOCURENCE_DICT_FILE_NAMES, CLASS_LABELS  # = ['cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
+from patm.definitions import IDEOLOGY_CLASS_NAME, COOCURENCE_DICT_FILE_NAMES# = ['cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
 import logging
 logger = logging.getLogger(__name__)
 
@@ -72,20 +72,22 @@ class PipeHandler(object):
             self._pipeline = Pipeline.from_cfg(pipeline)
         else:
             self._pipeline = pipeline
-    #
-    # def pass_through(self, category, collection_path, sample='all'):
-    #     self._initialize(collection_path, num_docs=sample, create_dir=False)
-    #     self.pipe_through_processors()
 
-    def preprocess(self, category, collection_path, sample='all', add_class_labels_to_vocab=True):
-        self._initialize(collection_path)
+    def process(self, pipeline, category, sample='all'):
+        self.pipeline = pipeline
         self.pipe_through_processors(category, num_docs=sample)
 
-        self.labels_hash = poster_id2ideology_label
+    def persist(self, dataset_path, labels_hash, class_names, add_class_labels_to_vocab=True):
+        self._initialize(dataset_path)
+        self.labels_hash = labels_hash
         self.pipe_through_disk_writers()
-        self.class_names = CLASS_LABELS
+        self.class_names = class_names
         self.write_vocab(add_class_labels=add_class_labels_to_vocab)
         return self.create_dataset()
+
+    def preprocess(self, category, pipeline, collection_path, labels_hash, class_names, sample='all', add_class_labels_to_vocab=True):
+        self.process(pipeline, category, sample=sample)
+        return self.persist(collection_path, labels_hash, class_names, add_class_labels_to_vocab=add_class_labels_to_vocab)
 
     def _initialize(self, dataset_path):
         self._collection = os.path.basename(dataset_path)
@@ -147,7 +149,6 @@ class PipeHandler(object):
         """Call to pass through the last BaseDiskWriter processors of the pieline. Assumes the last non BaseDsikWriter processor in the pipeline is a 'weight' so that a 'counts 'or 'tfidf' token weight model is computed"""
         if len(self.corpus) == len(self.outlet_ids):
             logger.warning("Please fix the logic because there is a missmatch between documents and labels: {} != {}".format(len(self.corpus), len(self.outlet_ids)))
-        self.labels_hash = poster_id2ideology_label
         for _, processor in self.pipeline.disk_writers:
             for i, vector in enumerate(self._get_iterable_data_model(self.pipeline.settings['weight'])):  # 'counts' only supported (future work: 'tfidf')
                 processor.process(self._format_data_tr[processor.to_id()]((i, vector)))

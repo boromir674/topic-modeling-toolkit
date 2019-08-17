@@ -165,10 +165,10 @@ DISCRETIZATION = {
     #     ('conservative', [])
     # ]
 }
-from .discreetization import PoliticalSpectrumManager
-pm = PoliticalSpectrumManager(SCALE_PLACEMENT, DISCRETIZATION)
-poster_id2ideology_label = pm.poster_id2ideology_label
-CLASS_LABELS = pm.class_names
+# from .discreetization import PoliticalSpectrumManager
+# pm = PoliticalSpectrumManager(SCALE_PLACEMENT, DISCRETIZATION)
+# poster_id2ideology_label = pm.poster_id2ideology_label
+# CLASS_LABELS = pm.class_names
 
 
 #

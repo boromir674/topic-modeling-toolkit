@@ -1,18 +1,19 @@
-
-
 import os
 import sys
 from configparser import ConfigParser
 import pytest
 
-from processors import Pipeline, PipeHandler
 from patm.build_coherence import CoherenceFilesBuilder
-
 from patm.modeling.trainer import TrainerFactory
 from patm.modeling import Experiment
 from patm import Tuner
+from patm.discreetization import PoliticalSpectrumManager
+from patm.definitions import SCALE_PLACEMENT, DISCRETIZATION
 
+
+from processors import Pipeline, PipeHandler
 from reporting import ResultsHandler
+
 
 MODULE_DIR = os.path.dirname(os.path.realpath(__file__))
 DATA_DIR = os.path.join(MODULE_DIR, 'data')
@@ -73,13 +74,16 @@ def pipe_n_quantities(sample_n_real, pairs_file_nb_lines):
                                                   pairs_file_nb_lines]
 
 
+
 @pytest.fixture(scope='session')
 def test_dataset(test_collection_dir, pipe_n_quantities):
     """A dataset ready to be used for topic modeling training. Depends on the input document sample size to take and resulting actual size"""
     sample = pipe_n_quantities[1]
+    pipeline_cfg = pipe_n_quantities[0]
     pipe_handler = PipeHandler()
-    pipe_handler.pipeline = Pipeline.from_cfg(pipe_n_quantities[0])
-    text_dataset = pipe_handler.preprocess('posts', test_collection_dir, sample=sample, add_class_labels_to_vocab=True)
+    # pipe_handler.pipeline = Pipeline.from_cfg(pipe_n_quantities[0])
+    psm = PoliticalSpectrumManager(SCALE_PLACEMENT, DISCRETIZATION)
+    text_dataset = pipe_handler.preprocess('posts', pipeline_cfg, test_collection_dir, psm.poster_id2ideology_label, psm.class_names, sample=sample, add_class_labels_to_vocab=True)
     coh_builder = CoherenceFilesBuilder(test_collection_dir)
     coh_builder.create_files(cooc_window=10, min_tf=0, min_df=0, apply_zero_index=False)
     return text_dataset

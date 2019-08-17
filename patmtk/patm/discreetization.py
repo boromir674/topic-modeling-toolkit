@@ -52,25 +52,25 @@ class PoliticalSpectrumManager(object):
     def discreetization_scheme(self):
         return self._schemes[self._cur]
 
-    @discreetization_scheme.setter
-    def discreetization_scheme(self, scheme):
-        if type(scheme) == str:
-            if scheme not in self._schemes:
-                raise KeyError("The schemes implemented are [{}]. Requested '{}' instead.".format(', '.join(self._schemes.keys()), scheme))
-            self._cur = scheme
-        elif type(scheme) == list:
-            if type(scheme[0]) == str:
-                k = scheme[0]
-                scheme = scheme[1]
-            else:
-                k = self._key(scheme)
-            self._schemes[k] = DiscreetizationScheme(scheme)
-            self._cur = k
-            logger.info("Registered new discreetization scheme '{}' with doc classes [{}].".format(k, ', '.join(class_name for class_name, _ in scheme)))
-            if self.datapoint_ids:
-                logger.info("Classes' distribution: [{}]".format(', '.join(['{:.2f}'.format(x) for x in distr(self._schemes[k], self)])))
-        else:
-            raise ValueError("Input should be either a string or a DiscreetizationScheme or a [str, DiscreetizationScheme] list (1st element is the name/key)")
+    # @discreetization_scheme.setter
+    # def discreetization_scheme(self, scheme):
+    #     if type(scheme) == str:
+    #         if scheme not in self._schemes:
+    #             raise KeyError("The schemes implemented are [{}]. Requested '{}' instead.".format(', '.join(self._schemes.keys()), scheme))
+    #         self._cur = scheme
+    #     elif type(scheme) == list:
+    #         if type(scheme[0]) == str:
+    #             k = scheme[0]
+    #             scheme = scheme[1]
+    #         else:
+    #             k = self._key(scheme)
+    #         self._schemes[k] = DiscreetizationScheme(scheme)
+    #         self._cur = k
+    #         logger.info("Registered new discreetization scheme '{}' with doc classes [{}].".format(k, ', '.join(class_name for class_name, _ in scheme)))
+    #         if self.datapoint_ids:
+    #             logger.info("Classes' distribution: [{}]".format(', '.join(['{:.2f}'.format(x) for x in distr(self._schemes[k], self)])))
+    #     else:
+    #         raise ValueError("Input should be either a string or a DiscreetizationScheme or a [str, DiscreetizationScheme] list (1st element is the name/key)")
 
     @property
     def class_distribution(self):
