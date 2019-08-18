@@ -12,6 +12,7 @@ from patm import political_spectrum as political_spectrum_manager
 
 from processors import Pipeline, PipeHandler
 from reporting import ResultsHandler
+from reporting. dataset_reporter import DatasetReporter
 
 
 MODULE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -214,3 +215,8 @@ def tuner_obj(collections_root_dir, test_dataset):
                force_overwrite=True,
                verbose=False)
     return tuner
+
+
+@pytest.fixture(scope='session')
+def dataset_reporter(tuner_obj):
+    return DatasetReporter(os.path.dirname(tuner_obj._dir))
