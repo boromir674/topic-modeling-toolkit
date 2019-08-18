@@ -14,8 +14,9 @@ from patm import TextDataset
 from processors import Pipeline
 
 from patm.definitions import IDEOLOGY_CLASS_NAME, COOCURENCE_DICT_FILE_NAMES# = ['cooc_tf_', 'cooc_df_', 'ppmi_tf_', 'ppmi_df_']
-import logging
-logger = logging.getLogger(__name__)
+
+# import logging
+# logger = logging.getLogger(__name__)
 
 
 class PipeHandler(object):

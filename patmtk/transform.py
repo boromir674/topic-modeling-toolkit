@@ -3,11 +3,13 @@
 import argparse
 import os
 import sys
+import re
 from PyInquirer import prompt
 
 from patm.definitions import COLLECTIONS_DIR_PATH
 from processors import PipeHandler
 from patm import political_spectrum
+from patm.build_coherence import CoherenceFilesBuilder
 
 
 def get_cl_arguments():
@@ -98,42 +100,43 @@ def ask_discreetization(spectrum, pipe_handler, pool_size=100, prob=0.3, max_gen
 
     questions = [
         {
-            'type': 'expand',  # navigate with arrows through choices
+            'type': 'list',  # navigate with arrows through choices
             'name': 'discreetization-scheme',
             'message': 'Use a registered discreetization scheme or create a new one.',
-            'choices': [{'key': name, 'name': 'Classes: [{}] with distribution [{}]'.format(
-                ', '.join(scheme.class_names),
-                ', '.join('{:.2f'.format(x) for x in spectrum.distribution(scheme))),
-                         'value': name} for name, scheme in spectrum] + [{'key': 'new', 'name': 'Create new', 'value': 'buildNew'}]
+            'choices': ['Classes: [{}] with distribution [{}]'.format(' '.join(scheme.class_names), ' '.join('{:.2f}'.format(x) for x in spectrum.distribution(scheme))) for name, scheme in spectrum]
+                       + ['Create new']
 
         },
         {
             'type': 'list',  # navigate with arrows through choices
             'name': 'naming-scheme',
             'message': 'You can pick one of the pre made class names or define your own custom',
-            'choices': [', '.join(names) for names in namings] + ['Create custom names'],
-            'when': lambda x: x['discreetization-scheme'] == 'buildNew',
-            'filter': lambda x: x.split(' ')
+            'choices': ['{}: {}'.format(len(names), ' '.join(names)) for names in namings] + ['Create custom names'],
+            'when': lambda x: x['discreetization-scheme'] == 'Create new',
+            # 'filter': lambda x: x.split(' ')
         },
         {
             'type': 'input',  # navigate with arrows through choices
             'name': 'custom-class-names',
             'message': 'Give space separated class names',
-            'when': lambda x: x['use-default-naming-scheme'] == 'Create custom names',
-            'filter': lambda x: x.split(' ')
+            'when': lambda x: x.get('naming-scheme', None) == 'Create custom names',
+            # 'filter': lambda x: x.split(' ')
         }
     ]
     answers = prompt(questions)
-    if answers['discreetization-scheme'] == 'buildNew':
-        class_names = answers.get('custom-class-names', 'naming-scheme')
+    if answers['discreetization-scheme'] == 'Create new':
+        print("Evolving discreetization scheme ..")
+        class_names = _class_names(answers.get('custom-class-names', answers['naming-scheme']))
         return spectrum.balance_frequencies(class_names, pipe_handler.outlet_ids, len(class_names) - 1, pool_size, prob=prob, max_generation=max_generation)
-    return spectrum[answers['discreetization-scheme']]
+    return spectrumspectrum[answers['discreetization-scheme']]
 
+def _class_names(string):
+    return ['{}_Class'.format(x) for x in re.sub(r'\d+:\s+', '', string).split(' ')]
 
 def ask_persist(pol_spctrum):
     return prompt([{'type': 'confirm',
                     'name': 'create-dataset',
-                    'message': "Use scheme [{}] with resulting distribution [{}]?".format(' '.join(pol_spctrum.class_names), ', '.join('{:.2f'.format(x) for x in political_spectrum.class_distribution)),
+                    'message': "Use scheme [{}] with resulting distribution [{}]?".format(' '.join(pol_spctrum.class_names), ', '.join('{:.2f}'.format(x) for x in political_spectrum.class_distribution)),
                     'default': True}])['create-dataset']
 
 
@@ -150,7 +153,11 @@ if __name__ == '__main__':
 
     while 1:
         scheme = ask_discreetization(political_spectrum, ph, pool_size=100, prob=0.3, max_generation=100)
-        political_spectrum.discreetization_scheme = scheme
+        print("Scheme with classes: [{}]".format(' '.join(x for x, _ in scheme)))
+        try:
+            political_spectrum.discreetization_scheme = scheme
+        except ValueError as e:
+            raise ValueError("{}. {}".format(e, type(scheme).__name__))
 
         if ask_persist(political_spectrum):
             uci_dt = ph.persist(os.path.join(COLLECTIONS_DIR_PATH, args.collection), political_spectrum.poster_id2ideology_label, political_spectrum.class_names, add_class_labels_to_vocab=not args.exclude_class_labels_from_vocab)

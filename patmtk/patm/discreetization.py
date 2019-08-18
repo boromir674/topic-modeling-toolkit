@@ -10,12 +10,11 @@ from types import MethodType
 
 
 def distr(ds_scheme, psm):
-    # ds = DiscreetizationScheme.from_design(design, list(self.psm.scale.items()))
     outlet_id2name = OrderedDict([(_id, name) for name, _id in psm.scale.items()])
     datapoint_labels = [ds_scheme.poster_name2ideology_label[outlet_id2name[x]] for x in psm.datapoint_ids]
     c = Counter(datapoint_labels)
     n = sum(c.values())
-    return [c[class_name] / float(n) for class_name, _ in ds]
+    return [c[class_name] / float(n) for class_name, _ in ds_scheme]
 
 def evolve(self, class_names, datapoint_ids, vectors_length, pool_size, prob=0.2, max_generation=100):
     self.population.evolve(datapoint_ids, vectors_length, pool_size, prob=prob, max_generation=max_generation)
@@ -65,7 +64,7 @@ class PoliticalSpectrum(object):
     def __getitem__(self, item):
         if item not in self._schemes:
             raise KeyError(
-                "The schemes implemented are [{}]. Requested '{}' instead.".format(', '.join(self._schemes.keys()), scheme))
+                "The schemes implemented are [{}]. Requested '{}' instead.".format(', '.join(self._schemes.keys()), item))
         return self._schemes[item]
 
     def __iter__(self):
@@ -81,6 +80,7 @@ class PoliticalSpectrum(object):
             if scheme not in self._schemes:
                 raise KeyError("The schemes implemented are [{}]. Requested '{}' instead.".format(', '.join(self._schemes.keys()), scheme))
             self._cur = scheme
+
         elif type(scheme) == list:
             if type(scheme[0]) == str:
                 k = scheme[0]
@@ -89,6 +89,16 @@ class PoliticalSpectrum(object):
                 k = self._key(scheme)
             self._schemes[k] = DiscreetizationScheme(scheme)
             self._cur = k
+            logger.info("Registered new discreetization scheme '{}' with doc classes [{}].".format(k, ', '.join(
+                class_name for class_name, _ in scheme)))
+            if self.datapoint_ids:
+                logger.info("Classes' distribution: [{}]".format(
+                    ', '.join(['{:.2f}'.format(x) for x in distr(self._schemes[k], self)])))
+        elif type(scheme) == DiscreetizationScheme:
+            k = self._key(scheme)
+            self._schemes[k] = DiscreetizationScheme(scheme)
+            self._cur = k
+
             logger.info("Registered new discreetization scheme '{}' with doc classes [{}].".format(k, ', '.join(class_name for class_name, _ in scheme)))
             if self.datapoint_ids:
                 logger.info("Classes' distribution: [{}]".format(', '.join(['{:.2f}'.format(x) for x in distr(self._schemes[k], self)])))
