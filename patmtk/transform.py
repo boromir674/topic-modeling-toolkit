@@ -4,7 +4,10 @@ import argparse
 import os
 import sys
 from PyInquirer import prompt
-from patm.definitions import DISCREETIZATION
+
+from patm.definitions import COLLECTIONS_DIR_PATH
+from processors import PipeHandler
+from patm import political_spectrum
 
 
 def get_cl_arguments():
@@ -26,20 +29,112 @@ def get_cl_arguments():
         sys.exit(1)
     return parser.parse_args()
 
+#
+# def naming(psm):
+#     """
+#
+#     :param patm.discreetization.PoliticalSpectrum psm:
+#     :return:
+#     """
+#     from patm.discreetization import Bins
+#     psm.discreetization_scheme = 'legacy-scheme'
+#
+#     namings = [['liberal', 'centre', 'conservative'],
+#                ['liberal', 'centre_liberal', 'centre_conservative', 'conservative'],
+#                ['liberal', 'centre_liberal', 'centre', 'centre_conservative', 'conservative'],
+#                ['more_liberal', 'liberal', 'centre_liberal', 'centre', 'centre_conservative', 'conservative']]
+#
+#     questions = [
+#         {
+#             'type': 'list',  # navigate with arrows through choices
+#             'name': 'discreetization-scheme',
+#             'message': 'Use a registered discreetization scheme or create a new one.',  #  of classes [{}] with distribution [{}]? and bins:\n\n{}'.format(
+#             'choices': ["{}: [{}] with class frequencies [{}]".format(name, ', '.join(c for c in scheme.class_names),
+#                                                                   ', '.join('{:.2f}'.format(x) for x in scheme.class_distribution)) for name, scheme in psm] + ['Create new discreetization scheme']
+#                 # psm.class_names,
+#                 # ', '.join('{:.2f}'.format(x) for x in psm.class_distribution),
+#                 # Bins([_[1] for _ in psm.discreetization_scheme])),
+#             # 'choices': []
+#         },
+#         {
+#             'type': 'confirm',  # navigate with arrows through choices
+#             'name': 'use-scheme',
+#             'message': "Create dataset using the '{}' discreetization scheme with classses [{}] and frquencies distribution [{}]?".format(),
+#             # Use legacy discreetization scheme of classes [{}] with distribution [{}]? and bins:\n\n{}'.format(psm.class_names,
+#             #                                                                                                               ', '.join('{:.2f}'.format(x) for x in psm.class_distribution),
+#             #                                                                                                               Bins([_[1] for _ in psm.discreetization_scheme])),
+#             'when': lambda x: x['discreetization-scheme'] != 'Create new discreetization scheme'
+#         },
+#         {
+#             'type': 'list',  # navigate with arrows through choices
+#             'name': 'naming-scheme',
+#             'message': 'You can pick one of the pre made class names or define your own custom',
+#             'choices': [', '.join(names) for names in namings] + ['Create custom names'],
+#             'when': lambda x: x['discreetization-scheme'] == 'Create new discreetization scheme'
+#         },
+#         {
+#             'type': 'input',  # navigate with arrows through choices
+#             'name': 'custom-class-names',
+#             'message': 'Give space separated class names',
+#             'when': lambda x: x['use-default-naming-scheme'] == 'Create custom names'
+#         }
+#     ]
+#     answers = {}
+#     while not answers.get('use-scheme', False):
+#         answers = prompt(questions)
+#         if answers['discreetization-scheme'] == 'Create new discreetization scheme':
+#             class_names = ['{}_Class'.format(x) for x in answers.get('naming-scheme', 'custom-class-names')]
+#
+#     return answers
 
-def naming(psm):
-    """Returns a parser of track hh:mm:ss multiline string"""
+def ask_discreetization(spectrum, pipe_handler, pool_size=100, prob=0.3, max_generation=100):
+    # from patm.discreetization import Bins
+    # psm.discreetization_scheme = 'legacy-scheme'
+
+    namings = [['liberal', 'centre', 'conservative'],
+               ['liberal', 'centre_liberal', 'centre_conservative', 'conservative'],
+               ['liberal', 'centre_liberal', 'centre', 'centre_conservative', 'conservative'],
+               ['more_liberal', 'liberal', 'centre_liberal', 'centre', 'centre_conservative', 'conservative']]
 
     questions = [
         {
+            'type': 'expand',  # navigate with arrows through choices
+            'name': 'discreetization-scheme',
+            'message': 'Use a registered discreetization scheme or create a new one.',
+            'choices': [{'key': name, 'name': 'Classes: [{}] with distribution [{}]'.format(
+                ', '.join(scheme.class_names),
+                ', '.join('{:.2f'.format(x) for x in spectrum.distribution(scheme))),
+                         'value': name} for name, scheme in spectrum] + [{'key': 'new', 'name': 'Create new', 'value': 'buildNew'}]
+
+        },
+        {
             'type': 'list',  # navigate with arrows through choices
-            'name': 'how-to-input-tracks',
-            'message': 'Use legacy discreetization scheme of classes [{}] with distribution [{}]? and bins:\n\n{}'.format(),
-            'choices': psm,
+            'name': 'naming-scheme',
+            'message': 'You can pick one of the pre made class names or define your own custom',
+            'choices': [', '.join(names) for names in namings] + ['Create custom names'],
+            'when': lambda x: x['discreetization-scheme'] == 'buildNew',
+            'filter': lambda x: x.split(' ')
+        },
+        {
+            'type': 'input',  # navigate with arrows through choices
+            'name': 'custom-class-names',
+            'message': 'Give space separated class names',
+            'when': lambda x: x['use-default-naming-scheme'] == 'Create custom names',
+            'filter': lambda x: x.split(' ')
         }
     ]
     answers = prompt(questions)
-    return answers['how-to-input-tracks']
+    if answers['discreetization-scheme'] == 'buildNew':
+        class_names = answers.get('custom-class-names', 'naming-scheme')
+        return spectrum.balance_frequencies(class_names, pipe_handler.outlet_ids, len(class_names) - 1, pool_size, prob=prob, max_generation=max_generation)
+    return spectrum[answers['discreetization-scheme']]
+
+
+def ask_persist(pol_spctrum):
+    return prompt([{'type': 'confirm',
+                    'name': 'create-dataset',
+                    'message': "Use scheme [{}] with resulting distribution [{}]?".format(' '.join(pol_spctrum.class_names), ', '.join('{:.2f'.format(x) for x in political_spectrum.class_distribution)),
+                    'default': True}])['create-dataset']
 
 
 if __name__ == '__main__':
@@ -48,22 +143,19 @@ if __name__ == '__main__':
     if nb_docs != 'all':
         nb_docs = int(nb_docs)
 
-    from processors import PipeHandler
+
     ph = PipeHandler()
     ph.process(args.config, args.category, sample=nb_docs, verbose=True)
+    political_spectrum.datapoint_ids = ph.outlet_ids
 
-    from patm.definitions import DISCREETIZATION
+    while 1:
+        scheme = ask_discreetization(political_spectrum, ph, pool_size=100, prob=0.3, max_generation=100)
+        political_spectrum.discreetization_scheme = scheme
 
-    namings = [['liberal', 'centre', 'conservative'],
-               ['liberal', 'centre_liberal', 'centre_conservative', 'conservative'],
-               ['liberal', 'centre_liberal', 'centre', 'centre_conservative', 'conservative'],
-               ['more_liberal', 'liberal', 'centre_liberal', 'centre', 'centre_conservative', 'conservative']]
+        if ask_persist(political_spectrum):
+            uci_dt = ph.persist(os.path.join(COLLECTIONS_DIR_PATH, args.collection), political_spectrum.poster_id2ideology_label, political_spectrum.class_names, add_class_labels_to_vocab=not args.exclude_class_labels_from_vocab)
+            break
 
-    from patm import political_spectrum
-
-    political_spectrum.optimize()
-
-    uci_dt = ph.preprocess(args.collection, not args.exclude_class_labels_from_vocab)
     print(uci_dt)
 
     print('\nBuilding coocurences information')
@@ -72,6 +164,3 @@ if __name__ == '__main__':
                                    min_tf=args.min_tf,
                                    min_df=args.min_df,
                                    apply_zero_index=False)
-    # ph.write_cooc_information(args.window, args.min_tf, args.min_df)
-
-

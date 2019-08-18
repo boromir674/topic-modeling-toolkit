@@ -6,6 +6,8 @@ import attr
 import logging
 logger = logging.getLogger(__name__)
 
+from types import MethodType
+
 
 def distr(ds_scheme, psm):
     # ds = DiscreetizationScheme.from_design(design, list(self.psm.scale.items()))
@@ -15,12 +17,18 @@ def distr(ds_scheme, psm):
     n = sum(c.values())
     return [c[class_name] / float(n) for class_name, _ in ds]
 
+def evolve(self, class_names, datapoint_ids, vectors_length, pool_size, prob=0.2, max_generation=100):
+    self.population.evolve(datapoint_ids, vectors_length, pool_size, prob=prob, max_generation=max_generation)
+    return DiscreetizationScheme.from_design(self.population.pool[0], [(k,v) for k,v in self.scale.items()], class_names)
+
 
 class PoliticalSpectrumManager(object):
     _instance = None
     def __new__(cls):
         if not cls._instance:
             cls._instance = PoliticalSpectrum(SCALE_PLACEMENT, DISCREETIZATION)
+            cls._instance.population = Population(cls._instance)
+            cls._instance.balance_frequencies = MethodType(evolve, cls._instance)
         return cls._instance
 
 
@@ -60,6 +68,9 @@ class PoliticalSpectrum(object):
                 "The schemes implemented are [{}]. Requested '{}' instead.".format(', '.join(self._schemes.keys()), scheme))
         return self._schemes[item]
 
+    def __iter__(self):
+        return ((k, v) for k, v in self._schemes.items())
+
     @property
     def discreetization_scheme(self):
         return self._schemes[self._cur]
@@ -83,6 +94,9 @@ class PoliticalSpectrum(object):
                 logger.info("Classes' distribution: [{}]".format(', '.join(['{:.2f}'.format(x) for x in distr(self._schemes[k], self)])))
         else:
             raise ValueError("Input should be either a string or a DiscreetizationScheme or a [str, DiscreetizationScheme] list (1st element is the name/key)")
+
+    def distribution(self, scheme):
+        return distr(scheme, self)
 
     @property
     def class_distribution(self):
@@ -161,6 +175,7 @@ def _check_nb_bins(instance, attribute, value):
 @attr.s(cmp=True, repr=True, str=True, slots=True, frozen=True)
 class Bins(object):
     bins = attr.ib(init=True, cmp=True, repr=True, validator=_check_nb_bins)
+    # __max_el_length = attr.ib(init=False, default=attr.Factory(lambda self: max([len(x) for outlet_names in self.bins for x in outlet_names]), takes_self), repr=False, cmp=False)
 
     def __getitem__(self, item):
         return self.bins[item]
@@ -173,6 +188,16 @@ class Bins(object):
         :return:
         """
         return Bins([[scale_placement[i][0] for i in a_range] for a_range in BinDesign(list(design)).ranges(len(scale_placement))])
+
+    def __str__(self):
+        return '\n'.join(' '.join(self.__str_els(b, i) for b in self.bins) for i in range(max(len(x) for x in self.bins)))
+        # for i in range(max(len(x) for x in self.bins)):
+        #     line = ' '.join(self.__str_els(b, i) for b in self.bins)
+
+    def __str_els(self, bin, index):
+        if index < len(bin):
+            return bin[index] + ' ' * (max(len(x) for x in bin) - len(bin[index]))
+        return ' ' * self.__max_el_length
 
 
 def _check_design(instance, attribute, value):
