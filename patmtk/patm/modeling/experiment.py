@@ -19,14 +19,14 @@ class Experiment:
 
 
     MAX_DECIMALS = 2
-    def __init__(self, dataset_dir, cooc_dict):
+    def __init__(self, dataset_dir):
         """
         Encapsulates experimentation by doing topic modeling on a dataset/'collection' in the given patm_root_dir. A 'collection' is a proccessed document collection into BoW format and possibly split into 'train' and 'test' splits.\n
         :param str dataset_dir: the full path to a dataset/collection specific directory
         :param str cooc_dict: the full path to a dataset/collection specific directory
         """
         self._dir = dataset_dir
-        self.cooc_dict = cooc_dict
+        # self.cooc_dict = cooc_dict
         self._loaded_dictionary = None # artm.Dictionary object. Data population happens uppon artm.Artm object creation in model_factory; dictionary.load(bin_dict_path) is called there
         self._topic_model = None
         self.collection_passes = []
@@ -62,7 +62,7 @@ class Experiment:
 
     @property
     def model_factory(self):
-        return ModelFactory(self.dictionary, self.cooc_dict)
+        return ModelFactory(self.dictionary)
 
     @property
     def topic_model(self):
@@ -103,6 +103,7 @@ class Experiment:
 
     @property
     def dictionary(self):
+        """This dictionary is passed to Perplexity artm scorer"""
         return self._loaded_dictionary
 
     @dictionary.setter

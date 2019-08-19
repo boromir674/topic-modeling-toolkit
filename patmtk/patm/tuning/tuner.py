@@ -16,7 +16,6 @@ from patm.utils import get_standard_evaluation_definitions
 from patm.definitions import DEFAULT_CLASS_NAME, IDEOLOGY_CLASS_NAME
 
 
-
 class Tuner(object):
     """
     This class is able to perform a search over the parameter space (grid-search supported).
@@ -66,7 +65,7 @@ class Tuner(object):
                                         reduce(lambda i,j: i+j, [[y+'.'+x for x in ('deactivate', 'kind', 'start', 'end')] for y in ('sparse_phi', 'sparse_theta')])
         self._active_reg_def_builder = RegularizersActivationDefinitionBuilder(tuner=self)
         self.trainer = TrainerFactory().create_trainer(self._dir, exploit_ideology_labels=True)  # forces to use (and create if not found) batches holding modality information in case it is needed
-        self.experiment = Experiment(self._dir, self.trainer.cooc_dicts)
+        self.experiment = Experiment(self._dir)
         self.trainer.register(self.experiment)  # when the model_trainer trains, the experiment object listens to changes
         self._parameter_grid_searcher = None
         self._default_regularizer_parameters = {'smooth-phi': {'tau': 1.0},

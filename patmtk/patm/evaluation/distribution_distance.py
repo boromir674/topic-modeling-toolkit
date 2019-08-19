@@ -2,7 +2,7 @@ import os
 import re
 from math import log
 import pandas as pd
-from patm.definitions import COLLECTIONS_DIR_PATH, IDEOLOGY_CLASS_NAME
+from patm.definitions import IDEOLOGY_CLASS_NAME
 
 
 import logging
@@ -104,13 +104,13 @@ class DivergenceComputer(object):  # In python 2 you MUST inherit from object to
         return PsiMatrix(psi_matrix)
 
     @classmethod
-    def from_dataset(cls, dataset):
+    def from_dataset(cls, dataset_path):
         """Create a DivergenceComputer able to compute psi, p(c|t) probabilities, from the document labels found in the input dataset's vocabulary file.\n
-        :param str dataset: a dataset name corresponding to a folder in the COLLECTIONS directory
+        :param str dataset_path: path to a directory correspoonding to a computed dataset
         :return: the initialized divergence computer
         :rtype: DivergenceComputer
         """
-        dataset_path = os.path.join(COLLECTIONS_DIR_PATH, dataset)
+
         if not os.path.isdir(dataset_path):
             raise RuntimeError("Parameter dataset should be a valid dataset name or a full path to a dataset dir in collections. Instead we computed '{}' from the input '{}'".format(dataset_path, dataset))
         vocab_file = os.path.join(dataset_path, 'vocab.{}.txt'.format(dataset))
@@ -122,6 +122,7 @@ class DivergenceComputer(object):  # In python 2 you MUST inherit from object to
 
 
 class PsiMatrix:
+    """Class x Topics matrix holdig p(c|t) probabilities"""
     def __init__(self, psi_dataframe):
         self._check_debug(psi_dataframe)
         self._psi = psi_dataframe

@@ -28,7 +28,7 @@ if __name__ == '__main__':
     root_dir = os.path.join(COLLECTIONS_DIR_PATH, args.collection)
 
     model_trainer = TrainerFactory().create_trainer(root_dir, exploit_ideology_labels=True, force_new_batches=args.new_batches)
-    experiment = Experiment(root_dir, model_trainer.cooc_dicts)
+    experiment = Experiment(root_dir)
     model_trainer.register(experiment)  # when the model_trainer trains, the experiment object keeps track of evaluation metrics
 
     # if args.load:

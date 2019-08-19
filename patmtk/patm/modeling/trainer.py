@@ -19,7 +19,6 @@ class ModelTrainer(object):
         self.batch_vectorizer = None
         # self.dictionary = artm.Dictionary()
         self._pmi_key = ''
-        self._dictionary = None
         self.cooc_dicts = {}  # ppmi: positive pmi (Point-Mutual Information)
         self.observers = []
 
@@ -58,7 +57,7 @@ class ModelTrainer(object):
 
     @property
     def model_factory(self):
-        return ModelFactory(self.dictionary, self.cooc_dicts)
+        return ModelFactory(self.dictionary)
 
     def train(self, topic_model, specs, effects=False, cache_theta=False):
         """

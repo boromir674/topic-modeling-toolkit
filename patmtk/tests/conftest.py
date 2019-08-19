@@ -124,7 +124,7 @@ def trainer(collections_root_dir, test_dataset):
 
 @pytest.fixture(scope='session')
 def trained_model_n_experiment(collections_root_dir, test_dataset, trainer):
-    experiment = Experiment(os.path.join(collections_root_dir, test_dataset.name), trainer.cooc_dicts)
+    experiment = Experiment(os.path.join(collections_root_dir, test_dataset.name))
     topic_model = trainer.model_factory.create_model(MODEL_1_LABEL, TRAIN_CFG, reg_cfg=REGS_CFG, show_progress_bars=False)
     train_specs = trainer.model_factory.create_train_specs()
     trainer.register(experiment)
@@ -138,7 +138,7 @@ def trained_model_n_experiment(collections_root_dir, test_dataset, trainer):
 def loaded_model_n_experiment(collections_root_dir, test_dataset, trainer, trained_model_n_experiment):
     model, experiment = trained_model_n_experiment
     experiment.save_experiment(save_phi=True)
-    new_exp_obj = Experiment(os.path.join(collections_root_dir, test_dataset.name), trainer.cooc_dicts)
+    new_exp_obj = Experiment(os.path.join(collections_root_dir, test_dataset.name))
     trainer.register(new_exp_obj)
     loaded_model = new_exp_obj.load_experiment(model.label)
     return loaded_model, new_exp_obj
@@ -149,8 +149,6 @@ def loaded_model_n_experiment(collections_root_dir, test_dataset, trainer, train
     #     print '\nLoaded experiment and model state'
     #     settings = cfg2model_settings(args.config)
     #     train_specs = TrainSpecs(15, [], [])
-
-
 
 
 @pytest.fixture(scope='session')
