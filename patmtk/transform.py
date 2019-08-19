@@ -65,11 +65,15 @@ def ask_discreetization(spectrum, pipe_handler, pool_size=100, prob=0.3, max_gen
         }
     ]
     answers = prompt(questions)
+    if not all(x in answers for x in ['discreetization-scheme']):
+        raise KeyboardInterrupt
+
     if answers['discreetization-scheme'] == 'Create new':
         print("Evolving discreetization scheme ..")
         class_names = _class_names(answers.get('custom-class-names', answers['naming-scheme']))
         return spectrum.balance_frequencies(class_names, pipe_handler.outlet_ids, len(class_names) - 1, pool_size, prob=prob, max_generation=max_generation)
     return spectrumspectrum[answers['discreetization-scheme']]
+
 
 def _class_names(string):
     return ['{}_Class'.format(x) for x in re.sub(r'\d+:\s+', '', string).split(' ')]
@@ -92,7 +96,11 @@ if __name__ == '__main__':
     political_spectrum.datapoint_ids = ph.outlet_ids
 
     while 1:
-        scheme = ask_discreetization(political_spectrum, ph, pool_size=100, prob=0.3, max_generation=100)
+        try:
+            scheme = ask_discreetization(political_spectrum, ph, pool_size=100, prob=0.3, max_generation=100)
+        except KeyboardInterrupt:
+            print("Exiting ..")
+            sys.exit(0)
         print("Scheme with classes: [{}]".format(' '.join(x for x, _ in scheme)))
         try:
             political_spectrum.discreetization_scheme = scheme
