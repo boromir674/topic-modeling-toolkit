@@ -1,4 +1,4 @@
-#!/home/kostas/software_and_libs/anaconda2/bin/python
+#!/usr/bin/env python
 
 import argparse
 from patm.tuning import Tuner

@@ -1,4 +1,4 @@
-#!/usr/bin/python3.5
+#!/usr/bin/env python
 
 import argparse
 from reporting import ModelReporter

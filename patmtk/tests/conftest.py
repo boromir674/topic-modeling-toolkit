@@ -15,8 +15,10 @@ from reporting import ResultsHandler
 from reporting.dataset_reporter import DatasetReporter
 from reporting.graph_builder import GraphMaker
 from results.experimental_results import ExperimentalResults
+from reporting.topics import TopicsHandler
 
 
+####################3
 MODULE_DIR = os.path.dirname(os.path.realpath(__file__))
 DATA_DIR = os.path.join(MODULE_DIR, 'data')
 
@@ -28,7 +30,7 @@ TEST_COLLECTIONS_ROOT_DIR_NAME = 'unittests-collections'
 
 TEST_COLLECTION = 'unittest-dataset'
 MODEL_1_LABEL = 'test-model-1'
-
+#####################
 
 @pytest.fixture(scope='session')
 def collections_root_dir(tmpdir_factory):
@@ -214,7 +216,6 @@ def graphs(exp_res_obj1, trained_model_n_experiment, tuner_obj):
                                              score_definitions=['background-tokens-ratio-0.30', 'kernel-coherence-0.80', 'sparsity-theta', 'top-tokens-coherence-10'],
                                              tau_trajectories=(lambda x: 'all' if x else '')(sparser_regularizers_tau_coefficients_trajectories))
     return graph_maker.saved_figures
-
 
 
 
