@@ -1,11 +1,9 @@
-# -*- coding: utf8 -*-
-
 import os
 from functools import reduce
 from collections import Counter
 
 import matplotlib.pyplot as plt
-plt.ion()
+# plt.ion()
 
 from easyplot import EasyPlot
 from .model_selection import ResultsHandler
@@ -49,7 +47,7 @@ class GraphMaker(object):
 
     @property
     def saved_figures(self):
-        return [_[0] for _ in self._graph_names_n_eplots if _[0]]
+        return [_[0] for _ in self._graph_names_n_eplots if _[1]]
 
     def build_graphs_from_collection(self, collection_name, selection, metric='perplexity',
                                      score_definitions='all', tau_trajectories='all', save=True, nb_points=None, verbose=True):
@@ -70,7 +68,7 @@ class GraphMaker(object):
         """
         self._prepare_output_folder(collection_name)
         self._exp_results_list = self.results_handler.get_experimental_results(collection_name, sort=metric, selection=selection)
-        print("Retrieved {} models from collection '{}', sorted on '{}'.\nModels: [{}]".format(
+        print("Retrieved {} models from collection '{}'. Will sort with '{}'.\nModels: [{}]".format(
             len(self._exp_results_list), collection_name, (lambda x: x if x else 'their labels alphabetically')(metric),
             ', '.join((_.scalars.model_label for _ in self._exp_results_list))))
         self.build_graphs(self._exp_results_list, score_definitions=score_definitions, tau_trajectories=tau_trajectories,
@@ -80,6 +78,9 @@ class GraphMaker(object):
         self._verbose_save = verbose
         if score_definitions == 'all':
             score_definitions = self.determine_metrics_usable_for_comparison(results)
+        print("Graphs: {}".format(score_definitions))
+        # if not score_definitions:
+        #     raise ValueError("Something went wrong determining the metrics to plot for: results [{}]".format(', '.join(type(x).__name__ for x in results)))
         if tau_trajectories == 'all':
             tau_trajectories = ['phi', 'theta']
         self._graph_names_n_eplots.extend(self.build_metrics_graphs(results, scores=score_definitions, save=save, nb_points=nb_points))
@@ -97,6 +98,10 @@ class GraphMaker(object):
         :param int nb_points: number of points to plot. Defaults to plotting all measurements found
         """
         return [self._save_lambdas[save](self._build_graph(results, x, limit_iteration=nb_points)) for x in scores]
+        # try:
+        #
+        # except TypeError as e:
+        #     raise TypeError("Error: {}. ".format(e))
 
     def _build_graph(self, exp_results_list, metric, limit_iteration=None):
         """Call this method to get a graph name (as a string) and a graph (as an Eplot object) tuple.\n
@@ -110,7 +115,7 @@ class GraphMaker(object):
         labels = [_.scalars.model_label for _ in exp_results_list]
         self._metric = metric
         if metric in ('phi', 'theta'):
-            measure_name = 'τ_{}'.format(metric)
+            measure_name = 'tau_{}'.format(metric)
         else:
             measure_name = self.results_handler.get_abbreviation(metric).replace('-', '.')
         try:
@@ -142,12 +147,20 @@ class GraphMaker(object):
         :return: list of strings; the metric definitions
         :rtype: list
         """
-        return sorted([k for k, v in Counter(reduce(lambda i, j: i + j, [self.results_handler.get_all_columns(x, self.SUPPORTED_GRAPHS) for x in exp_results])).items() if v > 1])
+        _ = sorted([k for k, v in Counter([item for sublist in [self.results_handler.get_all_columns(model_results, self.SUPPORTED_GRAPHS) for model_results in exp_results] for item in sublist]).items() if v > 1])
+        if not _:
+            raise ValueError("{}".format([self.results_handler.get_all_columns(model_results, self.SUPPORTED_GRAPHS) for model_results in exp_results]))
+        return _
+        # return sorted([k for k, v in Counter([item for sublist in [self.results_handler.get_all_columns(model_results, self.SUPPORTED_GRAPHS) for model_results in exp_results] for item in sublist]).items() if v > 1])
+        # return sorted([k for k, v in Counter(reduce(lambda i, j: i + j, [self.results_handler.get_all_columns(x, self.SUPPORTED_GRAPHS) for x in exp_results])).items() if v > 1])
 
     @staticmethod
     def build_graph(xs, ys, line_designs, labels, title, xlabel, ylabel, grid='on'):
         assert len(ys) == len(xs) == len(line_designs) == len(labels)
-        pl = EasyPlot(xs[0], ys[0], line_designs[0], label=labels[0], showlegend=True, xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
+        try:
+            pl = EasyPlot(xs[0], ys[0], line_designs[0], label=labels[0], showlegend=False, xlabel=xlabel, ylabel=ylabel, title=title, grid=grid)
+        except UnicodeDecodeError as e:
+            raise UnicodeDecodeError("Probably one of label: {}, xlabel: {} or ylabel: {} contains non-ascii characters".format(labels[0], xlabel, ylabel))
         for i, y_vals in enumerate(ys[1:]):
             pl.add_plot(xs[i + 1], y_vals, line_designs[i + 1], label=labels[i + 1])
         return pl

@@ -6,9 +6,7 @@ from patm.definitions import SCALE_PLACEMENT, DISCREETIZATION
 @pytest.fixture(scope='module')
 def valid_design():
     return BinDesign([8, 16])
-@pytest.fixture(scope='module')
-def in_valid_design():
-    return [8, 16, 10]
+
 
 @pytest.fixture(scope='module')
 def population(political_spectrum):

@@ -128,7 +128,7 @@ class ResultsHandler(object):
             assert hasattr(callable_metric, '__call__')
             print(' Metric function:', callable_metric.__name__)
             return sorted([self._process_result_path(x) for x in results_paths], key=callable_metric, reverse=True)
-        return [self._process_result_path(_) for _ in results_paths]
+        return [self._process_result_path(_) for _ in sorted(results_paths)]
 
     def _process_result_path(self, result_path):
         if result_path not in self._results_hash:

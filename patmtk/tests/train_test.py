@@ -36,4 +36,3 @@ class TestTrain(object):
 
     def test_model_loading(self, trained_model_n_experiment, train_settings):
         model, experiment = trained_model_n_experiment
-        experiment.save_experiment(save_phi=True)

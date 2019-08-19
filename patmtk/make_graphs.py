@@ -3,7 +3,7 @@
 import sys
 import argparse
 
-from reporting import GraphMaker
+from reporting.graph_builder import GraphMaker
 
 
 def get_cl_arguments():
