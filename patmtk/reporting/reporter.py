@@ -80,9 +80,8 @@ class ModelReporter:
             self.columns_to_render = self._maximal_renderable_columns
         else:
             self.columns_to_render, self._columns_failed = self._get_renderable(self._maximal_renderable_columns, columns)
-
-        if metric and metric not in self.columns_to_render:
-            raise InvalidMetricException("Metric '{}' is not recognized within [{}]".format(metric, ', '.join(self.columns_to_render)))
+        if metric != 'alphabetical' and metric not in self.columns_to_render:
+            raise InvalidMetricException( "Metric '{}' should be either 'alphabetical' or within the recognized ones [{}]".format(metric, ', '.join(self.columns_to_render)))
         self._metric = metric
         print("Input metric to sort on: '{}'".format(self._metric))
         if verbose:
@@ -162,7 +161,7 @@ class ModelReporter:
         Fitness_computer finds the maximum values per eligible column definition that need to be highlighted."""
         if len(self.columns_to_render) < 1:
             raise RuntimeError("No valid columns to compute")
-        if self._metric:
+        if self._metric != 'alphabetical':
             self.fitness_computer.__init__(single_metric=self._metric, column_definitions=self.columns_to_render)
             try:
                 return [list(t) for t in zip(*sorted(zip(self._model_labels, self._results_value_vectors), key=lambda y: self.fitness_computer(y[1]), reverse=True))]
