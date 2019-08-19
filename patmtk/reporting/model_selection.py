@@ -1,13 +1,16 @@
 import os
 import re
+import warnings
 from glob import glob
 from functools import reduce
-from collections import Counter
-import numpy as np
+
+import attr
 
 from results import ExperimentalResults
 
 from .fitness import FitnessFunction
+
+
 
 
 KERNEL_SUB_ENTITIES = ('coherence', 'contrast', 'purity', 'size')
@@ -95,7 +98,7 @@ class ResultsHandler(object):
         """
         Call this method to get a list of experimental result objects from topic models trained on the given collection.\n
         :param str collection_name:
-        :param str sort:
+        :param str sort: if None the experimental results are obtained alphabetically on their json path
         :param str or range or int or list selection: whether to select a subset of the experimental results fron the given collection\n
             - if selection == 'all', returns every experimental results object "extracted" from the jsons
             - if type(selection) == range, returns a "slice" of the experimental results based on the range
@@ -117,18 +120,27 @@ class ResultsHandler(object):
                 sys.exit(1)
             return e
         self._list_selector = lambda y: ResultsHandler._list_selector_hash[type(selection)]([y, selection])
-        r = self._get_experimental_results(result_paths, callable_metric=self._get_metric(sort))
+        r = self._get_experimental_results(result_paths, metric_sorter=self._get_metric(sort))
 
         assert len(result_paths) == len(r)
         return self._list_selector(r)
 
-    def _get_experimental_results(self, results_paths, callable_metric=None):
-        # print('_get_experimental_results.callable_metric: {}'.format(callable_metric))
-        if callable_metric:
-            assert hasattr(callable_metric, '__call__')
-            print(' Metric function:', callable_metric.__name__)
-            return sorted([self._process_result_path(x) for x in results_paths], key=callable_metric, reverse=True)
-        return [self._process_result_path(_) for _ in sorted(results_paths)]
+    def _get_experimental_results(self, results_paths, metric_sorter=None):
+        # print('_get_experimental_results.metric_sorter: {}'.format(metric_sorter))
+        if metric_sorter is None:
+            print("Sorting models alphabetically")
+            return [self._process_result_path(_) for _ in sorted(results_paths)]
+        print("Sorting function: {}".format(metric_sorter.name))
+        return metric_sorter([self._process_result_path(x) for x in results_paths])
+        # sorted([self._process_result_path(x) for x in results_paths], key=metric_sorter, reverse=True)
+        # sorter = ResultsSorter.from_function(metric_sorter)
+        # return sorter([self._process_result_path(x) for x in results_paths])
+
+        # if metric_sorter:
+        #     assert hasattr(metric_sorter, '__call__')
+        #     print(' Metric function:', metric_sorter.__name__)
+        #
+        #
 
     def _process_result_path(self, result_path):
         if result_path not in self._results_hash:
@@ -140,7 +152,7 @@ class ResultsHandler(object):
             return None
         if metric not in self._fitness_function_hash:
             self._fitness_function_hash[metric] = FitnessFunction.single_metric(metric)
-        return lambda x: self._fitness_function_hash[metric].compute([ResultsHandler.extract(x, metric, 'last')])
+        return MetricSorter(metric, lambda x: self._fitness_function_hash[metric].compute([ResultsHandler.extract(x, metric, 'last')]))
 
     @staticmethod
     def get_titles(column_definitions):
@@ -213,6 +225,26 @@ class ResultsHandler(object):
         """Returns the indices of the input labels based on the input experimental results list"""
         model_labels = [x.scalars.model_label for x in experimental_results_list]
         return [experimental_results_list.index(model_labels.index(l)) for l in labels if l in model_labels]
+
+
+##########################
+def _build_sorter(instance, attribute, value):
+    if not hasattr(value, '__call__'):
+        raise TypeError("Second constructor argument should be a callable object, in case the first is 'alphabetical'")
+    # this is sorting from 'bigger' to 'smaller' (independently of how <,>, operators have been defined)
+    instance.experimental_result_sorter = lambda exp_res_objs_list: sorted(exp_res_objs_list, key=value, reverse=True)
+
+@attr.s(cmp=True, repr=True, str=True)
+class MetricSorter(object):
+    name = attr.ib(init=True, converter=str, cmp=True, repr=True)
+    experimental_result_sorter = attr.ib(init=True, validator=_build_sorter, cmp=True, repr=True)
+
+    @classmethod
+    def from_function(cls, function):
+        return ResultsSorter(function.__name__, function)
+    def __call__(self, *args, **kwargs):
+        return self.experimental_result_sorter(args[0])
+############################
 
 
 if __name__ == '__main__':
