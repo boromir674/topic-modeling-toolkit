@@ -1,4 +1,5 @@
 import os
+import sys
 from configparser import ConfigParser
 from collections import OrderedDict
 import pytest
@@ -6,7 +7,9 @@ import pytest
 
 @pytest.fixture(scope='module')
 def tokens_data():
-    return {'vowpal-1st-line': '|@default_class action aftermath call compel congress controlled craft form gop gun legislation make political shooting show sign similar spectrum subtle take violence'}
+    python3 = {True: {'vowpal-1st-line': '|@default_class action aftermath call compel congress controlled craft form gop gun legislation make political shooting show sign similar spectrum subtle take violence'},
+               False: {'vowpal-1st-line': '|@default_class sign aftermath action gop legislation spectrum take show subtle political make gun craft violence compel call form similar shooting congress controlled'}}
+    return python3[2 < sys.version_info[0]]
 
 
 class TestDatasetTransformation(object):

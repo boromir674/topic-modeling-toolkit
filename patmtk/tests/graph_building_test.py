@@ -28,7 +28,7 @@ def graph_paths(test_collection_dir, model_labels):
 @pytest.fixture(scope='module')
 def model_labels():  # number of lines in cooc and ppmi files (771 in python2, 759 in python3)
     python3 = {True: ['a-model-label', 'unittest_0_12_0.2_5_1', 'unittest_1_12_0.2_5_1'],  # Dirty code to support python 2 backwards compatibility
-               False: ['a-model-label', 'unittest_0_10_0.2_5_1', 'unittest_1_10_0.2_5_1']}
+               False: ['a-model-label', 'unittest_0_12_0.2_5_1', 'unittest_1_12_0.2_5_1']}
     return python3[2 < sys.version_info[0]]
 
 
