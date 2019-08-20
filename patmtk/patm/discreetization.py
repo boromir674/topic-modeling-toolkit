@@ -277,17 +277,25 @@ class Population(object):
         self.ideal = [float(1)/(vector_length+1)] * (vector_length + 1)
         self.sorted = False
         self._generation_counter = 0
-        self._max_generation = max_generation
+        self._init_condition(max_generation)
         self._convergence = convergence
+        self._nb_items_to_bin = elements
 
     def selection(self):
         self._inds = [x for x in range(len(self.pool))]
 
-    def operators(self, nb_elements, prob=0.2):
+    def operators(self, prob=0.2):
         # MUTATE
-        self._new = [_f for _f in [self.mutate(design, nb_elements, prob=prob) for design in self.pool] if _f]
+        self._new = [_f for _f in [self.mutate(design, self._nb_items_to_bin, prob=prob) for design in self.pool] if _f]
 
     def mutate(self, design, elements, prob=0.2):
+        """
+
+        :param design:
+        :param elements:
+        :param prob:
+        :return:
+        """
         # available = [x for x in range(1, elements) if x not in design]
         _ = BinDesign([x for x in self._gen_genes(design, elements, prob=prob)])
         if _ == design:
@@ -313,12 +321,14 @@ class Population(object):
     def evolve(self, datapoint_ids, vectors_length, pool_size, prob=0.2, max_generation=100, convergence=(1, 10)):
         self.datapoint_ids = datapoint_ids
         self.psm.datapoint_ids = datapoint_ids
-        scale_length = len(self.psm.scale)
-        self.init_random(pool_size, vectors_length, scale_length, max_generation=max_generation, convergence=convergence)
+        self.init_random(pool_size, vectors_length, len(self.psm.scale), max_generation=max_generation, convergence=convergence)
         while not self.condition():
             self.selection()
-            self.operators(scale_length, prob=prob)
+            self.operators(prob=prob)
             self.replacement()
+
+    def _init_condition(self, nb_generations):
+        self._max_generation = self._generation_counter + nb_generations
 
     def condition(self):
         """Until convergence or max generation count. Returns True when evolution should stop"""
