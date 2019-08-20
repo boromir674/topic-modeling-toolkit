@@ -322,6 +322,13 @@ class Population(object):
         self.datapoint_ids = datapoint_ids
         self.psm.datapoint_ids = datapoint_ids
         self.init_random(pool_size, vectors_length, len(self.psm.scale), max_generation=max_generation, convergence=convergence)
+        self._evolve(prob=prob)
+
+    def evolve_more(self, nb_generations, prob=0.35):
+        self._init_condition(nb_generations)
+        self._evolve(prob=prob)
+        
+    def _evolve(self, prob=0.35):
         while not self.condition():
             self.selection()
             self.operators(prob=prob)
