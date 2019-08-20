@@ -4,9 +4,14 @@ from collections import OrderedDict
 import pytest
 
 
+@pytest.fixture(scope='module')
+def tokens_data():
+    return {'vowpal-1st-line': '|@default_class action aftermath call compel congress controlled craft form gop gun legislation make political shooting show sign similar spectrum subtle take violence'}
+
+
 class TestDatasetTransformation(object):
 
-    def test_transform(self, pipe_n_quantities, test_dataset):
+    def test_transform(self, test_collection_dir, pipe_n_quantities, test_dataset, tokens_data):
         assert test_dataset.name == os.path.basename(pipe_n_quantities['unittest-collection-dir'])
         assert test_dataset.id == self._id(pipe_n_quantities['resulting-nb-docs'], pipe_n_quantities['unittest-pipeline-cfg'])
         assert test_dataset._col_len == pipe_n_quantities['resulting-nb-docs']
@@ -22,7 +27,12 @@ class TestDatasetTransformation(object):
         assert self.file_len(os.path.join(test_dataset.root_dir, 'ppmi_0_tf.txt')) == pipe_n_quantities['nb-lines-cooc-n-ppmi-files']
         assert self.file_len(os.path.join(test_dataset.root_dir, 'ppmi_0_df.txt')) == pipe_n_quantities['nb-lines-cooc-n-ppmi-files']
         assert os.path.isfile(os.path.join(test_dataset.root_dir, '{}.pkl'.format(test_dataset.id)))
+        with open(os.path.join(test_collection_dir, 'vowpal.{}.txt'.format(os.path.basename(test_collection_dir))), 'r') as f:
+            assert tokens_data['vowpal-1st-line'] in f.readline()
 
+
+        # assert pipe_handler.dict
+        assert '|@default_class sign aftermath action call gop legislation spectrum take show subtle political make gun craft violence compel form similar shooting congress controlled'
     def _formatter(self, pipe_settings):
         return lambda x: x if x in ['lowercase', 'monospace', 'unicode', 'deaccent'] else '{}-{}'.format(x, pipe_settings[x])
 
@@ -37,7 +47,8 @@ class TestDatasetTransformation(object):
 
     @staticmethod
     def file_len(file_path):
-        with open(file_path) as f:
+        with open(file_path, 'r') as f:
+
             for i, l in enumerate(f):
                 pass
         return i + 1

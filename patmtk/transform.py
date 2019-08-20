@@ -71,8 +71,8 @@ def ask_discreetization(spectrum, pipe_handler, pool_size=100, prob=0.3, max_gen
         print("Evolving discreetization scheme ..")
         class_names = _class_names(answers.get('custom-class-names', answers['naming-scheme']))
         spectrum.init_population(class_names, pipe_handler.outlet_ids, pool_size)
-        return spectrum.evolve(evolution_specs['nb-generations'], prob=evolution_specs['probability'])
-    return spectrumspectrum[answers['discreetization-scheme']]
+        return spectrum.evolve(int(evolution_specs['nb-generations']), prob=float(evolution_specs['probability']))
+    return spectrum[answers['discreetization-scheme']]
 
 
 def _class_names(string):
@@ -89,13 +89,11 @@ def ask_evolution_specs():
     return prompt([{'type': 'input',
                     'name': 'nb-generations',
                     'message': 'Give the number of generations to evolve solution (optimize)',
-                    'default': 50,
-                               'filter': lambda x: int(x)},
-                              {'type': 'input',
-                               'name': 'probability',
-                               'message': 'Give mutation probability',
-                               'default': 0.35,
-                               'filter': lambda x: int(x)}])
+                    'default': '50'},
+                    {'type': 'input',
+                     'name': 'probability',
+                     'message': 'Give mutation probability',
+                     'default': '0.35'}])
 
 def what_to_do():
     return prompt([{
@@ -136,9 +134,11 @@ if __name__ == '__main__':
             if answer == 'Evolve more':
                 evolution_specs = ask_evolution_specs()
                 print("Evolving discreetization scheme ..")
-                # class_names = _class_names(answers.get('custom-class-names', answers['naming-scheme']))
-                # spectrum.init_population(class_names, pipe_handler.outlet_ids, pool_size)
-                scheme = spectrum.evolve(evolution_specs['nb-generations'], prob=evolution_specs['probability'])
+                scheme = political_spectrum.evolve(int(evolution_specs['nb-generations']), prob=float(evolution_specs['probability']))
+                political_spectrum.discreetization_scheme = scheme
+                print("Scheme [{}] with resulting distribution [{}]".format(' '.join(scheme.class_names),
+                                                                            ', '.join('{:.2f}'.format(x) for x in
+                                                                                      political_spectrum.class_distribution)))
             else:
                 uci_dt = ph.persist(os.path.join(COLLECTIONS_DIR_PATH, args.collection),
                                     political_spectrum.poster_id2ideology_label, political_spectrum.class_names,

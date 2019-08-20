@@ -62,7 +62,7 @@ def results_handler(collections_root_dir):
 
 @pytest.fixture(scope='session')
 def pairs_file_nb_lines():  # number of lines in cooc and ppmi files (771 in python2, 759 in python3)
-    python3 = {True: 759,  # Dirty code to support python 2 backwards compatibility
+    python3 = {True: 1215,  # Dirty code to support python 2 backwards compatibility
                False: 771}
     return python3[2 < sys.version_info[0]]
 
@@ -71,11 +71,11 @@ def pipe_n_quantities(test_collection_dir, pairs_file_nb_lines):
     return {'unittest-pipeline-cfg': os.path.join(MODULE_DIR, 'test-pipeline.cfg'),
             'unittest-collection-dir': test_collection_dir,
             'category': 'posts',
-            'sample': 100,
-            'resulting-nb-docs': 100,
-            'nb-bows': 1297,
-            'word-vocabulary-length': 833,
-            'nb-all-modalities-terms': 834,  # corresponds to the number of lines in the vocabulary file created (must call persist of PipeHandler with add_class_labels_to_vocab=True, which is the default).
+            'sample': 200,
+            'resulting-nb-docs': 200,
+            'nb-bows': 2765,
+            'word-vocabulary-length': 1347,
+            'nb-all-modalities-terms': 1348,  # corresponds to the number of lines in the vocabulary file created (must call persist of PipeHandler with add_class_labels_to_vocab=True, which is the default).
             # the above probably will fail in case no second modality is used (only the @default_class is enabled)
             'nb-lines-cooc-n-ppmi-files': pairs_file_nb_lines
             }

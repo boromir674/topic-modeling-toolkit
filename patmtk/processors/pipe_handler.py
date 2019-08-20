@@ -173,7 +173,8 @@ class PipeHandler(object):
             with open(self.vocab_file, 'w') as f:
                 for string_id, string in self._vocab_tokens_generator(include_class_labels=add_class_labels):
                     try:
-                        f.write('{}\n'.format(string.encode('utf-8')))
+                        # f.write('{}\n'.format(string.encode('utf-8')))
+                        f.write('{}\n'.format(string))
                     except UnicodeEncodeError as e:
                         # f.write('\n'.join(map(lambda x: '{}'.format(str(x[1])), sorted([_ for _ in self.dct.iteritems()], key=itemgetter(0)))))
                         print('FAILED', type(string_id), string)
