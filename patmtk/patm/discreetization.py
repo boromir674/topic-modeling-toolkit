@@ -39,7 +39,8 @@ class PoliticalSpectrumManager(object):
         if not cls._instance:
             cls._instance = PoliticalSpectrum(SCALE_PLACEMENT, DISCREETIZATION)
             cls._instance.population = Population(cls._instance)
-            cls._instance.balance_frequencies = MethodType(evolve, cls._instance)
+            cls._instance.init_population = MethodType(init_population, cls._instance)
+            cls._instance.evolve = MethodType(evolve, cls._instance)
         return cls._instance
 
 

@@ -54,14 +54,12 @@ def ask_discreetization(spectrum, pipe_handler, pool_size=100, prob=0.3, max_gen
             'message': 'You can pick one of the pre made class names or define your own custom',
             'choices': ['{}: {}'.format(len(names), ' '.join(names)) for names in namings] + ['Create custom names'],
             'when': lambda x: x['discreetization-scheme'] == 'Create new',
-            # 'filter': lambda x: x.split(' ')
         },
         {
-            'type': 'input',  # navigate with arrows through choices
+            'type': 'input',
             'name': 'custom-class-names',
             'message': 'Give space separated class names',
             'when': lambda x: x.get('naming-scheme', None) == 'Create custom names',
-            # 'filter': lambda x: x.split(' ')
         }
     ]
     answers = prompt(questions)
@@ -69,10 +67,11 @@ def ask_discreetization(spectrum, pipe_handler, pool_size=100, prob=0.3, max_gen
         raise KeyboardInterrupt
 
     if answers['discreetization-scheme'] == 'Create new':
+        evolution_specs = ask_evolution_specs()
         print("Evolving discreetization scheme ..")
         class_names = _class_names(answers.get('custom-class-names', answers['naming-scheme']))
-        spectrum.init_genetic_algorithm(class_names, pipe_handler.outlet_ids, len(class_names) - 1, pool_size, prob=prob, max_generation=max_generation)
-        return spectrum.balance_frequencies(class_names, pipe_handler.outlet_ids, len(class_names) - 1, pool_size, prob=prob, max_generation=max_generation)
+        spectrum.init_population(class_names, pipe_handler.outlet_ids, pool_size)
+        return spectrum.evolve(evolution_specs['nb-generations'], prob=evolution_specs['probability'])
     return spectrumspectrum[answers['discreetization-scheme']]
 
 
@@ -84,6 +83,27 @@ def ask_persist(pol_spctrum):
                     'name': 'create-dataset',
                     'message': "Use scheme [{}] with resulting distribution [{}]?".format(' '.join(pol_spctrum.class_names), ', '.join('{:.2f}'.format(x) for x in political_spectrum.class_distribution)),
                     'default': True}])['create-dataset']
+
+
+def ask_evolution_specs():
+    return prompt([{'type': 'input',
+                    'name': 'nb-generations',
+                    'message': 'Give the number of generations to evolve solution (optimize)',
+                    'default': 50,
+                               'filter': lambda x: int(x)},
+                              {'type': 'input',
+                               'name': 'probability',
+                               'message': 'Give mutation probability',
+                               'default': 0.35,
+                               'filter': lambda x: int(x)}])
+
+def what_to_do():
+    return prompt([{
+        'type': 'list',  # navigate with arrows through choices
+        'name': 'to-do',
+        'message': 'How to proceed?',
+        'choices': ['Evolve more', 'Use scheme to persist dataset', 'back'],
+    }])['to-do']
 
 
 if __name__ == '__main__':
@@ -108,15 +128,40 @@ if __name__ == '__main__':
         except ValueError as e:
             raise ValueError("{}. {}".format(e, type(scheme).__name__))
 
-        if ask_persist(political_spectrum):
-            uci_dt = ph.persist(os.path.join(COLLECTIONS_DIR_PATH, args.collection), political_spectrum.poster_id2ideology_label, political_spectrum.class_names, add_class_labels_to_vocab=not args.exclude_class_labels_from_vocab)
-            break
+        print("Scheme [{}] with resulting distribution [{}]".format(' '.join(political_spectrum.class_names), ', '.join('{:.2f}'.format(x) for x in political_spectrum.class_distribution)))
+        while 1:
+            answer = what_to_do()
+            if answer == 'back':
+                break
+            if answer == 'Evolve more':
+                evolution_specs = ask_evolution_specs()
+                print("Evolving discreetization scheme ..")
+                # class_names = _class_names(answers.get('custom-class-names', answers['naming-scheme']))
+                # spectrum.init_population(class_names, pipe_handler.outlet_ids, pool_size)
+                scheme = spectrum.evolve(evolution_specs['nb-generations'], prob=evolution_specs['probability'])
+            else:
+                uci_dt = ph.persist(os.path.join(COLLECTIONS_DIR_PATH, args.collection),
+                                    political_spectrum.poster_id2ideology_label, political_spectrum.class_names,
+                                    add_class_labels_to_vocab=not args.exclude_class_labels_from_vocab)
+                print(uci_dt)
 
-    print(uci_dt)
+                print('\nBuilding coocurences information')
+                coherence_builder = CoherenceFilesBuilder(os.path.join(COLLECTIONS_DIR_PATH, args.collection))
+                coherence_builder.create_files(cooc_window=args.window,
+                                               min_tf=args.min_tf,
+                                               min_df=args.min_df,
+                                               apply_zero_index=False)
+                sys.exit(0)
 
-    print('\nBuilding coocurences information')
-    coherence_builder = CoherenceFilesBuilder(os.path.join(COLLECTIONS_DIR_PATH, args.collection))
-    coherence_builder.create_files(cooc_window=args.window,
-                                   min_tf=args.min_tf,
-                                   min_df=args.min_df,
-                                   apply_zero_index=False)
+    # if ask_persist(political_spectrum):
+    #
+    #         break
+    #
+    # print(uci_dt)
+    #
+    # print('\nBuilding coocurences information')
+    # coherence_builder = CoherenceFilesBuilder(os.path.join(COLLECTIONS_DIR_PATH, args.collection))
+    # coherence_builder.create_files(cooc_window=args.window,
+    #                                min_tf=args.min_tf,
+    #                                min_df=args.min_df,
+    #                                apply_zero_index=False)
