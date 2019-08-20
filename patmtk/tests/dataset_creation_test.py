@@ -41,3 +41,6 @@ class TestDatasetTransformation(object):
             for i, l in enumerate(f):
                 pass
         return i + 1
+
+
+    # def test_string_piping

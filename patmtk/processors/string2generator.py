@@ -22,11 +22,11 @@ class StringToTokenGenerator(StringToGenerator):
     def __str__(self):
         return type(self).__name__ + "('" + str(self.splitter) + "')"
 
-
-class StringToLemmatizedTokenGenerator(StringToTokenGenerator):
-    def __init__(self):
-        super(StringToTokenGenerator, self).__init__(lemmatize_and_tokenize)
-
-
-def lemmatize_and_tokenize(a_string):
-    return [val.split('/')[0] for val in gen_lemmatize(a_string, stopwords=en_stopwords, min_length=2, max_length=50)]
+#
+# class StringToLemmatizedTokenGenerator(StringToTokenGenerator):
+#     def __init__(self):
+#         super(StringToTokenGenerator, self).__init__(lemmatize_and_tokenize)
+#
+#
+# def lemmatize_and_tokenize(a_string):
+#     return [val.split('/')[0] for val in gen_lemmatize(a_string, stopwords=en_stopwords, min_length=2, max_length=50)]

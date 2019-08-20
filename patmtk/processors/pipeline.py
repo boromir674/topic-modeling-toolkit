@@ -157,7 +157,9 @@ class Pipeline(object):
 
     def _inject_connectors(self):
         assert (self.str2gen_processor_index != 0 and self.token_gen2list_index != 0)
+        # STRING PROCESSORS (strings are passing through)
         self._insert(self.str2gen_processor_index, self.str2gen_processor, 'str2token_gen')
+        # generators passing thorugh
         self._insert(self.token_gen2list_index + 1, GensimDictTokenGeneratorToListProcessor(), 'dict-builder')
         self._insert(self.token_gen2list_index + 2, OneElemListOfListToGenerator(), 'list2generator')
 

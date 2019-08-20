@@ -112,7 +112,7 @@ class PoliticalSpectrum(object):
             self._schemes[k] = DiscreetizationScheme(scheme)
             self._cur = k
 
-            logger.info("Registered new discreetization scheme '{}' with doc classes [{}].".format(k, ', '.join(class_name for class_name, _ in scheme)))
+            logger.info("Registered discreetization scheme '{}' with doc classes [{}].".format(k, ', '.join(class_name for class_name, _ in scheme)))
             if self.datapoint_ids:
                 logger.info("Classes' distribution: [{}]".format(', '.join(['{:.2f}'.format(x) for x in distr(self._schemes[k], self)])))
         else:

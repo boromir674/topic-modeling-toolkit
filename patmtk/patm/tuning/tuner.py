@@ -265,7 +265,7 @@ class Tuner(object):
         if not overwrite:
             maximal_model_labels = list(map(self._build_label, self._parameter_grid_searcher))  # depends on self.parameter_grid_searcher and self._labeling_params
             results_indices_list, phi_indices_list = self._get_overlapping_indices(maximal_model_labels)
-            result_inds, model_inds = IndicesList(results_indices_list, 'train results'), IndicesList(phi_indices_list, 'phi matrix')
+            result_inds, model_inds = IndicesList(list(results_indices_list), 'train results'), IndicesList(list(phi_indices_list), 'phi matrix')
             common = result_inds + model_inds  # finds intersection of indices
             only_res = result_inds - common
             only_mods = model_inds - common
