@@ -71,6 +71,7 @@ def ask_discreetization(spectrum, pipe_handler, pool_size=100, prob=0.3, max_gen
     if answers['discreetization-scheme'] == 'Create new':
         print("Evolving discreetization scheme ..")
         class_names = _class_names(answers.get('custom-class-names', answers['naming-scheme']))
+        spectrum.init_genetic_algorithm(class_names, pipe_handler.outlet_ids, len(class_names) - 1, pool_size, prob=prob, max_generation=max_generation)
         return spectrum.balance_frequencies(class_names, pipe_handler.outlet_ids, len(class_names) - 1, pool_size, prob=prob, max_generation=max_generation)
     return spectrumspectrum[answers['discreetization-scheme']]
 

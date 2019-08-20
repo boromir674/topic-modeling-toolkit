@@ -16,10 +16,22 @@ def distr(ds_scheme, psm):
     n = sum(c.values())
     return [c[class_name] / float(n) for class_name, _ in ds_scheme]
 
-def evolve(self, class_names, datapoint_ids, vectors_length, pool_size, prob=0.2, max_generation=100):
-    self.population.evolve(datapoint_ids, vectors_length, pool_size, prob=prob, max_generation=max_generation)
-    return DiscreetizationScheme.from_design(self.population.pool[0], [(k,v) for k,v in self.scale.items()], class_names)
+def init_population(self, class_names, datapoint_ids, pool_size):
+    """Random genes creation"""
+    self.population.init_random(datapoint_ids, pool_size, len(class_names)-1)
+    self.__class_names = class_names
 
+def evolve(self, nb_generations, prob=0.35, class_names=None):
+    """Remembers inputted class_names in 'init_population' above"""
+    self.population.evolve(nb_generations, prob=prob)
+    if not class_names:
+        class_names = self.__class_names
+    return DiscreetizationScheme.from_design(self.population.pool[0], [(k, v) for k, v in self.scale.items()], class_names)
+
+
+# def evolve(self, class_names, datapoint_ids, vectors_length, pool_size, prob=0.2, max_generation=100):
+#     self.population.evolve(datapoint_ids, vectors_length, pool_size, prob=prob, max_generation=max_generation)
+#     return DiscreetizationScheme.from_design(self.population.pool[0], [(k,v) for k,v in self.scale.items()], class_names)
 
 class PoliticalSpectrumManager(object):
     _instance = None
@@ -121,23 +133,12 @@ class PoliticalSpectrum(object):
         """The normalized class names matching the discrete bins applied on the 10-point scale of ideological consistency"""
         return self._schemes[self._cur].class_names
 
-    # def optimize_class_distribution(self, outletnames, class_names, pool_size=50, max_iterations=100, gene_mutation_prob=0.3):
-    #     self.population = Population(self)
-    #     self.population.evolve(outletnames, len(class_names)-1, pool_size, prob=gene_mutation_prob, max_generation=max_iterations)
-    #
-    #     if len(set(outletnames)) != len(self.scale):
-    #         logger.warning("There is a mismatch between the distinct number of outlets supplied ({}) and the number of items in (global and constant) ideological scale ({})".format(len(set(outletnames)), len(self.scale)))
-    #     ds = DiscreetizationScheme.from_design(self.population.pool[0], list(self.scale.items()), class_names)
-        # self._schemes['evolved'] = ds
-
 
 @attr.s(cmp=True, repr=True, slots=True)
 class DiscreetizationScheme(object):
     _bins = attr.ib(init=True, converter=lambda x: OrderedDict([(class_name, outlet_names_list) for class_name, outlet_names_list in x]), repr=True, cmp=True)
     poster_name2ideology_label = attr.ib(init=False, default=attr.Factory(lambda self: OrderedDict([(name, class_label) for class_label, outlet_names in self._bins.items() for name in outlet_names]), takes_self=True), repr=False)
-    # bins = attr.ib(init=True, converter=list, cmp=True, repr=True)
-    # _class_names = attr.ib(init=True, default=attr.Factory(lambda self: ['my_class_{}'.format(x) for x in range(len(self.bins))], takes_self=True),
-    #                       converter=lambda x: [_.lower().replace(' ', '_') for _ in x], cmp=True, repr=True)
+
     def __iter__(self):
         for class_name, items in self._bins.items():
             yield class_name, items
@@ -163,16 +164,6 @@ class DiscreetizationScheme(object):
         if not class_names:
             class_names = ['bin_{}'.format(x) for x in range(len(design) + 1)]
         return DiscreetizationScheme([(k,v) for k,v in zip(class_names, list(Bins.from_design(design, scale)))])
-
-    # @property
-    # def poster_name2ideology_label(self):
-    #     return OrderedDict([(name, class_label) for class_label, outlet_names in self._bins.items() for name in outlet_names])
-
-    # @classmethod
-    # def from_tuples(cls, data):
-    #     return DiscreetizationScheme([_[1] for _ in data], [_[0] for _ in data])
-        # a, b = (list(x) for x in zip(*[[doc, label] for doc, label in zip(self.corpus, self.outlet_ids) if doc]))
-        # return DiscreetizationScheme(*reversed([list(x) for x in zip(*data)]))
 
 
 def _check_nb_bins(instance, attribute, value):
@@ -247,6 +238,7 @@ class Population(object):
     # doc_ids = attr.ib(init=True, converter=list)
     # outlet_id2name = attr.ib(init=False, default=attr.Factory(lambda self: OrderedDict([(_id, name) for name, _id in self.psm.scale.items()]), takes_self=True), repr=False)
     pool = attr.ib(init=False, repr=True, cmp=True)
+    _nb_items_to_bin = attr.ib(init=False, default=attr.Factory(lambda self: len(self.psm.scale), takes_self=True))
 
     def create_random(self, vector_length, scale_length):
         inds = [_ for _ in range(1, scale_length)]
@@ -272,14 +264,14 @@ class Population(object):
         design.fitness = jensen_shannon_distance(self.distr(design), self.ideal)
         return design.fitness
 
-    def init_random(self, pool_size, vector_length, elements, max_generation=100, convergence=(1, 10)):
-        self.pool = [BinDesign(self.create_random(vector_length, elements)) for _ in range(pool_size)]
+    def init_random(self, datapoint_ids, pool_size, vector_length):
+        self.datapoint_ids = datapoint_ids
+        self.psm.datapoint_ids = datapoint_ids
+        # self._nb_items_to_bin = elements
+        self.pool = [BinDesign(self.create_random(vector_length, self._nb_items_to_bin)) for _ in range(pool_size)]
         self.ideal = [float(1)/(vector_length+1)] * (vector_length + 1)
         self.sorted = False
         self._generation_counter = 0
-        self._init_condition(max_generation)
-        self._convergence = convergence
-        self._nb_items_to_bin = elements
 
     def selection(self):
         self._inds = [x for x in range(len(self.pool))]
@@ -290,7 +282,6 @@ class Population(object):
 
     def mutate(self, design, elements, prob=0.2):
         """
-
         :param design:
         :param elements:
         :param prob:
@@ -312,23 +303,13 @@ class Population(object):
         # if _[-1] == elements:
         #     raise RuntimeError("Vector: {}, scale elements: {}".format(list(_), elements))
         # return _
-
     def replacement(self):
         self.pool = sorted(self.pool + self._new, key=lambda x: getattr(x, 'fitness', self.compute_fitness(x)))[:len(self.pool)]  # sors from smaller to bigger values so best to worst because smaller fitness value the better
         self._generation_counter += 1
         self.sorted = True
 
-    def evolve(self, datapoint_ids, vectors_length, pool_size, prob=0.2, max_generation=100, convergence=(1, 10)):
-        self.datapoint_ids = datapoint_ids
-        self.psm.datapoint_ids = datapoint_ids
-        self.init_random(pool_size, vectors_length, len(self.psm.scale), max_generation=max_generation, convergence=convergence)
-        self._evolve(prob=prob)
-
-    def evolve_more(self, nb_generations, prob=0.35):
+    def evolve(self, nb_generations, prob=0.35):
         self._init_condition(nb_generations)
-        self._evolve(prob=prob)
-        
-    def _evolve(self, prob=0.35):
         while not self.condition():
             self.selection()
             self.operators(prob=prob)

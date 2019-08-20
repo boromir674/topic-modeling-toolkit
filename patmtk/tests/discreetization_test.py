@@ -59,9 +59,11 @@ class TestDscreetization(object):
          assert [x[1] for x in sc1] == list(Bins.from_design([6, 12, 18, 20, 21], SCALE_PLACEMENT))
 
     def test_population(self, preprocess_phase, population):
+        """Can considere to skip  this test as its success relies on heuristic optimization"""
         class_names = ['{}_Class'.format(x) for x in ['liberal', 'centre_liberal', 'centre_conservative', 'conservative']]
         pool_size = 50
-        population.evolve(preprocess_phase.outlet_ids, len(class_names)-1, pool_size, prob=0.2, max_generation=50)
+        population.init_random(preprocess_phase.outlet_ids, pool_size, len(class_names)-1)
+        population.evolve(nb_generations=50, prob=0.2)
         assert population.pool[0].fitness < 50
         y = DiscreetizationScheme.from_design(list(population.pool[0]), SCALE_PLACEMENT, class_names=class_names)
 
