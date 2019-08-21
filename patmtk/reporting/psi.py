@@ -75,7 +75,7 @@ class DivergenceComputer(object):  # In python 2 you MUST inherit from object to
 class PsiReporter(object):
     datasets = attr.ib(init=True, default={})
     _dataset_path = attr.ib(init=True, default='')
-    topics = attr.ib(init=False, default={'all': lambda x: x.domain_topics + x.background_topics,
+    _topics_extractors = attr.ib(init=False, default={'all': lambda x: x.domain_topics + x.background_topics,
                                           'domain': lambda x: x.domain_topics,
                                           'background': lambda x: x.background_topics})
 
@@ -83,8 +83,11 @@ class PsiReporter(object):
     computer = attr.ib(init=False, default=DivergenceComputer())
     # dataset_name = attr.ib(init=False, default=attr.Factory(lambda self: path.basename(self._dataset_path), takes_self=True))
     has_registered_class_names = {}
-    # models = attr.ib(init=False, default=)
+    # models = attr.ib(init=False, default=) self._selected_topics
     _precision = attr.ib(init=False, default=2)
+    _psi = attr.ib(init=False, default='')
+    _selected_topics = attr.ib(init=False, default=[])
+
     @property
     def dataset(self):
         return self.datasets[self._dataset_path]
@@ -102,6 +105,36 @@ class PsiReporter(object):
         if not self.datasets[dataset_path].doc_labeling_modality_name:
             logger.warning("Dataset's '{}' vocabulary file has no registered tokens representing document class label names".format(self.datasets[dataset_path].name))
 
+    @property
+    def psi_matrix(self):
+        return self._psi
+
+    @psi_matrix.setter
+    def psi_matrix(self, psi_matrix):
+        if len(self.dataset.class_names) != psi_matrix.shape[0]:
+            raise RuntimeError(
+                "Number of classes do not correspond to the number of rows of Psi matrix. Found {} registered 'class names' tokens: [{}]. Psi matrix number of rows (classes) = {}.".
+                format(len(self.dataset.class_names), self.dataset.class_names, psi_matrix.shape[0]))
+        if len(self._topic_names) != psi_matrix.shape[1]:
+            raise RuntimeError(
+                "Number of topics in experimental results do not correspond to the number of columns rows of the Psi matrix. Found {} topics, while number of columns = {}".
+                    format(len(self._topic_names), psi_matrix.shape[1]))
+        self._psi = psi_matrix
+
+    @property
+    def topics(self):
+        """The selected topics to sum over when computing the symmetric KL divergence"""
+        return self._selected_topics
+
+    @topics.setter
+    def topics(self, topics):
+        """The selected topics to sum over when computing the symmetric KL divergence"""
+        if type(topics) == str:
+            topics = self._topics_extractors[topics](self.exp_res.scalars)
+        if not all(x in self._topic_names for x in topics):
+            raise RuntimeError("Not all the topic names given [{}] are in the defined topics [{}] of the input model '{}'".format(', '.join(topics), ', '.join(self._topic_names), self.exp_res.scalars.model_label))
+        self._selected_topics = topics
+
     def pformat(self, model_paths, topics_set='domain', show_class_names=True, precision=2):
         self._precision = precision
         b = []
@@ -117,22 +150,46 @@ class PsiReporter(object):
 # warnings.warn("The document class modality (one of [{}]) was found in experimental results '{}', but dataset's vocabulary file '{}' does not contain registered tokens representing the unique document classes and thus phi matrix ( p(c|t) probabilities ) where probably not computed during training.".format(', '.join(sorted(self.discoverable_class_modality_names)), path.basename(json_path), path.basename(self.dataset.vocab_file)))
                     # else:
 
-                    self.psi = PsiMatrix.from_artm(model, self.dataset.doc_labeling_modality_name)
-                    if len(self.dataset.class_names) != self.psi.shape[0]:
-                        raise RuntimeError("Number of classes do not correspond to the number of rows of Psi matrix. Found {} registered 'class names' tokens: [{}]. Psi matrix number of rows (classes) = {}.".
-                                           format(len(self.dataset.class_names), self.dataset.class_names, self.psi.shape[0]))
-                    self._topic_names = self.exp_res.scalars.domain_topics + self.exp_res.scalars.background_topics
-                    if len(self._topic_names) != self.psi.shape[1]:
-                        raise RuntimeError(
-                            "Number of topics in experimental results do not correspond to the number of columns rows of the Psi matrix. Found {} topics, while number of columns = {}".
-                            format(len(self._topic_names), self.psi.shape[1]))
+                    self.psi_matrix = PsiMatrix.from_artm(model, self.dataset.doc_labeling_modality_name)
+                    # if len(self.dataset.class_names) != self.psi.shape[0]:
+                    #     raise RuntimeError("Number of classes do not correspond to the number of rows of Psi matrix. Found {} registered 'class names' tokens: [{}]. Psi matrix number of rows (classes) = {}.".
+                    #                        format(len(self.dataset.class_names), self.dataset.class_names, self.psi.shape[0]))
+                    #
+                    # if len(self._topic_names) != self.psi.shape[1]:
+                    #     raise RuntimeError(
+                    #         "Number of topics in experimental results do not correspond to the number of columns rows of the Psi matrix. Found {} topics, while number of columns = {}".
+                    #         format(len(self._topic_names), self.psi.shape[1]))
                     b.append(self.divergence_str(topics_set=topics_set, show_class_names=show_class_names))
                 else:
                     logger.info("Skipping model '{}' since it does not utilize any document metadata, such as document labels".format(path.basename(phi_path.replace('.phi', ''))))
         return '\n\n'.join(b)
 
+    def values(self, model_paths, topics_set='domain'):
+        """
+        :param model_paths:
+        :param topics_set:
+        :return: list of lists of lists
+        """
+        list_of_lists = []
+        if self.dataset.doc_labeling_modality_name:
+            for phi_path, json_path in self._all_paths(model_paths):
+                logger.info("Phi model '{}', experimentsl results '{}".format(phi_path, json_path))
+                model = self.artifacts(phi_path, json_path)
+                is_WTDC_model = any(
+                    x in self.exp_res.scalars.modalities for x in self.discoverable_class_modality_names)
+                if is_WTDC_model:
+                    self.topics = topics_set
+                    self.psi = PsiMatrix.from_artm(model, self.dataset.doc_labeling_modality_name)
+                    list_of_lists.append([self._values(i, c) for i, c in enumerate(self.dataset.class_names)])
+                else:
+                    logger.info(
+                        "Skipping model '{}' since it does not utilize any document metadata, such as document labels".format(
+                            path.basename(phi_path.replace('.phi', ''))))
+        return list_of_lists
+
     def artifacts(self, *args):
         self.exp_res = ExperimentalResults.create_from_json_file(args[1])
+        self._topic_names = self.exp_res.scalars.domain_topics + self.exp_res.scalars.background_topics
         _artm = artm.ARTM(topic_names=self.exp_res.scalars.domain_topics + self.exp_res.scalars.background_topics, dictionary=self.dataset.lexicon, show_progress_bars=False)
         _artm.load(args[0])
         return _artm
@@ -146,31 +203,23 @@ class PsiReporter(object):
             return args[0], path.join(path.dirname(args[0]), '../results', path.basename(args[0]).replace('.phi', '.json'))
         return os.path.join(self._dataset_path, 'models', args[0]), path.join(self._dataset_path, 'results', args[0]).replace('.phi', '.json')  # input is model label
 
-    ###### PROBS BUILDING
+    ###### STRING BUILDING
     def divergence_str(self, topics_set='domain', show_class_names=True):
         self._show_class_names = show_class_names
-        self._reportable_topics = topics_set
+        self.topics = topics_set
         self._reportable_class_strings = list(map(lambda x: x, self.dataset.class_names))
         self.__max_class_len = max(len(x) for x in self._reportable_class_strings)
-        self.psi.label = self.exp_res.scalars.model_label
-        self.computer.psi = self.psi
+        self._psi.label = self.exp_res.scalars.model_label
+        self.computer.psi = self._psi
         self.computer.class_names = self.dataset.class_names
-        b = ''
-        if type(topics_set) == str:
-            self._reportable_topics = self.topics[topics_set](self.exp_res.scalars)
-        if not all(x in self._topic_names for x in self._reportable_topics):
-            raise RuntimeError("Not all the topic names given [{}] are in the defined topics [{}] of the input model '{}'".format(', '.join(self._reportable_topics), ', '.join(self._topic_names), self.exp_res.scalars.model_label))
+
+
         string_values = [[self._str(x) for x in self._values(i, c)] for i, c in enumerate(self.dataset.class_names)]
         self.__max_len = max(max(len(x) for x in y) for y in string_values)
         return ''.join('{}\n'.format(self._pct_row(i, strings)) for i, strings in enumerate(string_values))
-        # for i, strings in enumerate(string_values):
-        #     if type(self._pct_row(i, strings) + '\n') == int:
-        #         print('error', i)
-        #     b += self._pct_row(i, strings) + '\n'
-        # return b
 
     def _values(self, index, class_name):
-        distances = list(self.computer(*list([class_name] + self.dataset.class_names[:index] + self.dataset.class_names[index + 1:]), topics=self._reportable_topics))
+        distances = list(self.computer(*list([class_name] + self.dataset.class_names[:index] + self.dataset.class_names[index + 1:]), topics=self._selected_topics))
         distances.insert(index, 0)
         assert len(distances) == len(self.dataset.class_names)
         return distances
