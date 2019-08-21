@@ -51,7 +51,8 @@ if __name__ == '__main__':
     tuner.active_regularizers = [
         'smooth-phi',
         'smooth-theta',
-        'label-regularization-phi-dom-cls'
+        'label-regularization-phi-dom-cls',
+        'smooth-phi-dom-cls'   # ENABLE TO smooth the the p(class=c|topic=t) distributions. Crucial for computing the symmetric KL divergence; eg KL(p(c1|t)||p(c2|t)
         # 'label-regularization-phi-dom-def',
         # 'decorrelate-phi-domain',
         # 'decorrelate-phi-background'
