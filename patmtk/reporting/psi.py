@@ -10,6 +10,10 @@ import warnings
 import pandas as pd
 
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 @attr.s
 class PsiReporter(object):
 
@@ -35,27 +39,39 @@ class PsiReporter(object):
         if dataset_path not in self.datasets:
             self.datasets[dataset_path] = DatasetCollection(dataset_path, self.discoverable_class_modality_names)
         self._dataset_path = dataset_path
+        if not hasattr(self.datasets[dataset_path], 'class_names'):
+            raise RuntimeError(
+                "A dataset '{}' object found without 'class_names' attribute".format(self.datasets[dataset_path].name))
+        print(self.datasets[dataset_path])
+        logger.info("{}".format(str(self.datasets[dataset_path])))
+        if not self.datasets[dataset_path].doc_labeling_modality_name:
+            logger.warning("Dataset's '{}' vocabulary file has no registered tokens representing document class label names".format(self.datasets[dataset_path].name))
 
     def pformat(self, model_paths, topics_set='domain', show_class_names=True, show_topic_names=True, precision=2):
-        for phi_path, json_path in self._all_paths(model_paths):
-            # model_label = path.basename(json_path)
-            print(phi_path, json_path)
-            model, exp_res = self.artifacts(phi_path, json_path)
-            is_WTDC_model = any(x in exp_res.scalars.modalities for x in self.discoverable_class_modality_names)
-            if is_WTDC_model:
+        if self.dataset.doc_labeling_modality_name:
+            for phi_path, json_path in self._all_paths(model_paths):
+                # model_label = path.basename(json_path)
+                print(phi_path, json_path)
+                model, exp_res = self.artifacts(phi_path, json_path)
+                is_WTDC_model = any(x in exp_res.scalars.modalities for x in self.discoverable_class_modality_names)
+                if is_WTDC_model:
 
-                if not self.dataset.doc_labeling_modality_name:
-                    warnings.warn("The document class modality (one of [{}]) was found in experimental results '{}', but dataset's vocabulary file '{}' does not contain registered tokens representing the unique document classes and thus phi matrix ( p(c|t) probabilities ) where probably not computed during training.".format(', '.join(sorted(self.discoverable_class_modality_names)), path.basename(json_path), path.basename(self.dataset.vocab_file)))
+                    # if not self.dataset.doc_labeling_modality_name:
+# warnings.warn("The document class modality (one of [{}]) was found in experimental results '{}', but dataset's vocabulary file '{}' does not contain registered tokens representing the unique document classes and thus phi matrix ( p(c|t) probabilities ) where probably not computed during training.".format(', '.join(sorted(self.discoverable_class_modality_names)), path.basename(json_path), path.basename(self.dataset.vocab_file)))
+                    # else:
+
+                    self.psi = PsiMatrix.from_artm(model, self.dataset.doc_labeling_modality_name)
+                    if len(self.dataset.class_names) != self.psi.shape[0]:
+                        raise RuntimeError("Found {} registered 'class names' tokens: [{}]. Psi matrix number of rows (classes) = {}".
+                                           format(len(self.dataset.class_names), self.dataset.class_names, self.psi.shape[0]))
+                    print(self.psi)
                 else:
-                    psi = PsiMatrix.from_artm(_artm)
-                    if len(self.dataset.class_names) != psi.shape[0]:
-                        raise RuntimeError("Found {} registered 'class names' tokens: [{}]. Psi matrix number of rows (classes) = {}".format(len(self.dataset.class_names), self.dataset.class_names, psi.shape[0]))
-                    print(psi)
+                    logger.info("Model '{}' does not utilize any document metadata, such as document labels".format(path.basename(phi_path.replace('.phi', ''))))
+                # TODO remove argument from Experiment constructor. make a self.exp and set cur_dir of its model and resuls writer/loaders
 
-            # TODO remove argument from Experiment constructor. make a self.exp and set cur_dir of its model and resuls writer/loaders
-
-    def _str(self, psi_matrix, topics_set='domain', show_class_names=True, show_topic_names=True, precision=2):
+    def p_ct_srt(self, psi_matrix, topics_set='domain', show_class_names=True, show_topic_names=True, precision=2):
         pass
+        
 
     def artifacts(self, *args):
         # phi_path, result_path = self.paths(*args)
@@ -148,9 +164,9 @@ class PsiMatrix(object):
         return self.dataframe[topic]
 
     @classmethod
-    def from_artm(cls, artm_model):
+    def from_artm(cls, artm_model, modality_name):
         phi = artm_model.get_phi()
-        psi_matrix = phi.set_index(pd.MultiIndex.from_tuples(phi.index)).loc[IDEOLOGY_CLASS_NAME]
+        psi_matrix = phi.set_index(pd.MultiIndex.from_tuples(phi.index)).loc[modality_name]
         return PsiMatrix(psi_matrix)
 
 
@@ -166,23 +182,24 @@ def _class_names(self, attribute, value):
         Returns None if the dataset's vocabulary does not contain registered terms as the unique document class names"""
     vocab_file = path.join(self.dir_path, 'vocab.{}.txt'.format(self.name))
     with open(vocab_file, 'r') as f:
-        _ = f.read()
-        print(type(_))
-        classname_n_modality_tuples = re.findall(r"([\w_]+)['\"]*[\t\ ]({})".format('|'.join(self.allowed_modality_names)),
-                                                 _, re.M)
-        if not classname_n_modality_tuples:
-            return [], ''
+        classname_n_modality_tuples = re.findall(r'(\w+)[\t\ ]({})'.format('|'.join(x for x in self.allowed_modality_names)), f.read())
+
+        # if not classname_n_modality_tuples:
+        #     raise RuntimeError("Vocabulary file '{}' is correct?".format(vocab_file))
+            # return [], ''
         modalities = set([modality_name for _, modality_name in classname_n_modality_tuples])
         if len(modalities) > 1:
             raise ValueError(
                 "More than one candidate modalities found to serve as the document classification scheme: [{}]".format(
                     sorted(x for x in modalities)))
         document_classes = [class_name for class_name, _ in classname_n_modality_tuples]
-        if len(document_classes) > 6:
+        warn_threshold = 8
+        if len(document_classes) > warn_threshold:
             warnings.warn(
                 "Detected {} classes for dataset '{}'. Perhaps too many classes for a collection of {} documents. You can define a different discretization scheme (binning of the political spectrum)".format(
                     len(document_classes), self.name, self.nb_docs))
-        return document_classes, modalities.pop()
+        self.class_names = document_classes
+        self.doc_labeling_modality_name = modalities.pop()
 
 
 def _file_len(file_path):
@@ -198,20 +215,17 @@ class DatasetCollection(object):
     vocab_file = attr.ib(init=False, default=attr.Factory(lambda self: path.join(self.dir_path, 'vocab.{}.txt'.format(self.name)), takes_self=True))
     lexicon = attr.ib(init=False, default=attr.Factory(lambda self: artm.Dictionary(name=self.name), takes_self=True))
     doc_labeling_modality_name = attr.ib(init=False, default='')
-    class_names = attr.ib(init=False, validator=_class_names)
+    class_names = attr.ib(init=False, default=[], validator=_class_names)
     # nb_docs = attr.ib(init=False, default=attr.Factory(lambda self: _file_len(path.join(self.dir_path, 'vowpal.{}.txt'.format(self.name))), takes_self=True))
     ppmi_file = attr.ib(init=False, default=attr.Factory(lambda self: self._cooc_tf(), takes_self=True))
 
     def __attrs_post_init__(self):
         self.lexicon.gather(data_path=self.dir_path,
-                                       cooc_file_path=path.join(self.dir_path, self._cooc_tf()),
-                                       vocab_file_path=path.join(self.vocab_file),
+                                       cooc_file_path=self.ppmi_file,
+                                       vocab_file_path=self.vocab_file,
                                        symmetric_cooc_values=True)
 
     def _cooc_tf(self):
-        # if path.isfile(args[0]):  # is a full path to .phi file e.match(r'^ppmi_(\d+)_([td]f)\.txt$', name)
-        #     c = glob('{}/ppmi_*\.txt'.format(path.join(os.path.dirname(args[0]), '../')))
-        # else:
         c = glob('{}/ppmi_*tf.txt'.format(self.dir_path))
         if not c:
             raise RuntimeError("Did not find any 'ppmi' (computed with simple 'tf' scheme) files in dataset directory '{}'".format(self.dir_path))

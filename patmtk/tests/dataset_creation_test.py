@@ -7,9 +7,7 @@ import pytest
 
 @pytest.fixture(scope='module')
 def tokens_data():
-    python3 = {True: {'vowpal-1st-line': '|@default_class action aftermath call compel congress controlled craft form gop gun legislation make political shooting show sign similar spectrum subtle take violence'},
-               False: {'vowpal-1st-line': '|@default_class sign aftermath action gop legislation spectrum take show subtle political make gun craft violence compel call form similar shooting congress controlled'}}
-    return python3[2 < sys.version_info[0]]
+    return {'vowpal-1st-line':'|@default_class action aftermath call compel congress controlled craft form gop gun legislation make political shooting show sign similar spectrum subtle take violence'}
 
 
 class TestDatasetTransformation(object):
@@ -32,7 +30,6 @@ class TestDatasetTransformation(object):
         assert os.path.isfile(os.path.join(test_dataset.root_dir, '{}.pkl'.format(test_dataset.id)))
         with open(os.path.join(test_collection_dir, 'vowpal.{}.txt'.format(os.path.basename(test_collection_dir))), 'r') as f:
             assert tokens_data['vowpal-1st-line'] in f.readline()
-
 
         # assert pipe_handler.dict
         assert '|@default_class sign aftermath action call gop legislation spectrum take show subtle political make gun craft violence compel form similar shooting congress controlled'

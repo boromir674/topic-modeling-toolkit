@@ -76,7 +76,7 @@ class PipeHandler(object):
     def process(self, pipeline, category, sample='all', verbose=False):
         self.pipeline = pipeline
         if verbose:
-            print(pipeline)
+            print(self._pipeline)
         self.pipe_through_processors(category, num_docs=sample)
 
     def persist(self, dataset_path, labels_hash, class_names, add_class_labels_to_vocab=True):

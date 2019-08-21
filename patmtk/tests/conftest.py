@@ -63,7 +63,7 @@ def results_handler(collections_root_dir):
 @pytest.fixture(scope='session')
 def pairs_file_nb_lines():  # number of lines in cooc and ppmi files (771 in python2, 759 in python3)
     python3 = {True: 1215,  # Dirty code to support python 2 backwards compatibility
-               False: 1250}
+               False: 1255}
     return python3[2 < sys.version_info[0]]
 
 @pytest.fixture(scope='session')
