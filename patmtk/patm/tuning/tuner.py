@@ -80,7 +80,9 @@ class Tuner(object):
                                                 'decorrelate-phi-class': {'tau': 10000},
                                                 'decorrelate-phi-domain': {'tau': 10000},
                                                 'decorrelate-phi-background': {'tau': 10000},
-                                                'improve-coherence': {'tau': 1.0}}
+                                                'improve-coherence': {'tau': 1.0},
+
+                                                'smooth-phi-dom-cls': {'tau': 1}}
     @staticmethod
     def _create_active_regs_with_default_names(reg_types_list):
         """
