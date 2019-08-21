@@ -32,6 +32,12 @@ TEST_COLLECTION = 'unittest-dataset'
 MODEL_1_LABEL = 'test-model-1'
 #####################
 
+
+@pytest.fixture(scope='session')
+def megadata_dir():
+    return os.path.join(DATA_DIR, 'megadata')
+
+
 @pytest.fixture(scope='session')
 def collections_root_dir(tmpdir_factory):
     return str(tmpdir_factory.mktemp(TEST_COLLECTIONS_ROOT_DIR_NAME))

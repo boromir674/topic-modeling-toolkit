@@ -110,7 +110,6 @@ class DivergenceComputer(object):  # In python 2 you MUST inherit from object to
         :return: the initialized divergence computer
         :rtype: DivergenceComputer
         """
-
         if not os.path.isdir(dataset_path):
             raise RuntimeError("Parameter dataset should be a valid dataset name or a full path to a dataset dir in collections. Instead we computed '{}' from the input '{}'".format(dataset_path, dataset))
         vocab_file = os.path.join(dataset_path, 'vocab.{}.txt'.format(dataset))

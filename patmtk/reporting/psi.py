@@ -97,17 +97,18 @@ class PsiReporter(object):
         if not hasattr(self.datasets[dataset_path], 'class_names'):
             raise RuntimeError(
                 "A dataset '{}' object found without 'class_names' attribute".format(self.datasets[dataset_path].name))
-        print(self.datasets[dataset_path])
-        logger.info("{}".format(str(self.datasets[dataset_path])))
+        logger.info("Dataset '{}' at {}".format(self.datasets[dataset_path].name, self.datasets[dataset_path].dir_path))
+        # logger.info("{}".format(str(self.datasets[dataset_path])))
         if not self.datasets[dataset_path].doc_labeling_modality_name:
             logger.warning("Dataset's '{}' vocabulary file has no registered tokens representing document class label names".format(self.datasets[dataset_path].name))
 
     def pformat(self, model_paths, topics_set='domain', show_class_names=True, precision=2):
         self._precision = precision
+        b = []
         if self.dataset.doc_labeling_modality_name:
             for phi_path, json_path in self._all_paths(model_paths):
                 # model_label = path.basename(json_path)
-                print(phi_path, json_path)
+                logger.info("Phi model '{}', experimentsl results '{}".format(phi_path, json_path))
                 model = self.artifacts(phi_path, json_path)
                 is_WTDC_model = any(x in self.exp_res.scalars.modalities for x in self.discoverable_class_modality_names)
                 if is_WTDC_model:
@@ -125,11 +126,10 @@ class PsiReporter(object):
                         raise RuntimeError(
                             "Number of topics in experimental results do not correspond to the number of columns rows of the Psi matrix. Found {} topics, while number of columns = {}".
                             format(len(self._topic_names), self.psi.shape[1]))
-                    print(self.divergence_str(topics_set=topics_set, show_class_names=show_class_names))
-                    print
+                    b.append(self.divergence_str(topics_set=topics_set, show_class_names=show_class_names))
                 else:
-                    logger.info("Model '{}' does not utilize any document metadata, such as document labels".format(path.basename(phi_path.replace('.phi', ''))))
-                # TODO remove argument from Experiment constructor. make a self.exp and set cur_dir of its model and resuls writer/loaders
+                    logger.info("Skipping model '{}' since it does not utilize any document metadata, such as document labels".format(path.basename(phi_path.replace('.phi', ''))))
+        return '\n\n'.join(b)
 
     def artifacts(self, *args):
         self.exp_res = ExperimentalResults.create_from_json_file(args[1])
@@ -162,9 +162,12 @@ class PsiReporter(object):
             raise RuntimeError("Not all the topic names given [{}] are in the defined topics [{}] of the input model '{}'".format(', '.join(self._reportable_topics), ', '.join(self._topic_names), self.exp_res.scalars.model_label))
         string_values = [[self._str(x) for x in self._values(i, c)] for i, c in enumerate(self.dataset.class_names)]
         self.__max_len = max(max(len(x) for x in y) for y in string_values)
-        for i, strings in enumerate(string_values):
-            b += self._pct_row(i, strings) + '\n'
-        return b
+        return ''.join('{}\n'.format(self._pct_row(i, strings)) for i, strings in enumerate(string_values))
+        # for i, strings in enumerate(string_values):
+        #     if type(self._pct_row(i, strings) + '\n') == int:
+        #         print('error', i)
+        #     b += self._pct_row(i, strings) + '\n'
+        # return b
 
     def _values(self, index, class_name):
         distances = list(self.computer(*list([class_name] + self.dataset.class_names[:index] + self.dataset.class_names[index + 1:]), topics=self._reportable_topics))
