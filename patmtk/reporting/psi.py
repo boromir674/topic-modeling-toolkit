@@ -4,6 +4,7 @@ import re
 from glob import glob
 from collections import defaultdict
 import attr
+from math import log
 from results.experimental_results import ExperimentalResults
 import artm
 import warnings
@@ -13,23 +14,77 @@ import pandas as pd
 import logging
 logger = logging.getLogger(__name__)
 
+############### COMPUTER ############################
+@attr.s
+class DivergenceComputer(object):  # In python 2 you MUST inherit from object to use @foo.setter feature!
+    pct_models = attr.ib(init=False, default={})
+    __model = attr.ib(init=False)
+
+    @property
+    def psi(self):
+        return self.pct_models[self.__model]
+
+    @psi.setter
+    def psi(self, psi_matrix):
+        if psi_matrix.label not in self.pct_models:
+            self.pct_models[psi_matrix.label] = {'obj': psi_matrix, 'distances': {}}
+        self.__model = psi_matrix.label
+
+    def __call__(self, *args, **kwargs):
+        self._first_class = args[0]
+        self._rest_classes = args[1:]
+        return [self.symmetric_KL(self._first_class, c, kwargs['topics']) for c in self._rest_classes]
+
+    def get_symmetric_KL(self, class1, class2, topics):
+        return self.psi['distances'].get('{}-{}'.format(class1, class2),
+                                         self.psi['distances'].get('{}-{}'.format(class2, class1),
+                                                                   self.symmetric_KL(class1, class2, topics)))
+
+    def symmetric_KL(self, class1, class2, topics):
+        s = 0
+        for topic in topics:
+            s += self._point_sKL(class1, class2, topic)
+        self.psi['distances']['{}-{}'.format(class1, class2)] = s
+        return s
+
+    def _point_sKL(self, c1, c2, topic):
+        if self.p_ct(c1, topic) == 0 or self.p_ct(c2, topic) == 0:
+            logger.warning(
+                "One of p(c|t) is zero: [{:.3f}, {:.3f}]. Skipping topic '{}' from the summation (over topics) of the symmetric KL formula, because none of limits [x->0], [y->0], [x,y->0] exist.".format(
+                    self.p_ct(c1, topic), self.p_ct(c2, topic), topic))
+            return 0
+        return self._point_KL(c1, c2, topic) + self._point_KL(c2, c1, topic)
+
+    def _point_KL(self, c1, c2, topic):
+        return self.p_ct(c1, topic) * log(float(self.p_ct(c1, topic) / self.p_ct(c2, topic)))
+
+    def p_ct(self, c, t):
+        """
+        Probability of class=c given topic=t: p(class=c|topic=t)\n
+        :param str c:
+        :param str or int t:
+        :return:
+        :rtype: float
+        """
+        return self.psi['obj'].p_ct(c, t)
+
+
+################# REPORTER #############################3
 
 @attr.s
 class PsiReporter(object):
-
     datasets = attr.ib(init=True, default={})
     _dataset_path = attr.ib(init=True, default='')
-    topics = attr.ib(init=False, default={'all': lambda x: x.topic_names,
+    topics = attr.ib(init=False, default={'all': lambda x: x.domain_topics + x.background_topics,
                                           'domain': lambda x: x.domain_topics,
                                           'background': lambda x: x.background_topics})
-    # lexicons = attr.ib(init=False, default={})
-    # class_names = attr.ib(init=False, default={})
-    # modality_names = attr.ib(init=False, default={})
+
     discoverable_class_modality_names = attr.ib(init=True, default=['@labels_class', '@ideology_class'])
+    computer = attr.ib(init=False, default=DivergenceComputer())
     # dataset_name = attr.ib(init=False, default=attr.Factory(lambda self: path.basename(self._dataset_path), takes_self=True))
     has_registered_class_names = {}
     # models = attr.ib(init=False, default=)
-
+    _precision = attr.ib(init=False, default=2)
     @property
     def dataset(self):
         return self.datasets[self._dataset_path]
@@ -47,13 +102,14 @@ class PsiReporter(object):
         if not self.datasets[dataset_path].doc_labeling_modality_name:
             logger.warning("Dataset's '{}' vocabulary file has no registered tokens representing document class label names".format(self.datasets[dataset_path].name))
 
-    def pformat(self, model_paths, topics_set='domain', show_class_names=True, show_topic_names=True, precision=2):
+    def pformat(self, model_paths, topics_set='domain', show_class_names=True, precision=2):
+        self._precision = precision
         if self.dataset.doc_labeling_modality_name:
             for phi_path, json_path in self._all_paths(model_paths):
                 # model_label = path.basename(json_path)
                 print(phi_path, json_path)
-                model, exp_res = self.artifacts(phi_path, json_path)
-                is_WTDC_model = any(x in exp_res.scalars.modalities for x in self.discoverable_class_modality_names)
+                model = self.artifacts(phi_path, json_path)
+                is_WTDC_model = any(x in self.exp_res.scalars.modalities for x in self.discoverable_class_modality_names)
                 if is_WTDC_model:
 
                     # if not self.dataset.doc_labeling_modality_name:
@@ -62,27 +118,24 @@ class PsiReporter(object):
 
                     self.psi = PsiMatrix.from_artm(model, self.dataset.doc_labeling_modality_name)
                     if len(self.dataset.class_names) != self.psi.shape[0]:
-                        raise RuntimeError("Found {} registered 'class names' tokens: [{}]. Psi matrix number of rows (classes) = {}".
+                        raise RuntimeError("Number of classes do not correspond to the number of rows of Psi matrix. Found {} registered 'class names' tokens: [{}]. Psi matrix number of rows (classes) = {}.".
                                            format(len(self.dataset.class_names), self.dataset.class_names, self.psi.shape[0]))
-                    print(self.psi)
+                    self._topic_names = self.exp_res.scalars.domain_topics + self.exp_res.scalars.background_topics
+                    if len(self._topic_names) != self.psi.shape[1]:
+                        raise RuntimeError(
+                            "Number of topics in experimental results do not correspond to the number of columns rows of the Psi matrix. Found {} topics, while number of columns = {}".
+                            format(len(self._topic_names), self.psi.shape[1]))
+                    print(self.divergence_str(topics_set=topics_set, show_class_names=show_class_names))
+                    print
                 else:
                     logger.info("Model '{}' does not utilize any document metadata, such as document labels".format(path.basename(phi_path.replace('.phi', ''))))
                 # TODO remove argument from Experiment constructor. make a self.exp and set cur_dir of its model and resuls writer/loaders
 
-    def p_ct_srt(self, psi_matrix, topics_set='domain', show_class_names=True, show_topic_names=True, precision=2):
-        pass
-        
-
     def artifacts(self, *args):
-        # phi_path, result_path = self.paths(*args)
-
-        exp_res = ExperimentalResults.create_from_json_file(args[1])
-        _artm = artm.ARTM(topic_names=exp_res.scalars.domain_topics + exp_res.scalars.background_topics, dictionary=self.dataset.lexicon, show_progress_bars=False)
+        self.exp_res = ExperimentalResults.create_from_json_file(args[1])
+        _artm = artm.ARTM(topic_names=self.exp_res.scalars.domain_topics + self.exp_res.scalars.background_topics, dictionary=self.dataset.lexicon, show_progress_bars=False)
         _artm.load(args[0])
-        return _artm, exp_res
-
-    def topic_names(self, topics_set):
-        return {'all': lambda x: x.topic_names}.get(topics_set, )
+        return _artm
 
     def _all_paths(self, model_paths):
         for m in model_paths:
@@ -92,7 +145,45 @@ class PsiReporter(object):
         if os.path.isfile(args[0]):  # is a full path to .phi file
             return args[0], path.join(path.dirname(args[0]), '../results', path.basename(args[0]).replace('.phi', '.json'))
         return os.path.join(self._dataset_path, 'models', args[0]), path.join(self._dataset_path, 'results', args[0]).replace('.phi', '.json')  # input is model label
-    # def _cooc_tf(self, *args):
+
+    ###### PROBS BUILDING
+    def divergence_str(self, topics_set='domain', show_class_names=True):
+        self._show_class_names = show_class_names
+        self._reportable_topics = topics_set
+        self._reportable_class_strings = list(map(lambda x: x, self.dataset.class_names))
+        self.__max_class_len = max(len(x) for x in self._reportable_class_strings)
+        self.psi.label = self.exp_res.scalars.model_label
+        self.computer.psi = self.psi
+        self.computer.class_names = self.dataset.class_names
+        b = ''
+        if type(topics_set) == str:
+            self._reportable_topics = self.topics[topics_set](self.exp_res.scalars)
+        if not all(x in self._topic_names for x in self._reportable_topics):
+            raise RuntimeError("Not all the topic names given [{}] are in the defined topics [{}] of the input model '{}'".format(', '.join(self._reportable_topics), ', '.join(self._topic_names), self.exp_res.scalars.model_label))
+        string_values = [[self._str(x) for x in self._values(i, c)] for i, c in enumerate(self.dataset.class_names)]
+        self.__max_len = max(max(len(x) for x in y) for y in string_values)
+        for i, strings in enumerate(string_values):
+            b += self._pct_row(i, strings) + '\n'
+        return b
+
+    def _values(self, index, class_name):
+        distances = list(self.computer(*list([class_name] + self.dataset.class_names[:index] + self.dataset.class_names[index + 1:]), topics=self._reportable_topics))
+        distances.insert(index, 0)
+        assert len(distances) == len(self.dataset.class_names)
+        return distances
+
+    def _pct_row(self, row_index, strings):
+        if self._show_class_names:
+            return '{}{} {}'.format(self._reportable_class_strings[row_index],
+                                    ' ' * (self.__max_class_len - len(self._reportable_class_strings[row_index])),
+                                    ' '.join('{}{}'.format(x, ' '*(self.__max_len - len(x))) for x in strings))
+        return ' '.join('{}{}'.format(x, ' '*(self.__max_len - len(x))) for x in strings)
+
+    def _str(self, value):
+        if value == 0:
+            return ''
+        return '{:.1f}'.format(value)
+# def _cooc_tf(self, *args):
     #     if path.isfile(args[0]):  # is a full path to .phi file e.match(r'^ppmi_(\d+)_([td]f)\.txt$', name)
     #         c = glob('{}/ppmi_*\.txt'.format(path.join(os.path.dirname(args[0]), '../')))
     #     else:
@@ -125,7 +216,6 @@ class PsiReporter(object):
     #     with open(file_path) as f:
     #         return len([None for i, _ in enumerate(f)])
 
-
 ##################### PSI MATRIX #############################
 
 def _valid_probs(instance, attribute, value):
@@ -144,6 +234,15 @@ class PsiMatrix(object):
 
     def __str__(self):
         return str(self.dataframe)
+
+    def iter_topics(self):
+        return (topic_name for topic_name in self.dataframe)
+
+    def iterrows(self):
+        return self.dataframe.iterrows()
+
+    def itercolumns(self):
+        return self.dataframe.iteritems()
 
     def p_ct(self, c, t):
         """
@@ -170,7 +269,6 @@ class PsiMatrix(object):
         return PsiMatrix(psi_matrix)
 
 
-
 ########################## DATASET ###########################
 
 def _id_dir(instance, attribute, value):
@@ -184,22 +282,19 @@ def _class_names(self, attribute, value):
     with open(vocab_file, 'r') as f:
         classname_n_modality_tuples = re.findall(r'(\w+)[\t\ ]({})'.format('|'.join(x for x in self.allowed_modality_names)), f.read())
 
-        # if not classname_n_modality_tuples:
-        #     raise RuntimeError("Vocabulary file '{}' is correct?".format(vocab_file))
-            # return [], ''
-        modalities = set([modality_name for _, modality_name in classname_n_modality_tuples])
-        if len(modalities) > 1:
-            raise ValueError(
-                "More than one candidate modalities found to serve as the document classification scheme: [{}]".format(
-                    sorted(x for x in modalities)))
-        document_classes = [class_name for class_name, _ in classname_n_modality_tuples]
-        warn_threshold = 8
-        if len(document_classes) > warn_threshold:
-            warnings.warn(
-                "Detected {} classes for dataset '{}'. Perhaps too many classes for a collection of {} documents. You can define a different discretization scheme (binning of the political spectrum)".format(
-                    len(document_classes), self.name, self.nb_docs))
-        self.class_names = document_classes
-        self.doc_labeling_modality_name = modalities.pop()
+        if not classname_n_modality_tuples:
+            self.class_names = []
+            self.doc_labeling_modality_name = ''
+        else:
+            modalities = set([modality_name for _, modality_name in classname_n_modality_tuples])
+            if len(modalities) > 1:
+                raise ValueError("More than one candidate modalities found to serve as the document classification scheme: [{}]".format(sorted(x for x in modalities)))
+            document_classes = [class_name for class_name, _ in classname_n_modality_tuples]
+            warn_threshold = 8
+            if len(document_classes) > warn_threshold:
+                warnings.warn("Detected {} classes for dataset '{}'. Perhaps too many classes for a collection of {} documents. You can define a different discretization scheme (binning of the political spectrum)".format(len(document_classes), self.name, self.nb_docs))
+            self.class_names = document_classes
+            self.doc_labeling_modality_name = modalities.pop()
 
 
 def _file_len(file_path):
@@ -210,6 +305,7 @@ def _file_len(file_path):
 @attr.s
 class DatasetCollection(object):
     dir_path = attr.ib(init=True, converter=str, validator=_id_dir, repr=True)
+
     allowed_modality_names = attr.ib(init=True, default=['@labels_class', '@ideology_class'])
     name = attr.ib(init=False, default=attr.Factory(lambda self: path.basename(self.dir_path), takes_self=True))
     vocab_file = attr.ib(init=False, default=attr.Factory(lambda self: path.join(self.dir_path, 'vocab.{}.txt'.format(self.name)), takes_self=True))
