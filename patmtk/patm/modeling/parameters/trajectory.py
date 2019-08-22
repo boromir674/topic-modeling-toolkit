@@ -1,7 +1,50 @@
 import numpy as np
 from functools import reduce
+import attr
 
 
+def _group_iterations(self):
+    """
+    This [0, 0, 0, 0, 1, 1, 0.8, 0.6, 0.4, 0.2, 0.2, 0.1] leads to this [4, 2, 1, 1, 1, 2, 1].\n
+    :return: steady_chunks of fit calls that have to be made to satisfy the dynamic change of the parameter value
+    :rtype: list
+    """
+    iters = []
+    pv = self._values[0]
+    to_put = 1
+    for cv in self._values[1:]:
+        if cv == pv:
+            to_put += 1
+        else:
+            iters.append(to_put)
+            to_put = 1
+        pv = cv
+    iters.append(to_put)
+    return iters
+
+
+def _steady_iteration_ranges(iterations_groups):
+    """
+    This [5, 2, 1, 1, 1, 1] leads to this [[1,5], [6,7]]\n
+    This [5, 2, 1, 1, 4, 1] leads to this [[1,5], [6,7], [10,13]].\n
+    :param list iterations_groups:
+    :return:
+    :rtype: list indeces start from 1 (not 0) !
+    """
+    res = []
+    accumulated_iters = 1
+    for iter_chunk in iterations_groups:
+        left_iter_count = accumulated_iters
+        if iter_chunk > 1:
+            right_iter_count = left_iter_count + iter_chunk - 1
+            res.append([left_iter_count, right_iter_count])
+            accumulated_iters += iter_chunk
+        else:
+            accumulated_iters += 1
+    return res
+
+
+@attr.s
 class ParameterTrajectory(object):
     """
     This class encapsulates a parameter's value trajectory. This is basically the value the parameter shall have in
@@ -10,10 +53,10 @@ class ParameterTrajectory(object):
      its coefficient from 1 to 0.2 over another 4 iterations. Then we need the tau value to follow trajectory:\n
       [0, 0, 0, 0, 0, 1, 0.8, 0.6, 0.4, 0.2]. \nThis class encapsulates this bevaviour.
     """
-    def __init__(self, param_name, values_list):
-        self._param = param_name
-        self._values = values_list
-        self.steady_chunks = IterationChunks([IterDuo(x) for x in self._steady_iteration_ranges(self.group_iterations())])
+    _param = attr.ib(init=True, converter=str, repr=True)
+    _values = attr.ib(init=True, converter=list, repr=True)
+    group_iterations = attr.ib(init=True, default=attr.Factory(lambda self: _group_iterations(self), takes_self=True), repr=True)
+    steady_chunks = attr.ib(init=False, default=attr.Factory(lambda self: IterationChunks([IterDuo(x) for x in _steady_iteration_ranges(self.group_iterations)]), takes_self=True))
 
     def __getattr__(self, item):
         if item == self._param:
@@ -33,45 +76,6 @@ class ParameterTrajectory(object):
     def __iter__(self):
         for v in self._values:
             yield v
-
-    def group_iterations(self):
-        """
-        This [0, 0, 0, 0, 1, 1, 0.8, 0.6, 0.4, 0.2, 0.2, 0.1] leads to this [4, 2, 1, 1, 1, 2, 1].\n
-        :return: steady_chunks of fit calls that have to be made to satisfy the dynamic change of the parameter value
-        :rtype: list
-        """
-        iters = []
-        pv = self._values[0]
-        to_put = 1
-        for cv in self._values[1:]:
-            if cv == pv:
-                to_put += 1
-            else:
-                iters.append(to_put)
-                to_put = 1
-            pv = cv
-        iters.append(to_put)
-        return iters
-
-    def _steady_iteration_ranges(self, iterations_groups):
-        """
-        This [5, 2, 1, 1, 1, 1] leads to this [[1,5], [6,7]]\n
-        This [5, 2, 1, 1, 4, 1] leads to this [[1,5], [6,7], [10,13]].\n
-        :param list iterations_groups:
-        :return:
-        :rtype: list
-        """
-        res = []
-        accumulated_iters = 1
-        for iter_chunk in iterations_groups:
-            left_iter_count = accumulated_iters
-            if iter_chunk > 1:
-                right_iter_count = left_iter_count + iter_chunk - 1
-                res.append([left_iter_count, right_iter_count])
-                accumulated_iters += iter_chunk
-            else:
-                accumulated_iters += 1
-        return res
 
 
 class IterationChunks(object):

@@ -173,23 +173,17 @@ def tuner_obj(collections_root_dir, test_dataset):
         .ideology_class_weight(0, 1) \
         .build()
 
-        # .sparse_phi()\
-        #     .deactivate(8)\
-        #     .kind('linear')\
-        #     .start(-1)\
-        #     .end(-10, -100)\
-        # .sparse_theta()\
-        #     .deactivate(10)\
-        #     .kind('linear')\
-        #     .start(-1)\
-        #     .end(-10, -100)\
-
     tuner.active_regularizers = [
         # 'smooth-phi',
         # 'smooth-theta',
         'label-regularization-phi-dom-cls',
         'decorrelate-phi-dom-def',
     ]
+    tuner.regularization_specs = {
+        'label-regularization-phi-dom-cls': {'tau': 1e5},
+        'decorrelate-phi-dom-def': {'tau': 1e4}
+    }
+
     tuner.tune(tuning_definition,
                prefix_label='unittest',
                append_explorables=True,

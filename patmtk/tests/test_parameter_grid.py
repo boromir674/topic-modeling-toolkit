@@ -50,12 +50,12 @@ def test_trajectory_building():
     d2 = IterChunk([1, 3])
 
     assert tr1.steady_chunks == g
-    assert tr1.group_iterations() == [5, 1, 1, 3, 1, 1]
-    assert tr2.group_iterations() == [2, 3, 1, 1, 1, 3, 1, 1]
+    assert tr1.group_iterations == [5, 1, 1, 3, 1, 1]
+    assert tr2.group_iterations == [2, 3, 1, 1, 1, 3, 1, 1]
     assert tr2.steady_chunks == IterationChunks([[1, 2], [3, 5], [9, 11]])
-    assert tr3.group_iterations() == [3, 1, 1, 3]
+    assert tr3.group_iterations == [3, 1, 1, 3]
     assert tr3.steady_chunks == IterationChunks([[1, 3], [6, 8]])
-    assert tr4.group_iterations() == [1, 1, 1, 1, 2]
+    assert tr4.group_iterations == [1, 1, 1, 1, 2]
     assert tr4.steady_chunks == IterationChunks([[5, 6]])
 
 

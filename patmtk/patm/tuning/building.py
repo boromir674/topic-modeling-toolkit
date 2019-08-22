@@ -2,6 +2,7 @@ import sys
 import warnings
 from collections import OrderedDict, Counter
 from abc import ABCMeta, abstractmethod, abstractproperty
+import attr
 
 
 class AbstractParameterMixture(object):
@@ -19,30 +20,42 @@ class AbstractParameterMixture(object):
         return type(self).__name__
 
 
+@attr.s
 class StaticAndExplorableMixture(AbstractParameterMixture):
+    _parameters = attr.ib(init=True)
+    _static = attr.ib(init=False, factory=OrderedDict)
+    _explorable = attr.ib(init=False, factory=OrderedDict)
 
-    def __init__(self, parameters):
-        assert len(parameters) > 0
-        self._static, self._explorable = OrderedDict(), OrderedDict()
-        self._nb_combinations = 1
-        for k, v in parameters.items():
+    _nb_combinations = attr.ib(init=False, default=1)
+
+    def __attrs_post_init__(self):
+        for k, v in self._parameters.items():
             self._parse(k, v)
 
-    def _parse(self, k, v):
-        # print 'K', k, 'TYPE:', type(v)
-        if isinstance(v, StaticAndExplorableMixture):
-            self._assimilate_mixture(v)
-        elif type(v) in (str, int, float):
-            self._static[k] = v
-        elif type(v) in (list, tuple):
-            assert len(v) > 0
-            if len(v) == 1:
-                self._static[k] = v[0]
+    def _parse(self, k, value):
+        if not value:
+            raise ValueError
+        if isinstance(value, StaticAndExplorableMixture):
+            # self._assimilate_mixture(v)
+
+            for i, v in value.static_parameters.items():
+                self._static[value.name + '.' + i] = v
+            for i, v in value.explorable_parameters.items():
+                self._explorable[value.name + '.' + i] = v
+            self._nb_combinations *= len(value)
+
+        elif type(value) in (str, int, float):
+            self._static[k] = value
+        elif type(value) in (list, tuple):
+            assert len(value) > 0
+            if len(value) == 1:
+                self._static[k] = value[0]
             else:  # len(v) > 1
-                self._explorable[k] = list(v)
-                self._nb_combinations *= len(v)
+                self._explorable[k] = list(value)
+                self._nb_combinations *= len(value)
         else:
             raise ValueError("Parsing of type '{}' is not supported".format(type(v)))
+
 
     def __len__(self):
         return self._nb_combinations

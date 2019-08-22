@@ -59,11 +59,11 @@ class Tuner(object):
         self._cur_label = None
         self._required_labels = []
         self._active_regs = {}
-        self._reg_specs = {}
+        self._regularizers_specs = {}
         self._max_digits_version = 3
         self._allowed_labeling_params = ['collection_passes', 'nb_topics', 'document_passes', 'background_topics_pct', 'ideology_class_weight'] + \
                                         reduce(lambda i,j: i+j, [[y+'.'+x for x in ('deactivate', 'kind', 'start', 'end')] for y in ('sparse_phi', 'sparse_theta')])
-        self._active_reg_def_builder = RegularizersActivationDefinitionBuilder(tuner=self)
+        # self._active_reg_def_builder = RegularizersActivationDefinitionBuilder(tuner=self)
         self.trainer = TrainerFactory().create_trainer(self._dir, exploit_ideology_labels=True)  # forces to use (and create if not found) batches holding modality information in case it is needed
         self.experiment = Experiment(self._dir)
         self.trainer.register(self.experiment)  # when the model_trainer trains, the experiment object listens to changes
@@ -83,8 +83,10 @@ class Tuner(object):
                                                 'improve-coherence': {'tau': 1.0},
 
                                                 'smooth-phi-dom-cls': {'tau': 1}}
+        self._abbreviation_labels = {}
+
     @staticmethod
-    def _create_active_regs_with_default_names(reg_types_list):
+    def _abbreviations(reg_types_list):
         """
         :param list reg_types_list:
         :return: keys are the regularizer-types (ie 'smooth-theta', 'sparse-phi') and values automatically genereted abbreviations of the regularizer-types to serve as unique names
@@ -103,9 +105,9 @@ class Tuner(object):
     def allowed_labeling_params(self):
         return self._allowed_labeling_params
 
-    @property
-    def activate_regularizers(self):
-        return self._active_reg_def_builder.activate
+    # @property
+    # def activate_regularizers(self):
+    #     return self._active_reg_def_builder.activate
 
     @property
     def active_regularizers(self):
@@ -121,7 +123,7 @@ class Tuner(object):
             in case of dict it should be a dict having as keys regularizer-types ie ('smooth-phi', 'sparse-phi', 'smooth-theta') and as values the corresponding unique names
         """
         if type(active_regularizers) == list:
-            self._active_regs = Tuner._create_active_regs_with_default_names(active_regularizers)
+            self._active_regs = Tuner._abbreviations(active_regularizers)
         elif isinstance(active_regularizers, dict):
             self._active_regs = active_regularizers
         else:
@@ -130,8 +132,13 @@ class Tuner(object):
             print("Tuner: activated regs: [{}]".format(', '.join(sorted([_ for _ in self._active_regs.keys()]))))
 
     @property
-    def static_regularization_specs(self):
-        return self._reg_specs
+    def regularization_specs(self):
+        return self._regularizers_specs
+
+    @regularization_specs.setter
+    def regularization_specs(self, regularization_specs):
+        self._abbreviation_labels = self._abbreviations(regularization_specs.keys())
+        self._regularizers_specs = self._create_reg_specs(regularization_specs, regularization_specs.keys())
 
     def _set_verbosity_level(self, input_verbose):
         try:
@@ -149,7 +156,7 @@ class Tuner(object):
     #     :param reg_name:
     #     :return:
     #     """
-    #     return {k: dict(v, **{k:v for k,v in {'target topics': (lambda x: 'all' if len(x) == 0 else x)(tm.get_reg_obj(tm.get_reg_name(k)).topic_names), 'mods': getattr(tm.get_reg_obj(tm.get_reg_name(k)), 'class_ids', None)}.items()}) for k, v in self.static_regularization_specs.items()}
+    #     return {k: dict(v, **{k:v for k,v in {'target topics': (lambda x: 'all' if len(x) == 0 else x)(tm.get_reg_obj(tm.get_reg_name(k)).topic_names), 'mods': getattr(tm.get_reg_obj(tm.get_reg_name(k)), 'class_ids', None)}.items()}) for k, v in self.regularizers_data.items()}
 
     # def _reg_settings(self, tm, reg_type):
         #
@@ -157,7 +164,7 @@ class Tuner(object):
         # target_modalities = getattr(tm.get_reg_obj(tm.get_reg_name(reg_type)), 'class_ids', None)
         # return {k:v for k,v in {'target topics': (lambda x: 'all' if len(x) == 0 else x)(target_topics), 'mods': target_modalities}.items()}
 
-    def tune(self, parameters_mixture, prefix_label='', append_explorables=True, append_static=False, static_regularizers_specs=None, force_overwrite=False, cache_theta=True, verbose=None):
+    def tune(self, *args, **kwargs):
         """
         :param patm.tuning.building.TunerDefinition parameters_mixture: an object encapsulating a unique tuning process; constant parameters and parameters to tune on
         :param str prefix_label: an optional alphanumeric that serves as a coonstant prefix used for the naming files (models, results) saved on disk
@@ -179,9 +186,15 @@ class Tuner(object):
             with the newly created files
         :param int verbose: the verbosity level on the stdout
         """
+        prefix_label = kwargs.get('prefix_label', '')
+        append_explorables = kwargs.get('append_explorables', True)
+        append_static = kwargs.get('append_static', False)
+        force_overwrite = kwargs.get('force_overwrite', False)
+        cache_theta = kwargs.get('cache_theta', True)
+        verbose = kwargs.get('verbose', None)
         if verbose:
             self._set_verbosity_level(verbose)
-        self._initialize_parameters(parameters_mixture, static_regularizers_specifications=static_regularizers_specs)
+        self._initialize_parameters(*args)
         self._initialize_labeling_functionality(prefix_label=prefix_label,
                                                 append_explorables=append_explorables,
                                                 append_static=append_static,
@@ -201,7 +214,7 @@ class Tuner(object):
             self._cur_label = self._labeler(i)
             tm, specs = self._create_model_n_specs()
             if 4 < self._vb:
-                tqdm.write(pprint.pformat({k: dict(v, **{k:v for k,v in {'target topics': (lambda x: 'all' if len(x) == 0 else '[{}]'.format(', '.join(x)))(tm.get_reg_obj(tm.get_reg_name(k)).topic_names), 'mods': getattr(tm.get_reg_obj(tm.get_reg_name(k)), 'class_ids', None)}.items()}) for k, v in self.static_regularization_specs.items()}))
+                tqdm.write(pprint.pformat({k: dict(v, **{k:v for k,v in {'target topics': (lambda x: 'all' if len(x) == 0 else '[{}]'.format(', '.join(x)))(tm.get_reg_obj(tm.get_reg_name(k)).topic_names), 'mods': getattr(tm.get_reg_obj(tm.get_reg_name(k)), 'class_ids', None)}.items()}) for k, v in self.regularizers_data.items()}))
             if 3 < self._vb:
                 tqdm.write(pprint.pformat(tm.modalities_dictionary))
             self.experiment.init_empty_trackables(tm)
@@ -211,7 +224,7 @@ class Tuner(object):
                 tqdm.write(self._cur_label)
             # del tm
 
-    def _initialize_parameters(self, tuner_definition, static_regularizers_specifications=None):
+    def _initialize_parameters(self, *args):
         """Call this method to initialize/define:
             - the parameters that will remain steady during the tuning phase\n
             - the parameters that comprise the search space\n
@@ -225,6 +238,7 @@ class Tuner(object):
             'sparse-phi': {'tau': 'linear_-5_-15', 'start': 4},\n
             'sparse-theta': {'alpha_iter': 1, 'tau': 'linear_-3_-13', 'start': 4}}
         """
+        tuner_definition = args[0]
         if self._vb:
             print('Initializing Tuner..')
         self._static_params_hash = tuner_definition.static_parameters
@@ -235,11 +249,9 @@ class Tuner(object):
         if 1 < self._vb:
             print('Constants: [{}]\nExplorables: [{}]'.format(', '.join(self.constants), ', '.join(self.explorables)))
             print('Search space', tuner_definition.parameter_spans)
-        if static_regularizers_specifications:
+        # if static_regularizers_specifications:
             # for which ever of the activated regularizers there is a missing setting, then use a default value
-            self._reg_specs = self._create_reg_specs(static_regularizers_specifications, self.active_regularizers)
-        else:
-            self._reg_specs = self._create_reg_specs(self._default_regularizer_parameters, self.active_regularizers)
+        self._regularizers_specs = self._create_reg_specs(self._default_regularizer_parameters, self._active_regs)
 
     def _initialize_labeling_functionality(self, prefix_label='', append_explorables='all', append_static=None, overwrite=False):
         """Call this method to:
@@ -286,15 +298,16 @@ class Tuner(object):
             self._labeler = lambda index: self._build_label(self.parameter_vector)
 
     def _create_model_n_specs(self):
-        self._reg_specs = self._replace_settings_with_supported_explorable(self._reg_specs)
+        self._regularizers_specs = self._replace_settings_with_supported_explorable(self._regularizers_specs)
         tm = self.trainer.model_factory.construct_model(self._cur_label, self._val('nb_topics'),
                                                         self._val('collection_passes'),
                                                         self._val('document_passes'),
                                                         self._val('background_topics_pct'),
-                                                        {k:v for k, v in {DEFAULT_CLASS_NAME: self._val('default_class_weight'), IDEOLOGY_CLASS_NAME: self._val('ideology_class_weight')}.items() if v},
+                                                        {k:v for k, v in {DEFAULT_CLASS_NAME: self._val('default_class_weight'),
+                                                                          IDEOLOGY_CLASS_NAME: self._val('ideology_class_weight')}.items() if v},
                                                         self._score_defs,
                                                         self._active_regs,
-                                                        reg_settings=self.static_regularization_specs)
+                                                        reg_settings=self._regularizers_specs)
         tr_specs = self.trainer.model_factory.create_train_specs(self._val('collection_passes'))
         return tm, tr_specs
 
@@ -317,8 +330,8 @@ class Tuner(object):
     def _create_reg_specs(self, reg_settings, active_regularizers):
         """Call this method to use default values where missing, according to given activated regularizers"""
         try:
-            return {k: dict([(x[0], reg_settings[k].get(x[0],
-                self._default_regularizer_parameters[k][x[0]])) for x in self._default_regularizer_parameters[k].items()]) for k in active_regularizers}
+            return {k: dict([(param_name, reg_settings[k].get(param_name, self._default_regularizer_parameters[k][param_name]))
+                             for param_name in self._default_regularizer_parameters[k].keys()]) for k in active_regularizers}
         except KeyError as e:
             raise KeyError("Error: {}. Probably you need to manually update the self._default_regularizer_parameters attribute so that it has the same kyes as the train.cfg".format(str(e)))
 
@@ -423,12 +436,9 @@ class IndicesList(object):
     def msg(self):
         return lambda x: "Existing labels {} for '{}' files will overlap with the newly required ones by the tuner.".format(self.labels(x), self._label)
 
-class MissingRequiredParametersException(Exception):
-    def __init__(self, msg):
-        super(Exception, self).__init__(msg)
-class ParameterFoundInStaticAndExplorablesException(Exception):
-    def __init__(self, msg):
-        super(Exception, self).__init__(msg)
+
+class MissingRequiredParametersException(Exception): pass
+class ParameterFoundInStaticAndExplorablesException(Exception): pass
 
 
 if __name__ == '__main__':
@@ -441,7 +451,7 @@ if __name__ == '__main__':
         sparse_theta().deactivate(10).kind('linear').start([-3]).end(-10).build()
 
     tuner.activate_regularizers.smoothing.phi.theta.sparsing.phi.theta.done()
-    # tuner.static_regularization_specs = {'smooth-phi': {'tau': 1.0},
+    # tuner.regularizers_data = {'smooth-phi': {'tau': 1.0},
     #                                      'smooth-theta': {'tau': 1.0},
     #                                      'sparse-theta': {'alpha_iter': 1}}
                                          # 'sparse-theta': {'alpha_iter': 'linear_1_4'}}

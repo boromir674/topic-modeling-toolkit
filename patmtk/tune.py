@@ -102,7 +102,7 @@ if __name__ == '__main__':
     # .done()
 
 
-    # tuner.static_regularization_specs = {'smooth-phi': {'tau': 1.0},
+    # tuner.regularizers_data = {'smooth-phi': {'tau': 1.0},
     #                                      'smooth-theta': {'tau': 1.0},
     #                                      'sparse-theta': {'alpha_iter': 1}}
     # 'sparse-theta': {'alpha_iter': 'linear_1_4'}}
