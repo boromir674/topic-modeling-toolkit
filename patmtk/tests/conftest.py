@@ -34,6 +34,11 @@ MODEL_1_LABEL = 'test-model-1'
 
 
 @pytest.fixture(scope='session')
+def unittests_data_dir():
+    return DATA_DIR
+
+
+@pytest.fixture(scope='session')
 def collections_root_dir(tmpdir_factory):
     return str(tmpdir_factory.mktemp(TEST_COLLECTIONS_ROOT_DIR_NAME))
 
@@ -43,9 +48,9 @@ def test_collection_name():
 
 #
 @pytest.fixture(scope='session')
-def rq1_cplsa_results_json():
+def rq1_cplsa_results_json(unittests_data_dir):
     """These are the results gathered for a cplsa trained model"""
-    return os.path.join(DATA_DIR, 'cplsa100000_0.2_0.json')
+    return os.path.join(unittests_data_dir, 'cplsa100000_0.2_0.json')
 
 
 @pytest.fixture(scope='session')
@@ -333,21 +338,3 @@ def exp_res_obj1(kernel_data_0, kernel_data_1, json_path, test_collection_dir):
 
 
 ####### REGRESSION FIXTURES #######
-
-@pytest.fixture(scope='session')
-def megadata_dir():
-    return os.path.join(DATA_DIR, 'megadata')
-
-
-@pytest.fixture(scope='session')
-def regression_model_path(megadata_dir):
-    trainer = TrainerFactory().create_trainer(megadata_dir, exploit_ideology_labels=True, force_new_batches=False)
-    experiment = Experiment(megadata_dir)
-    topic_model = trainer.model_factory.create_model('candidate', os.path.join(MODULE_DIR, 'regression.cfg'), reg_cfg=os.path.join(MODULE_DIR, 'test-regularizers.cfg'),
-                                                     show_progress_bars=False)
-    train_specs = trainer.model_factory.create_train_specs()
-    trainer.register(experiment)
-    experiment.init_empty_trackables(topic_model)
-    trainer.train(topic_model, train_specs, effects=False, cache_theta=True)
-    experiment.save_experiment(save_phi=True)
-    return 'candidate.phi'

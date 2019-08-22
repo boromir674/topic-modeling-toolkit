@@ -16,7 +16,7 @@ def get_cli_arguments():
 if __name__ == '__main__':
 
     COLUMNS = [
-        # 'nb-topics',
+        'nb-topics',
                # 'collection-passes',
                # 'document-passes',
                # 'total-phi-updates',
@@ -29,7 +29,7 @@ if __name__ == '__main__':
                'sparsity-phi',
                'sparsity-theta',
                'background-tokens-ratio',
-               # 'regularizers'
+               'regularizers'
                ]
 
     cli_args = get_cli_arguments()

@@ -1,7 +1,30 @@
+import os
 import pytest
 from reporting.psi import PsiReporter
 from patm.modeling import Experiment
 from patm.modeling.trainer import TrainerFactory
+
+
+
+@pytest.fixture(scope='session')
+def megadata_dir(unittests_data_dir):
+    return os.path.join(unittests_data_dir, 'megadata')
+
+
+@pytest.fixture(scope='session')
+def regression_model_path(megadata_dir):
+    trainer = TrainerFactory().create_trainer(megadata_dir, exploit_ideology_labels=True, force_new_batches=False)
+    experiment = Experiment(megadata_dir)
+    topic_model = trainer.model_factory.create_model('candidate', os.path.join(MODULE_DIR, 'regression.cfg'), reg_cfg=os.path.join(MODULE_DIR, 'test-regularizers.cfg'),
+                                                     show_progress_bars=False)
+    train_specs = trainer.model_factory.create_train_specs()
+    trainer.register(experiment)
+    experiment.init_empty_trackables(topic_model)
+    trainer.train(topic_model, train_specs, effects=False, cache_theta=True)
+    experiment.save_experiment(save_phi=True)
+    # CHANGE THIS SO THAT YOU DO NOT OVERRIDE the previously persisted model phi matrix object and results json
+    return 'candidate.phi'
+
 
 @pytest.fixture(scope='module')
 def pr(megadata_dir):
@@ -24,11 +47,15 @@ def datasets(megadata_dir, pr, request):
                                             [70.8, 0, 65.1],
                                             [71.9, 65.1, 0]]
                     },
-                    # {
-                        # 'label': 'candidate.phi',
-                        # 'expected-string': '',
-                        # 'expected-matrix': [[]]
-                     # }
+                    {
+                        'label': 'candidate.phi',
+                        'expected-string': 'liberal_Class           34.9 35.0\n'
+                                           'centre_Class       34.9      29.2\n'
+                                           'conservative_Class 35.0 29.2     \n',
+                        'expected-matrix': [[0, 34.9, 35],
+                                            [34.9, 0, 29.2],
+                                            [35, 29.2, 0]]
+                     }
                 ]
             }}
     subdict = data[request.param]
@@ -37,7 +64,7 @@ def datasets(megadata_dir, pr, request):
         model_data['reported-string'] = pr.pformat([model_data['label']], topics_set='domain')
     return subdict
 
-
+# Insert fixture 'regression_model_path', which is the path to a newly trained model, with settings in regression.cfg, to test if it places the ideology classes relatively in correct ordering on the political spectrum
 def test_sanity(pr, datasets):
     pr.dataset = datasets['dataset']
     for d in datasets['models']:
@@ -79,7 +106,6 @@ def known_expected(datasets):
 def test_divergence_distances_computer(pr, known_expected): # , regression_model_path):
     pr.dataset = known_expected['dataset']
     for d in known_expected['models']:
-        b = pr.pformat([d['label']], topics_set='domain', show_class_names=True)
         assert d['reported-string'] == d['expected-string']
         assert d['reported-distances'] == d['expected-matrix']
 
@@ -99,22 +125,6 @@ def test_divergence_distances_computer(pr, known_expected): # , regression_model
 # ])
 
 
-#
-#
-#
-# #####################
-# @pytest.fixture(scope='module', params=['sgo_1.phi', 'candidate.phi'])
-# def candidate_model(pr, regression_model_path, request):
-#     """Use to develop amodel asserting improvement in the political spectrum topology (separation resulting of computed p(c|t) \forall c \in C, distances using the symmetric KL divergence"""
-#     return [[float('{:.1f}'.format(y)) for y in x] for x in pr.values([request.param], topics_set='domain')[0]]
-#
-#
 # # T.O.D.O. implement a function that takes a KL distances matrix (see 'best_seperation_performance' fixture) and return a quantitative measure of quality
 # # def fitness(data):
 # #     pass
-#
-#
-#
-# def test_pct_distributions_KL_distances_regression(candidate_model):
-#     sane_separation(candidate_model)
-#
