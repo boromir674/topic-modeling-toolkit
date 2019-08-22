@@ -48,7 +48,8 @@ if __name__ == '__main__':
     print(topic_model.pformat_regularizers)
     print(topic_model.pformat_modalities)
     model_trainer.train(topic_model, train_specs, effects=True, cache_theta=True)
-    print('Iterated {} times through the collection and {} times over each document: total phi updates = {}'.format(train_specs.collection_passes, topic_model.document_passes, train_specs.collection_passes * topic_model.document_passes))
+    print('Iterated {} times through the collection and {} times over each document: total phi updates = {}'.
+          format(train_specs.collection_passes, topic_model.document_passes, train_specs.collection_passes * topic_model.document_passes))
 
     if args.save:
         experiment.save_experiment(save_phi=True)

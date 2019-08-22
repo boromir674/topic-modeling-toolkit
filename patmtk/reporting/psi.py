@@ -145,7 +145,7 @@ class PsiReporter(object):
                 model = self.artifacts(phi_path, json_path)
                 is_WTDC_model = any(x in self.exp_res.scalars.modalities for x in self.discoverable_class_modality_names)
                 if is_WTDC_model:
-
+                    self.topics = topics_set
                     # if not self.dataset.doc_labeling_modality_name:
 # warnings.warn("The document class modality (one of [{}]) was found in experimental results '{}', but dataset's vocabulary file '{}' does not contain registered tokens representing the unique document classes and thus phi matrix ( p(c|t) probabilities ) where probably not computed during training.".format(', '.join(sorted(self.discoverable_class_modality_names)), path.basename(json_path), path.basename(self.dataset.vocab_file)))
                     # else:
@@ -179,7 +179,10 @@ class PsiReporter(object):
                     x in self.exp_res.scalars.modalities for x in self.discoverable_class_modality_names)
                 if is_WTDC_model:
                     self.topics = topics_set
-                    self.psi = PsiMatrix.from_artm(model, self.dataset.doc_labeling_modality_name)
+                    self.psi_matrix = PsiMatrix.from_artm(model, self.dataset.doc_labeling_modality_name)
+                    self.psi_matrix.label = self.exp_res.scalars.model_label
+                    self.computer.psi = self.psi_matrix
+                    self.computer.class_names = self.dataset.class_names
                     list_of_lists.append([self._values(i, c) for i, c in enumerate(self.dataset.class_names)])
                 else:
                     logger.info(
@@ -206,7 +209,7 @@ class PsiReporter(object):
     ###### STRING BUILDING
     def divergence_str(self, topics_set='domain', show_class_names=True):
         self._show_class_names = show_class_names
-        self.topics = topics_set
+
         self._reportable_class_strings = list(map(lambda x: x, self.dataset.class_names))
         self.__max_class_len = max(len(x) for x in self._reportable_class_strings)
         self._psi.label = self.exp_res.scalars.model_label
