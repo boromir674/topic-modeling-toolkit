@@ -112,7 +112,7 @@ class TrainerFactory(object):
     ideology_flag2data_format = {True: 'vowpal_wabbit', False: 'bow_uci'}
     ideology_flag2batches_dir_name = {True: 'vow-batches', False: 'uci-batches'}
 
-    def create_trainer(self, collection, exploit_ideology_labels=False, force_new_batches=False):
+    def create_trainer(self, collection, exploit_ideology_labels=True, force_new_batches=False):
         """
         Creates an object that can train any topic model on a specific dataset/collection.\n
         :param str collection: the collection dir path which matches the root directory of all the files related to the collection

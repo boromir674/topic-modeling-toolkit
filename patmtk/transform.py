@@ -127,6 +127,7 @@ if __name__ == '__main__':
             raise ValueError("{}. {}".format(e, type(scheme).__name__))
 
         print("Scheme [{}] with resulting distribution [{}]".format(' '.join(political_spectrum.class_names), ', '.join('{:.2f}'.format(x) for x in political_spectrum.class_distribution)))
+        print("Bins: {}".format(' '.join('[{}]'.format(', '.join(class_bin) for _, class_bin in scheme))))
         while 1:
             answer = what_to_do()
             if answer == 'back':
@@ -139,6 +140,7 @@ if __name__ == '__main__':
                 print("Scheme [{}] with resulting distribution [{}]".format(' '.join(scheme.class_names),
                                                                             ', '.join('{:.2f}'.format(x) for x in
                                                                                       political_spectrum.class_distribution)))
+                print("Bins: {}".format(' '.join('[{}]'.format(', '.join(outlet for outlet in class_bin) for _, class_bin in scheme))))
             else:
                 uci_dt = ph.persist(os.path.join(COLLECTIONS_DIR_PATH, args.collection),
                                     political_spectrum.poster_id2ideology_label, political_spectrum.class_names,

@@ -184,7 +184,7 @@ class Experiment:
         - document passes\n
         :param str model_label: a unigue identifier of a topic model
         :return: the latest train specification used in the experiment
-        :rtype: patm.modeling.topic_model.TrainSpecs
+        :rtype: patm.modeling.topic_model.TopicModel
         """
         results = self.train_results_handler.load(model_label)
         self._topic_model = self.phi_matrix_handler.load(model_label, results)
