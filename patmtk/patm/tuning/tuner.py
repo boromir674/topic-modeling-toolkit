@@ -138,6 +138,7 @@ class Tuner(object):
     @regularization_specs.setter
     def regularization_specs(self, regularization_specs):
         self._abbreviation_labels = self._abbreviations(regularization_specs.keys())
+        self.active_regularizers = list(sorted(regularization_specs.keys()))
         self._regularizers_specs = self._create_reg_specs(regularization_specs, regularization_specs.keys())
 
     def _set_verbosity_level(self, input_verbose):
@@ -213,8 +214,21 @@ class Tuner(object):
         for i, self.parameter_vector in enumerate(generator):
             self._cur_label = self._labeler(i)
             tm, specs = self._create_model_n_specs()
+            tqdm.write("Background: [{}]".format(', '.join([x for x in tm.background_topics])))
+            tqdm.write("Domain: [{}]".format(', '.join([x for x in tm.domain_topics])))
+
             if 4 < self._vb:
-                tqdm.write(pprint.pformat({k: dict(v, **{k:v for k,v in {'target topics': (lambda x: 'all' if len(x) == 0 else '[{}]'.format(', '.join(x)))(tm.get_reg_obj(tm.get_reg_name(k)).topic_names), 'mods': getattr(tm.get_reg_obj(tm.get_reg_name(k)), 'class_ids', None)}.items()}) for k, v in self.regularizers_data.items()}))
+                tqdm.write(pprint.pformat({k: dict(v, **{k: v for k, v in {
+                    'target topics': (lambda x: 'all' if len(x) == 0 else '[{}]'.format(', '.join(x)))(
+                        tm.get_reg_obj(tm.get_reg_name(k)).topic_names),
+                    'mods': getattr(tm.get_reg_obj(tm.get_reg_name(k)), 'class_ids', None)}.items()}) for k, v in
+                                           self._regularizers_specs.items()}))
+                # tqdm.write(
+                #     pprint.pformat(
+                #         {reg_type: dict(reg_specs,
+                #                  **{'target topics': (lambda x: 'all' if len(x) == 0 else '[{}]'.format(', '.join(x)))(tm.get_reg_obj(tm.get_reg_name(reg_type)).topic_names),
+                #                                     'mods': getattr(tm.get_reg_obj(tm.get_reg_name(reg_type)), 'class_ids', None)}
+                #                  ) for reg_type, reg_specs in self._regularizers_specs.items()}))
             if 3 < self._vb:
                 tqdm.write(pprint.pformat(tm.modalities_dictionary))
             self.experiment.init_empty_trackables(tm)
@@ -224,6 +238,16 @@ class Tuner(object):
                 tqdm.write(self._cur_label)
             # del tm
 
+    def _topics_str(self, topics, domain, background):
+        if sorted(topics) == sorted(domain):
+            return 'domain'
+        if sorted(topics) == sorted(background):
+            return 'background'
+        if topics == 'all':
+            return topics
+        return '[{}]'.format(', '.join(topics))
+
+    ##### INITIALIZATION ######
     def _initialize_parameters(self, *args):
         """Call this method to initialize/define:
             - the parameters that will remain steady during the tuning phase\n
@@ -244,7 +268,11 @@ class Tuner(object):
         self._static_params_hash = tuner_definition.static_parameters
         self._expl_params_hash = tuner_definition.explorable_parameters
         self._check_parameters()
-        self._tau_traj_to_build = tuner_definition.valid_trajectory_defs()
+
+        # potentially holds the sparsing-of-matrix-phi-domain-topics regularization component's tau coeefcient trajectory
+        # potentially holds the sparsing-of-matrix-theta-domain-topics regularization component's tau coeefcient trajectory
+        self._sparsing_tau_traj_to_build = tuner_definition.valid_trajectory_defs()
+
         self._parameter_grid_searcher = ParameterGrid(tuner_definition.parameter_spans)
         if 1 < self._vb:
             print('Constants: [{}]\nExplorables: [{}]'.format(', '.join(self.constants), ', '.join(self.explorables)))
@@ -252,6 +280,22 @@ class Tuner(object):
         # if static_regularizers_specifications:
             # for which ever of the activated regularizers there is a missing setting, then use a default value
         self._regularizers_specs = self._create_reg_specs(self._default_regularizer_parameters, self._active_regs)
+
+    def _create_reg_specs(self, reg_settings, active_regularizers):
+        """Call this method to use default values where missing, according to given activated regularizers"""
+        try:
+            return {k: dict([(param_name, reg_settings[k].get(param_name, self._default_regularizer_parameters[k][param_name]))
+                             for param_name in self._default_regularizer_parameters[k].keys()]) for k in active_regularizers}
+        except KeyError as e:
+            raise KeyError("Error: {}. Probably you need to manually update the self._default_regularizer_parameters attribute so that it has the same kyes as the train.cfg".format(str(e)))
+
+    def _check_parameters(self):
+        for i in self._static_params_hash.keys():
+            if i in self._expl_params_hash:
+                raise ParameterFoundInStaticAndExplorablesException("Parameter '{}' defined both as static and explorable".format(i))
+        missing_required_parameters = [x for x in self._required_parameters if x not in self.constants + self.explorables]
+        if missing_required_parameters:
+            raise MissingRequiredParametersException("[{}] were not found in [{}]".format(', '.join(missing_required_parameters), ', '.join(self.constants + self.explorables)))
 
     def _initialize_labeling_functionality(self, prefix_label='', append_explorables='all', append_static=None, overwrite=False):
         """Call this method to:
@@ -297,8 +341,16 @@ class Tuner(object):
         else:
             self._labeler = lambda index: self._build_label(self.parameter_vector)
 
+    def _get_overlapping_indices(self, maximal_model_labels):
+        _ = [self._trans((x[1] in self.experiment.train_results_handler.list, x[1] in self.experiment.phi_matrix_handler.list), x[0]) for x in enumerate(maximal_model_labels)]
+        return [filter(lambda y: y is not None, x) for x in list(map(list, zip(*_)))]
+
+    def _trans(self, two_length_tupe_of_bool, index):
+        return [index if x else None for x in two_length_tupe_of_bool]
+
+    ######### MODEL #############
     def _create_model_n_specs(self):
-        self._regularizers_specs = self._replace_settings_with_supported_explorable(self._regularizers_specs)
+        self._build_trajectories()
         tm = self.trainer.model_factory.construct_model(self._cur_label, self._val('nb_topics'),
                                                         self._val('collection_passes'),
                                                         self._val('document_passes'),
@@ -306,11 +358,24 @@ class Tuner(object):
                                                         {k:v for k, v in {DEFAULT_CLASS_NAME: self._val('default_class_weight'),
                                                                           IDEOLOGY_CLASS_NAME: self._val('ideology_class_weight')}.items() if v},
                                                         self._score_defs,
-                                                        self._active_regs,
-                                                        reg_settings=self._regularizers_specs)
+                                                        self._active_regs,  # a dictionary mapping reg_types to re_names eg {'sparse-theta': 'spth', 'smooth-phi': 'smph}
+                                                        reg_settings=self._regularizers_specs)  # a dictionary mapping reg_types to reg_specs
         tr_specs = self.trainer.model_factory.create_train_specs(self._val('collection_passes'))
         return tm, tr_specs
 
+    def _build_trajectories(self):
+        """Updates the reg specs in order to build any sparse phi or theta trajectories required"""
+        self._regularizers_specs =  {reg_type: self._update_reg_specs(reg_type.replace('-', '_'), reg_specs) for reg_type, reg_specs in self._regularizers_specs.items()}
+
+    def _update_reg_specs(self, reg_type, reg_specs):
+        """Gets a regularizer's specifications dict and updates it by setting its 'tau' and 'start' keys accordingly so that the trajectory built if a trajectory was requested. Currently supports only sparse_phi and sparse_theta"""
+        if reg_type in self._sparsing_tau_traj_to_build:
+            _ = self._val(reg_type)
+            return dict(reg_specs, **{'tau': '_'.join([str(x) for x in (_['kind'], _['start'], _['end'])]),
+                                      'start': _['deactivate']})
+        return reg_specs
+
+    ##### LABELING ########
     def _define_labeling_scheme(self, explorables, constants):
         """Call this method to define the values to use for labeling the artifacts of tuning from the mixture of explorable and constant parameters.
             This method also determines if versioning is needed; whether to append strings like v001, v002 to the labels because
@@ -327,21 +392,6 @@ class Tuner(object):
                            bool: lambda x: [_ for _ in getattr(self, parameters_type) if _ in self._allowed_labeling_params]}
         return lambda y: sorted(extractors_hash[type(y)](y))
 
-    def _create_reg_specs(self, reg_settings, active_regularizers):
-        """Call this method to use default values where missing, according to given activated regularizers"""
-        try:
-            return {k: dict([(param_name, reg_settings[k].get(param_name, self._default_regularizer_parameters[k][param_name]))
-                             for param_name in self._default_regularizer_parameters[k].keys()]) for k in active_regularizers}
-        except KeyError as e:
-            raise KeyError("Error: {}. Probably you need to manually update the self._default_regularizer_parameters attribute so that it has the same kyes as the train.cfg".format(str(e)))
-
-    def _get_overlapping_indices(self, maximal_model_labels):
-        _ = [self._trans((x[1] in self.experiment.train_results_handler.list, x[1] in self.experiment.phi_matrix_handler.list), x[0]) for x in enumerate(maximal_model_labels)]
-        return [filter(lambda y: y is not None, x) for x in list(map(list, zip(*_)))]
-
-    def _trans(self, two_length_tupe_of_bool, index):
-        return [index if x else None for x in two_length_tupe_of_bool]
-
     def _build_label(self, parameter_vector):
         cached = [str(self._extract(parameter_vector, x)) for x in self._labeling_params]
         label = '_'.join(filter(None, [self._prefix] + cached))
@@ -356,29 +406,25 @@ class Tuner(object):
             return str(int_num)
         return '{}{}'.format((self._max_digits_version - nb_digits) * '0', int_num)
 
-    def _replace_settings_with_supported_explorable(self, settings):
-        """Gets all regularizers' settings and for each, if it supports a trajectory for 'tau' coefficient value, adds the trajectory definition string to its settings"""
-            # _ = map(lambda y: y(1), filter(None, map(lambda x: getattr(re.match('^(sparse_\w+)$', x), 'group', None), self._tau_traj_to_build)))
-        # for reg_type in map(lambda x: x.replace('_', '-'), self._tau_traj_to_build):
-        #     settings[reg_type] = dict(settings[reg_type], **self._get_tau_trajectory_definition_dict(reg_type.replace('-', '_')))
-        # return dict(map(lambda x: (x[0], x[1]), map(lambda x: x.replace('_', '-'), self._tau_traj_to_build)))
-        return dict([(x[0], self._get_settings_dict(x[0], x[1])) for x in settings.items()])
+    # def _replace_settings_with_supported_explorable(self, settings):
+    #     """Gets all regularizers' settings and for each, if it supports a trajectory for 'tau' coefficient value, adds the trajectory definition string to its settings"""
+    #         # _ = map(lambda y: y(1), filter(None, map(lambda x: getattr(re.match('^(sparse_\w+)$', x), 'group', None), self._sparsing_tau_traj_to_build)))
+    #     # for reg_type in map(lambda x: x.replace('_', '-'), self._sparsing_tau_traj_to_build):
+    #     #     settings[reg_type] = dict(settings[reg_type], **self._get_sparsing_tau_trajectory_definition_dict(reg_type.replace('-', '_')))
+    #     # return dict(map(lambda x: (x[0], x[1]), map(lambda x: x.replace('_', '-'), self._sparsing_tau_traj_to_build)))
+    #     return dict([(reg_type, self._update_reg_specs(reg_type, reg_specs)) for reg_type, reg_specs in settings.items()])
 
-    def _get_settings_dict(self, reg_type, settings_dict):
-        """Gets a regularizer's settings and if it supports a trajectory for 'tau' coefficient value, add trajectory definition string in settings"""
-        if reg_type.replace('-', '_') in self._tau_traj_to_build:
-            return dict(settings_dict, **self._get_tau_trajectory_definition_dict(reg_type.replace('-', '_')))
-        return settings_dict
-
-    def _get_tau_trajectory_definition_dict(self, tau_traj_type):
-        """
-        Call this method to query the current parameter vector for a specific tau trajectory\n
-        :param str tau_traj_type: underscore splittable
-        :rtype: dict
-        """
-        _ = self._val(tau_traj_type)
-        return {'tau': '_'.join([str(x) for x in (_['kind'], _['start'], _['end'])]),
-                'start': _['deactivate']}
+    # def _get_sparsing_tau_trajectory_definition_dict(self, tau_traj_type):
+    #     """
+    #     Call this method to query the current parameter vector for a specific tau trajectory\n
+    #     :param str tau_traj_type: underscore splittable; currenty supported: 'sparse_phi', 'sparse_theta'
+    #     :rtype: dict
+    #     """
+    #     if tau_traj_type not in ['sparse_phi', 'sparse_theta']:
+    #         warnings.warn("Currently tau_traj_type should be strictly starting with 'sparse_' because no other trajectories are supported yet.")
+    #     _ = self._val(tau_traj_type)
+    #     return {'tau': '_'.join([str(x) for x in (_['kind'], _['start'], _['end'])]),
+    #             'start': _['deactivate']}
 
     def _val(self, parameter_name):
         return self._extract(self.parameter_vector, parameter_name)
@@ -399,14 +445,6 @@ class Tuner(object):
                 return 1.0
             if parameter_name == 'ideology_class_weight':
                 return 0.0
-
-    def _check_parameters(self):
-        for i in self._static_params_hash.keys():
-            if i in self._expl_params_hash:
-                raise ParameterFoundInStaticAndExplorablesException("Parameter '{}' defined both as static and explorable".format(i))
-        missing_required_parameters = [x for x in self._required_parameters if x not in self.constants + self.explorables]
-        if missing_required_parameters:
-            raise MissingRequiredParametersException("[{}] were not found in [{}]".format(', '.join(missing_required_parameters), ', '.join(self.constants + self.explorables)))
 
 
 class IndicesList(object):

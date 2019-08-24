@@ -39,6 +39,35 @@ if __name__ == '__main__':
         #     .kind('linear')\
         #     .start(-1)\
         #     .end(-10, -100)\
+    tuner.active_regularizers = [
+        # 'smooth-phi',
+        # 'smooth-theta',
+        'label-regularization-phi-dom-cls',
+        # 'smooth-phi-dom-cls'   # ENABLE TO smooth the the p(class=c|topic=t) distributions. Crucial for computing the symmetric KL divergence; eg KL(p(c1|t)||p(c2|t)
+        # 'label-regularization-phi-dom-def',
+        # 'decorrelate-phi-domain',
+        # 'decorrelate-phi-background'
+    ]
+    tuner._default_regularizer_parameters = {'smooth-phi': {'tau': 1.0},
+                                            'smooth-theta': {'tau': 1.0, 'alpha_iter': 1.0},
+                                            'sparse-phi': {'tau': 'linear_-5_-15', 'start': 4},
+                                            'sparse-theta': {'alpha_iter': 1, 'tau': 'linear_-3_-13', 'start': 4},
+                                            'label-regularization-phi': {'tau': 1.0},
+                                            'label-regularization-phi-dom-def': {'tau': 1e5},
+                                            'label-regularization-phi-dom-cls': {'tau': 1e5},
+                                            'decorrelate-phi-def': {'tau': 10000},
+                                            'decorrelate-phi-dom-def': {'tau': 10000},
+                                            'decorrelate-phi-class': {'tau': 10000},
+                                            'decorrelate-phi-domain': {'tau': 10000},
+                                            'decorrelate-phi-background': {'tau': 10000},
+                                            'improve-coherence': {'tau': 1.0},
+                                            'smooth-phi-dom-cls': {'tau': 1}}
+    tuner.tune(tuning_definition,
+               prefix_label=args.prefix,
+               append_explorables=args.append_explorables,
+               append_static=args.append_static,
+               force_overwrite=args.overwrite,
+               verbose=args.verbose)
 
     #LDA
     # tuner.activate_regularizers.smoothing.phi.theta.done()
@@ -48,21 +77,6 @@ if __name__ == '__main__':
     # "label-regularization-phi-def"
     # tuner.activate_regularizers.smoothing.phi.theta.label_regularization.done()
 
-    tuner.active_regularizers = [
-        'smooth-phi',
-        'smooth-theta',
-        'label-regularization-phi-dom-cls',
-        'smooth-phi-dom-cls'   # ENABLE TO smooth the the p(class=c|topic=t) distributions. Crucial for computing the symmetric KL divergence; eg KL(p(c1|t)||p(c2|t)
-        # 'label-regularization-phi-dom-def',
-        # 'decorrelate-phi-domain',
-        # 'decorrelate-phi-background'
-    ]
-    tuner.tune(tuning_definition,
-               prefix_label=args.prefix,
-               append_explorables=args.append_explorables,
-               append_static=args.append_static,
-               force_overwrite=args.overwrite,
-               verbose=args.verbose)
 
     #ILDA
     # tuner.activate_regularizers.smoothing.phi.theta.improve_coherence_phi.done()

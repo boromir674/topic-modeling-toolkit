@@ -216,10 +216,10 @@ def _parse_active_regs(regs):
                                                 'dict': lambda x: x.items(),
                                                 'str': lambda x: cfg2model_settings(x)['regularizers'],
                                                 'list': lambda x: x}
-    print("IN", regs)
-    _ = dict(active_regularizers_type2tuples_enlister[type(regs).__name__](regs))  # reg-def, reg-name tuples in a list
-    print("OUT", _)
-    return _
+    # print("IN", regs)
+    return dict(active_regularizers_type2tuples_enlister[type(regs).__name__](regs))  # reg-def, reg-name tuples in a list
+    # print("OUT", _)
+
 
 def _valid_active_regs(instance, attribute, value):
     if len(value) != len(instance.regs_hash):

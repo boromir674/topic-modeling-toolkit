@@ -69,16 +69,18 @@ class StaticAndExplorableMixture(AbstractParameterMixture):
 
     def valid_trajectory_defs(self):
         """
-        Call this method to get a list of strings (ie ['sparse_phi', 'sparse_theta']) corresponding to the valid tau
-        coefficient trajectory definitions found withing the static and explorable parameters
+        Returns an OrderedDict with keys of pattern 'sparse_\w+' and values OrderedDicts with keysholding 'deactivate', 'kind', 'start', 'end' representing the trajectory attributes.\n
+        Call this method to get a list of strings (ie ['sparse_phi', 'sparse_theta']) corresponding to the valid tau coefficient trajectory definitions found withing the static and explorable parameters
         """
+        # TODO re-implement to support all trajectories
         res = OrderedDict()
         for k, v in list(self._static.items()) + list(self._explorable.items()):
-            if k.startswith('sparse_'):
-                nk = k.split('.')[0]
-                if nk not in res:
-                    res[nk] = OrderedDict()
-                res[nk][k.split('.')[1]] = v
+            if k.startswith('sparse_'):  # TODO remove this strict filter to support trajectories for any regularizer
+                _ = k.split('.')
+                reg_type, trajectory_attribute = _[0], _[1]
+                if reg_type not in res:
+                    res[reg_type] = OrderedDict()
+                res[reg_type][trajectory_attribute] = v
         return OrderedDict([(k, v) for k, v in res.items() if all(map(lambda x: x in v, ('deactivate', 'kind', 'start', 'end')))])
 
     @property

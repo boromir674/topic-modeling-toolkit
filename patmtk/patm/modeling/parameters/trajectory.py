@@ -184,9 +184,8 @@ class IterationChunks(object):
         """
         return IterationChunks([IterDuo(item) for sublist in map(lambda x: self._overlap(x, chunks), self.chunks) for item in sublist])
 
-class NoneConditionSatisfiedException(Exception):
-    def __init__(self, msg):
-        super(NoneConditionSatisfiedException, self).__init__(msg)
+class NoneConditionSatisfiedException(Exception): pass
+
 
 class IterChunk(object):
     def __init__(self, data):
