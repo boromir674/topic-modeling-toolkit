@@ -1,4 +1,5 @@
 import pytest
+import os
 from reporting.topics import TopicsHandler
 
 
@@ -9,7 +10,7 @@ def topics_handler(collections_root_dir, exp_res_obj1, trained_model_n_experimen
 
 @pytest.fixture(scope='module')
 def domain_string_first_token_line():
-    return '46.1% 94.7% 49.0%     37.0% 95.6% 46.8%     36.3% 93.1% 51.2%  33.0% 95.2% 52.0%  32.8% 93.9% 53.5%  25.7% 92.7% 51.6%'
+    return '65.7% 92.6% 27.3%     51.8% 91.9% 27.4%     50.0% 92.3% 27.8%  44.4% 88.6% 23.1%  43.4% 91.3% 24.9%  39.3% 90.1% 29.5%'
 
 
 @pytest.fixture(scope='module')
@@ -18,8 +19,9 @@ def background_string_first_token_line():
 
 
 class TestTopicsHandler(object):
-    def test_domain_strings(self, topics_handler, test_collection_name, domain_string_first_token_line):
-        b = topics_handler.pformat([test_collection_name, 'unittest_1_10_0.2_5_1'],
+    def test_domain_strings(self, test_collection_dir, topics_handler, test_collection_name, domain_string_first_token_line):
+        print(os.listdir(os.path.join(test_collection_dir, 'results')))
+        b = topics_handler.pformat([test_collection_name, 'unittest_10_0.2_4_1_1'],
                                    'domain',
                                    'top-tokens',
                                    'coh-80',
@@ -31,7 +33,7 @@ class TestTopicsHandler(object):
         assert b1 == domain_string_first_token_line
 
     def test_background_strings(self, topics_handler, test_collection_name, background_string_first_token_line):
-        b = topics_handler.pformat_background([test_collection_name, 'unittest_1_10_0.2_5_1'],
+        b = topics_handler.pformat_background([test_collection_name, 'unittest_10_0.2_4_1_1'],
                                              columns=8,
                                              nb_tokens=20,
                                              show_title=True)

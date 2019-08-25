@@ -59,11 +59,11 @@ class GraphMaker(object):
             - if type(selection) == range, returns a "slice" of the experimental results based on the range
             - if type(selection) == int, returns the first n experimental results
             - if type(selection) == list, then it returns the experimental results indexed by the list
-        :param str metric:
+        :param str metric: If 'alphabetical' or None picks model after sorting alphabeticall by file name. Else supports any tracked metric definition
         :param list or str score_definitions:
         :param list or str tau_trajectories:
         :param bool save:
-        :param int nb_points:
+        :param int or None nb_points:
         :param bool verbose:
         """
         self._prepare_output_folder(collection_name)

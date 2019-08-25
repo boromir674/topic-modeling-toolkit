@@ -58,7 +58,7 @@ class Tuner(object):
         self._label_groups = None
         self._cur_label = None
         self._required_labels = []
-        self._active_regs = {}
+        # self._active_regs = {}
         self._regularizers_specs = {}
         self._max_digits_version = 3
         self._allowed_labeling_params = ['collection_passes', 'nb_topics', 'document_passes', 'background_topics_pct', 'ideology_class_weight'] + \
@@ -68,21 +68,21 @@ class Tuner(object):
         self.experiment = Experiment(self._dir)
         self.trainer.register(self.experiment)  # when the model_trainer trains, the experiment object listens to changes
         self._parameter_grid_searcher = None
-        self._default_regularizer_parameters = {'smooth-phi': {'tau': 1.0},
-                                                'smooth-theta': {'tau': 1.0, 'alpha_iter': 1.0},
-                                                'sparse-phi': {'tau': 'linear_-5_-15', 'start': 4},
-                                                'sparse-theta': {'alpha_iter': 1, 'tau': 'linear_-3_-13', 'start': 4},
-                                                'label-regularization-phi': {'tau': 1.0},
-                                                'label-regularization-phi-dom-def': {'tau': 1e5},
-                                                'label-regularization-phi-dom-cls': {'tau': 1e5},
-                                                'decorrelate-phi-def': {'tau': 10000},
-                                                'decorrelate-phi-dom-def': {'tau': 10000},
-                                                'decorrelate-phi-class': {'tau': 10000},
-                                                'decorrelate-phi-domain': {'tau': 10000},
-                                                'decorrelate-phi-background': {'tau': 10000},
-                                                'improve-coherence': {'tau': 1.0},
-
-                                                'smooth-phi-dom-cls': {'tau': 1}}
+        # self._default_regularizer_parameters = {'smooth-phi': {'tau': 1.0},
+        #                                         'smooth-theta': {'tau': 1.0, 'alpha_iter': 1.0},
+        #                                         'sparse-phi': {'tau': 'linear_-5_-15', 'start': 4},
+        #                                         'sparse-theta': {'alpha_iter': 1, 'tau': 'linear_-3_-13', 'start': 4},
+        #                                         'label-regularization-phi': {'tau': 1.0},
+        #                                         'label-regularization-phi-dom-def': {'tau': 1e5},
+        #                                         'label-regularization-phi-dom-cls': {'tau': 1e5},
+        #                                         'decorrelate-phi-def': {'tau': 10000},
+        #                                         'decorrelate-phi-dom-def': {'tau': 10000},
+        #                                         'decorrelate-phi-class': {'tau': 10000},
+        #                                         'decorrelate-phi-domain': {'tau': 10000},
+        #                                         'decorrelate-phi-background': {'tau': 10000},
+        #                                         'improve-coherence': {'tau': 1.0},
+        #
+        #                                         'smooth-phi-dom-cls': {'tau': 1}}
         self._abbreviation_labels = {}
 
     @staticmethod
@@ -92,7 +92,7 @@ class Tuner(object):
         :return: keys are the regularizer-types (ie 'smooth-theta', 'sparse-phi') and values automatically generated abbreviations of the regularizer-types to serve as unique names
         :rtype: OrderedDict
         """
-        return OrderedDict([('-'.join(y), ''.join([z[0] if len(y) > 2 else z[:2] for z in y])) for y in [x.split('-') for x in sorted(reg_types_list)]])
+        return OrderedDict([('-'.join(y), ''.join([token[0] if len(y) > 2 else token[:2] for token in y])) for y in [x.split('-') for x in sorted(reg_types_list)]])
 
     @property
     def constants(self):
@@ -109,27 +109,27 @@ class Tuner(object):
     # def activate_regularizers(self):
     #     return self._active_reg_def_builder.activate
 
-    @property
-    def active_regularizers(self):
-        """
-        :rtype: OrderedDict
-        """
-        return self._active_regs
-
-    @active_regularizers.setter
-    def active_regularizers(self, active_regularizers):
-        """
-        :param list or dict active_regularizers: in case of list it should be a list of regularizer-types ie ['smooth-phi', 'sparse-phi', 'smooth-theta']\n
-            in case of dict it should be a dict having as keys regularizer-types ie ('smooth-phi', 'sparse-phi', 'smooth-theta') and as values the corresponding unique names
-        """
-        if type(active_regularizers) == list:
-            self._active_regs = Tuner._abbreviations(active_regularizers)
-        elif isinstance(active_regularizers, dict):
-            self._active_regs = active_regularizers
-        else:
-            raise TypeError
-        if 2 < self._vb:
-            print("Tuner: activated regs: [{}]".format(', '.join(sorted([_ for _ in self._active_regs.keys()]))))
+    # @property
+    # def active_regularizers(self):
+    #     """
+    #     :rtype: OrderedDict
+    #     """
+    #     return self._active_regs
+    #
+    # @active_regularizers.setter
+    # def active_regularizers(self, active_regularizers):
+    #     """
+    #     :param list or dict active_regularizers: in case of list it should be a list of regularizer-types ie ['smooth-phi', 'sparse-phi', 'smooth-theta']\n
+    #         in case of dict it should be a dict having as keys regularizer-types ie ('smooth-phi', 'sparse-phi', 'smooth-theta') and as values the corresponding unique names
+    #     """
+    #     if type(active_regularizers) == list:
+    #         self._active_regs = Tuner._abbreviations(active_regularizers)
+    #     elif isinstance(active_regularizers, dict):
+    #         self._active_regs = active_regularizers
+    #     else:
+    #         raise TypeError
+    #     if 2 < self._vb:
+    #         print("Tuner: activated regs: [{}]".format(', '.join(sorted([_ for _ in self._active_regs.keys()]))))
 
     @property
     def regularization_specs(self):
@@ -138,8 +138,8 @@ class Tuner(object):
     @regularization_specs.setter
     def regularization_specs(self, regularization_specs):
         self._abbreviation_labels = self._abbreviations(regularization_specs.keys())
-        self.active_regularizers = list(sorted(regularization_specs.keys()))
-        self._regularizers_specs = self._create_reg_specs(regularization_specs, regularization_specs.keys())
+        self._regularizers_specs = regularization_specs
+        # self.active_regularizers = list(sorted(regularization_specs.keys()))
 
     def _set_verbosity_level(self, input_verbose):
         try:
@@ -279,15 +279,15 @@ class Tuner(object):
             print('Search space', tuner_definition.parameter_spans)
         # if static_regularizers_specifications:
             # for which ever of the activated regularizers there is a missing setting, then use a default value
-        self._regularizers_specs = self._create_reg_specs(self._default_regularizer_parameters, self._active_regs)
+        # self._regularizers_specs = self._create_reg_specs(self._default_regularizer_parameters, self._regularizers_specs)
 
-    def _create_reg_specs(self, reg_settings, active_regularizers):
-        """Call this method to use default values where missing, according to given activated regularizers"""
-        try:
-            return {k: dict([(param_name, reg_settings[k].get(param_name, self._default_regularizer_parameters[k][param_name]))
-                             for param_name in self._default_regularizer_parameters[k].keys()]) for k in active_regularizers}
-        except KeyError as e:
-            raise KeyError("Error: {}. Probably you need to manually update the self._default_regularizer_parameters attribute so that it has the same kyes as the train.cfg".format(str(e)))
+    # def _create_reg_specs(self, reg_settings, active_regularizers):
+    #     """Call this method to use default values where missing, according to given activated regularizers"""
+    #     try:
+    #         return {k: dict([(param_name, reg_settings[k].get(param_name, self._default_regularizer_parameters[k][param_name]))
+    #                          for param_name in self._default_regularizer_parameters[k].keys()]) for k in active_regularizers}
+    #     except KeyError as e:
+    #         raise KeyError("Error: {}. Probably you need to manually update the self._default_regularizer_parameters attribute so that it has the same kyes as the train.cfg".format(str(e)))
 
     def _check_parameters(self):
         for i in self._static_params_hash.keys():
@@ -307,10 +307,13 @@ class Tuner(object):
                                                         {k:v for k, v in {DEFAULT_CLASS_NAME: self._val('default_class_weight'),
                                                                           IDEOLOGY_CLASS_NAME: self._val('ideology_class_weight')}.items() if v},
                                                         self._score_defs,
-                                                        self._active_regs,  # a dictionary mapping reg_types to re_names eg {'sparse-theta': 'spth', 'smooth-phi': 'smph}
+                                                        self._reg_type_2_name_hash(),  # a dictionary mapping reg_types to re_names eg {'sparse-theta': 'spth', 'smooth-phi': 'smph}
                                                         reg_settings=self._regularizers_specs)  # a dictionary mapping reg_types to reg_specs
         tr_specs = self.trainer.model_factory.create_train_specs(self._val('collection_passes'))
         return tm, tr_specs
+
+    def _reg_type_2_name_hash(self):
+        return {reg_type: self._regularizers_specs[reg_type].get('name', self._abbreviation_labels[reg_type]) for reg_type in self._regularizers_specs.keys()}
 
     def _build_trajectories(self):
         """Updates the reg specs in order to build any sparse phi or theta trajectories required"""

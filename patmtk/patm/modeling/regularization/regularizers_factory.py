@@ -69,13 +69,13 @@ parameter_name2encoder = {
 class RegularizersFactory:
     """Supports construction of Smoothing, Sparsing, Label, Decorrelating, Coherence-improving regularizers. Currently, it
     resorts to supplying the internal artm.Dictionary to the regularizers' constructors whenever possible."""
-    active_regularizers_type2tuples_enlister = {'OrderedDict': lambda x: x.items(),
-                                                'dict': lambda x: x.items(),
-                                                  'str': lambda x: cfg2model_settings(x)['regularizers'],
-                                                'list': lambda x: x}
-    reg_initialization_type2_dict = {'dict': lambda x: x,
-                                         'OrderedDict': lambda x: x,
-                                         'str': lambda x: cfg2regularizer_settings(x)}
+    # active_regularizers_type2tuples_enlister = {'OrderedDict': lambda x: x.items(),
+    #                                             'dict': lambda x: x.items(),
+    #                                               'str': lambda x: cfg2model_settings(x)['regularizers'],
+    #                                             'list': lambda x: x}
+    # reg_initialization_type2_dict = {'dict': lambda x: x,
+    #                                      'OrderedDict': lambda x: x,
+    #                                      'str': lambda x: cfg2regularizer_settings(x)}
 
     def __init__(self, dictionary):
         """
@@ -151,7 +151,6 @@ class RegularizersFactory:
         :param RegularizersData regs_data:
         """
         self._regs_data = regs_data
-        print("GG", self._regs_data)
         self._back_t, self._domain_t = regs_data.background_topics, regs_data.domain_topics
         self._reg_settings = regs_data.regularizers_parameters
 
@@ -211,19 +210,18 @@ class RegularizersFactory:
         return self._regularizer_type2constructor[reg_type](dict(settings, **{'long-type': reg_type}))
 
 
+# def _valid_active_regs(instance, attribute, value):
+#     if len(value) != len(instance.regs_hash):
+#         raise RuntimeError("Parsing of active regularizers definition {} failed. Resulted in {} regs instead of {}.".format(value, len(value), len(instance.regs_hash)))
+
+
 def _parse_active_regs(regs):
-    active_regularizers_type2tuples_enlister = {'OrderedDict': lambda x: x.items(),
+    reg_settings = {'OrderedDict': lambda x: x.items(),
                                                 'dict': lambda x: x.items(),
-                                                'str': lambda x: cfg2model_settings(x)['regularizers'],
-                                                'list': lambda x: x}
-    # print("IN", regs)
-    return dict(active_regularizers_type2tuples_enlister[type(regs).__name__](regs))  # reg-def, reg-name tuples in a list
-    # print("OUT", _)
+                                                'str': lambda x: cfg2model_settings(x)['regularizers']}
+                                                # 'list': lambda x: x}
+    return dict(reg_settings[type(regs).__name__](regs))  # reg-def, reg-name tuples in a list
 
-
-def _valid_active_regs(instance, attribute, value):
-    if len(value) != len(instance.regs_hash):
-        raise RuntimeError("Parsing of active regularizers definition {} failed. Resulted in {} regs instead of {}.".format(value, len(value), len(instance.regs_hash)))
 
 def _parse_reg_cfg(regs_config):
     reg_initialization_type2_dict = {'dict': lambda x: x,

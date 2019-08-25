@@ -2,7 +2,8 @@ import os
 import sys
 from configparser import ConfigParser
 import pytest
-
+from functools import reduce
+from collections import Counter
 from patm.build_coherence import CoherenceFilesBuilder
 from patm.modeling.trainer import TrainerFactory
 from patm.modeling import Experiment
@@ -30,7 +31,7 @@ REGS_CFG = os.path.join(MODULE_DIR, 'test-regularizers.cfg')
 TEST_COLLECTIONS_ROOT_DIR_NAME = 'unittests-collections'
 
 TEST_COLLECTION = 'unittest-dataset'
-MODEL_1_LABEL = 'test-model-1'
+MODEL_1_LABEL = 'test-model'
 TUNE_LABEL_PREFIX = 'unittest'
 #####################
 
@@ -156,10 +157,10 @@ def loaded_model_n_experiment(collections_root_dir, test_dataset, trainer, train
 def training_params():
     return {
         'nb_topics': [10, 12],
-        'collection_passes': 5,
+        'collection_passes': 4,
         'document_passes': 1,
         'background_topics_pct': 0.2,
-        'ideology_class_weight': [0, 1]
+        'ideology_class_weight': 1
         }
 
 
@@ -190,6 +191,33 @@ def tuning_parameters():
 
 
 @pytest.fixture(scope='session')
+def model_names(tuning_parameters, training_params, expected_labeling_parameters):
+    """alphabetically sorted expected model names to persist (phi and results)"""
+    def _mock_label(labeling, params_data):
+        inds = Counter()
+        for l in labeling:
+            if type(params_data[l]) != list or len(params_data[l]) == 1:
+                yield params_data[l]
+            else:
+                inds[l] += 1
+                yield params_data[l][inds[l] - 1]
+    nb_models = reduce(lambda k,l: k*l, [len(x) if type(x) == list else 1 for x in training_params.values()])
+    prefix = ''
+    if tuning_parameters['prefix_label']:
+        prefix = tuning_parameters['prefix_label'] + '_'
+    return sorted([prefix + '_'.join(str(x) for x in _mock_label(expected_labeling_parameters, training_params)) for _ in range(nb_models)])
+
+
+@pytest.fixture(scope='session')
+def expected_labeling_parameters(tuning_parameters, expected_constant_params, expected_explorable_params):
+    static_flag = {True: list(expected_constant_params.keys()),
+                   False: []}
+    explorable_flag = {True: list(expected_explorable_params.keys()),
+                       False: []}
+    return sorted(explorable_flag[tuning_parameters['append_explorables']]) + sorted(static_flag[tuning_parameters['append_static']])
+
+
+@pytest.fixture(scope='session')
 def tuner_obj(collections_root_dir, test_dataset, training_params, regularizers_specs, tuning_parameters):
     tuner = Tuner(os.path.join(collections_root_dir, test_dataset.name), evaluation_definitions={
         'perplexity': 'per',
@@ -208,19 +236,10 @@ def tuner_obj(collections_root_dir, test_dataset, training_params, regularizers_
         .collection_passes(training_params['collection_passes'])\
         .document_passes(training_params['document_passes'])\
         .background_topics_pct(training_params['background_topics_pct']) \
-        .ideology_class_weight(*training_params['ideology_class_weight']) \
+        .ideology_class_weight(training_params['ideology_class_weight']) \
         .build()
-
-    tuner.active_regularizers = list(regularizers_specs.keys())
-    tuner._default_regularizer_parameters = regularizers_specs
-
-    # tuner.tune(tuning_definition,**dict({'prefix_label': TUNE_LABEL_PREFIX}, **tuning_parameters))
+    tuner.regularization_specs = regularizers_specs
     tuner.tune(tuning_definition, **tuning_parameters)
-               # prefix_label=TUNE_LABEL_PREFIX,
-               # append_explorables=True,
-               # append_static=True,
-               # force_overwrite=True,
-               # verbose=False)
     return tuner
 
 
@@ -230,21 +249,30 @@ def dataset_reporter(tuner_obj):
 
 
 @pytest.fixture(scope='session')
-def graphs(exp_res_obj1, trained_model_n_experiment, tuner_obj):
+def graphs_parameters():
+    return {'selection': 3,
+            'metric': 'alphabetical',
+            'score_definitions': ['background-tokens-ratio-0.30', 'kernel-coherence-0.80', 'sparsity-theta', 'top-tokens-coherence-10'],
+            'tau_trajectories': '',
+            # 'tau_trajectories': 'all',
+            }
+
+
+@pytest.fixture(scope='session')
+def graphs(exp_res_obj1, trained_model_n_experiment, tuner_obj, graphs_parameters):
     graph_maker = GraphMaker(os.path.dirname(tuner_obj._dir))
     sparser_regularizers_tau_coefficients_trajectories = False
-    graph_maker.build_graphs_from_collection(os.path.basename(tuner_obj._dir), 3,  # use a maximal number of 8 models to compare together
-                                             metric='perplexity',  # explicit set to force alphabetical ordering of models
-                                             score_definitions=['background-tokens-ratio-0.30', 'kernel-coherence-0.80', 'sparsity-theta', 'top-tokens-coherence-10'],
-                                             tau_trajectories=(lambda x: 'all' if x else '')(sparser_regularizers_tau_coefficients_trajectories))
+    selection = graphs_parameters.pop('selection')
+    graph_maker.build_graphs_from_collection(os.path.basename(tuner_obj._dir), selection,  # use a maximal number of 8 models to compare together
+                                             **dict({'save': True, 'nb_points': None, 'verbose': False}, **graphs_parameters))
+    graphs_parameters['selection'] = selection
     return graph_maker.saved_figures
-
 
 
 ############################################
 @pytest.fixture(scope='session')
 def json_path(collections_root_dir, test_collection_name):
-    return os.path.join(collections_root_dir, test_collection_name, 'results', 'exp-results-test-model_1.json')
+    return os.path.join(collections_root_dir, test_collection_name, 'results', 'toy-exp-res.json')
 
 
 @pytest.fixture(scope='session')
@@ -283,7 +311,7 @@ def exp_res_obj1(kernel_data_0, kernel_data_1, json_path, test_collection_dir):
     exp = ExperimentalResults.from_dict({
         'scalars': {
             'dir': 'a-dataset-dir',
-            'label': 'a-model-label',
+            'label': 'toy-exp-res',
             'dataset_iterations': 3,  # LEGACY '_' (underscore) usage
             'nb_topics': 5,  # LEGACY '_' (underscore) usage
             'document_passes': 2,  # LEGACY '_' (underscore) usage
@@ -360,6 +388,3 @@ def exp_res_obj1(kernel_data_0, kernel_data_1, json_path, test_collection_dir):
         os.mkdir(os.path.join(test_collection_dir, 'results'))
     exp.save_as_json(json_path)
     return exp
-
-
-####### REGRESSION FIXTURES #######
