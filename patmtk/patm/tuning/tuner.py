@@ -6,7 +6,7 @@ import pprint
 from tqdm import tqdm
 from collections import OrderedDict, Counter
 from functools import reduce
-
+import attr
 from .building import RegularizersActivationDefinitionBuilder
 
 from patm.modeling import Experiment
@@ -89,14 +89,14 @@ class Tuner(object):
     def _abbreviations(reg_types_list):
         """
         :param list reg_types_list:
-        :return: keys are the regularizer-types (ie 'smooth-theta', 'sparse-phi') and values automatically genereted abbreviations of the regularizer-types to serve as unique names
+        :return: keys are the regularizer-types (ie 'smooth-theta', 'sparse-phi') and values automatically generated abbreviations of the regularizer-types to serve as unique names
         :rtype: OrderedDict
         """
         return OrderedDict([('-'.join(y), ''.join([z[0] if len(y) > 2 else z[:2] for z in y])) for y in [x.split('-') for x in sorted(reg_types_list)]])
 
     @property
     def constants(self):
-        return sorted(self._static_params_hash.keys())
+        return list(self._static_params_hash.keys())
     @property
     def explorables(self):
         return sorted(self._expl_params_hash.keys())
@@ -297,6 +297,34 @@ class Tuner(object):
         if missing_required_parameters:
             raise MissingRequiredParametersException("[{}] were not found in [{}]".format(', '.join(missing_required_parameters), ', '.join(self.constants + self.explorables)))
 
+    ######### MODEL #############
+    def _create_model_n_specs(self):
+        self._build_trajectories()
+        tm = self.trainer.model_factory.construct_model(self._cur_label, self._val('nb_topics'),
+                                                        self._val('collection_passes'),
+                                                        self._val('document_passes'),
+                                                        self._val('background_topics_pct'),
+                                                        {k:v for k, v in {DEFAULT_CLASS_NAME: self._val('default_class_weight'),
+                                                                          IDEOLOGY_CLASS_NAME: self._val('ideology_class_weight')}.items() if v},
+                                                        self._score_defs,
+                                                        self._active_regs,  # a dictionary mapping reg_types to re_names eg {'sparse-theta': 'spth', 'smooth-phi': 'smph}
+                                                        reg_settings=self._regularizers_specs)  # a dictionary mapping reg_types to reg_specs
+        tr_specs = self.trainer.model_factory.create_train_specs(self._val('collection_passes'))
+        return tm, tr_specs
+
+    def _build_trajectories(self):
+        """Updates the reg specs in order to build any sparse phi or theta trajectories required"""
+        self._regularizers_specs =  {reg_type: self._update_reg_specs(reg_type.replace('-', '_'), reg_specs) for reg_type, reg_specs in self._regularizers_specs.items()}
+
+    def _update_reg_specs(self, reg_type, reg_specs):
+        """Gets a regularizer's specifications dict and updates it by setting its 'tau' and 'start' keys accordingly so that the trajectory built if a trajectory was requested. Currently supports only sparse_phi and sparse_theta"""
+        if reg_type in self._sparsing_tau_traj_to_build:
+            _ = self._val(reg_type)
+            return dict(reg_specs, **{'tau': '_'.join([str(x) for x in (_['kind'], _['start'], _['end'])]),
+                                      'start': _['deactivate']})
+        return reg_specs
+
+    ##### LABELING ########
     def _initialize_labeling_functionality(self, prefix_label='', append_explorables='all', append_static=None, overwrite=False):
         """Call this method to:
             - define the labeling scheme to use for naming the files created on disk\n
@@ -348,34 +376,6 @@ class Tuner(object):
     def _trans(self, two_length_tupe_of_bool, index):
         return [index if x else None for x in two_length_tupe_of_bool]
 
-    ######### MODEL #############
-    def _create_model_n_specs(self):
-        self._build_trajectories()
-        tm = self.trainer.model_factory.construct_model(self._cur_label, self._val('nb_topics'),
-                                                        self._val('collection_passes'),
-                                                        self._val('document_passes'),
-                                                        self._val('background_topics_pct'),
-                                                        {k:v for k, v in {DEFAULT_CLASS_NAME: self._val('default_class_weight'),
-                                                                          IDEOLOGY_CLASS_NAME: self._val('ideology_class_weight')}.items() if v},
-                                                        self._score_defs,
-                                                        self._active_regs,  # a dictionary mapping reg_types to re_names eg {'sparse-theta': 'spth', 'smooth-phi': 'smph}
-                                                        reg_settings=self._regularizers_specs)  # a dictionary mapping reg_types to reg_specs
-        tr_specs = self.trainer.model_factory.create_train_specs(self._val('collection_passes'))
-        return tm, tr_specs
-
-    def _build_trajectories(self):
-        """Updates the reg specs in order to build any sparse phi or theta trajectories required"""
-        self._regularizers_specs =  {reg_type: self._update_reg_specs(reg_type.replace('-', '_'), reg_specs) for reg_type, reg_specs in self._regularizers_specs.items()}
-
-    def _update_reg_specs(self, reg_type, reg_specs):
-        """Gets a regularizer's specifications dict and updates it by setting its 'tau' and 'start' keys accordingly so that the trajectory built if a trajectory was requested. Currently supports only sparse_phi and sparse_theta"""
-        if reg_type in self._sparsing_tau_traj_to_build:
-            _ = self._val(reg_type)
-            return dict(reg_specs, **{'tau': '_'.join([str(x) for x in (_['kind'], _['start'], _['end'])]),
-                                      'start': _['deactivate']})
-        return reg_specs
-
-    ##### LABELING ########
     def _define_labeling_scheme(self, explorables, constants):
         """Call this method to define the values to use for labeling the artifacts of tuning from the mixture of explorable and constant parameters.
             This method also determines if versioning is needed; whether to append strings like v001, v002 to the labels because
@@ -446,30 +446,27 @@ class Tuner(object):
             if parameter_name == 'ideology_class_weight':
                 return 0.0
 
-
+@attr.s
 class IndicesList(object):
-    def __init__(self, indices_list, string_label):
-        self._inds = indices_list
-        self._label = string_label
-        assert len(indices_list) == len(frozenset(indices_list))
+    indices = attr.ib(init=True, converter=list)
+    _label = attr.ib(init=True, converter=str)
+
     def __str__(self):
         return self._label
     def __len__(self):
-        return len(self._inds)
+        return len(self.indices)
     def __contains__(self, item):
-        return item in self._inds
+        return item in self.indices
     def __iter__(self):
-        return iter(self._inds)
+        return iter(self.indices)
     def __add__(self, other):
         return IndicesList([_ for _ in self if _ in other], '{} and {}'.format(self, other))
     def __sub__(self, other):
         return IndicesList([_ for _ in self if _ not in other], str(self))
-    @property
-    def indices(self):
-        return self._inds
+
     @property
     def labels(self):
-        return lambda x: [x[_] for _ in self._inds]
+        return lambda x: [x[_] for _ in self.indices]
     @property
     def msg(self):
         return lambda x: "Existing labels {} for '{}' files will overlap with the newly required ones by the tuner.".format(self.labels(x), self._label)

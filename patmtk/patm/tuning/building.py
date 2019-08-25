@@ -26,7 +26,7 @@ class StaticAndExplorableMixture(AbstractParameterMixture):
     _static = attr.ib(init=False, factory=OrderedDict)
     _explorable = attr.ib(init=False, factory=OrderedDict)
 
-    _nb_combinations = attr.ib(init=False, default=1)
+    nb_combinations = attr.ib(init=False, default=1)
 
     def __attrs_post_init__(self):
         for k, v in self._parameters.items():
@@ -42,7 +42,7 @@ class StaticAndExplorableMixture(AbstractParameterMixture):
                 self._static[value.name + '.' + i] = v
             for i, v in value.explorable_parameters.items():
                 self._explorable[value.name + '.' + i] = v
-            self._nb_combinations *= len(value)
+            self.nb_combinations *= value.nb_combinations
 
         elif type(value) in (str, int, float):
             self._static[k] = value
@@ -52,20 +52,19 @@ class StaticAndExplorableMixture(AbstractParameterMixture):
                 self._static[k] = value[0]
             else:  # len(v) > 1
                 self._explorable[k] = list(value)
-                self._nb_combinations *= len(value)
+                self.nb_combinations *= len(value)
         else:
             raise ValueError("Parsing of type '{}' is not supported".format(type(v)))
 
-
     def __len__(self):
-        return self._nb_combinations
+        return self.nb_combinations
 
     def _assimilate_mixture(self, mixture):
         for i, v in mixture.static_parameters.items():
             self._static[mixture.name + '.' + i] = v
         for i, v in mixture.explorable_parameters.items():
             self._explorable[mixture.name + '.' + i] = v
-        self._nb_combinations *= len(mixture)
+        self.nb_combinations *= len(mixture)
 
     def valid_trajectory_defs(self):
         """

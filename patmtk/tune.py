@@ -22,13 +22,12 @@ if __name__ == '__main__':
     from os import path
     tuner = Tuner(path.join(COLLECTIONS_DIR_PATH, args.dataset))
     tuning_definition = tdb.initialize()\
-        .nb_topics(20)\
-        .collection_passes(50)\
+        .nb_topics(40)\
+        .collection_passes(100)\
         .document_passes(1)\
-        .background_topics_pct(0.2) \
-        .ideology_class_weight(1, 5) \
+        .background_topics_pct(0.1, 0.2) \
+        .ideology_class_weight(1) \
         .build()
-
         # .sparse_phi()\
         #     .deactivate(8)\
         #     .kind('linear')\

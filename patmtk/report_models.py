@@ -17,8 +17,8 @@ if __name__ == '__main__':
 
     COLUMNS = [
         'nb-topics',
-               # 'collection-passes',
-               # 'document-passes',
+               'collection-passes',
+               'document-passes',
                # 'total-phi-updates',
                'perplexity',
                'kernel-size',

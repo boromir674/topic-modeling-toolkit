@@ -7,6 +7,7 @@ from patm.build_coherence import CoherenceFilesBuilder
 from patm.modeling.trainer import TrainerFactory
 from patm.modeling import Experiment
 from patm import Tuner
+from patm.tuning.building import tuner_definition_builder as tdb
 from patm import political_spectrum as political_spectrum_manager
 
 
@@ -30,6 +31,7 @@ TEST_COLLECTIONS_ROOT_DIR_NAME = 'unittests-collections'
 
 TEST_COLLECTION = 'unittest-dataset'
 MODEL_1_LABEL = 'test-model-1'
+TUNE_LABEL_PREFIX = 'unittest'
 #####################
 
 
@@ -151,8 +153,44 @@ def loaded_model_n_experiment(collections_root_dir, test_dataset, trainer, train
 
 
 @pytest.fixture(scope='session')
-def tuner_obj(collections_root_dir, test_dataset):
-    from patm.tuning.building import tuner_definition_builder as tdb
+def training_params():
+    return {
+        'nb_topics': [10, 12],
+        'collection_passes': 5,
+        'document_passes': 1,
+        'background_topics_pct': 0.2,
+        'ideology_class_weight': [0, 1]
+        }
+
+
+@pytest.fixture(scope='session')
+def expected_explorable_params(training_params):
+    return {k: v for k, v in training_params.items() if type(v) == list and len(v) != 1}
+
+@pytest.fixture(scope='session')
+def expected_constant_params(training_params):
+    return {k: v for k, v in training_params.items() if type(v) != list or len(v) == 1}
+
+@pytest.fixture(scope='session')
+def regularizers_specs():
+    return {
+        # 'smooth-phi',
+        # 'smooth-theta',
+        'label-regularization-phi-dom-cls': {'tau': 1e5},
+        'decorrelate-phi-dom-def': {'tau': 1e4}
+    }
+
+@pytest.fixture(scope='session')
+def tuning_parameters():
+    return dict(prefix_label=TUNE_LABEL_PREFIX,
+                append_explorables=True,
+                append_static=True,
+                force_overwrite=True,
+                verbose=False)
+
+
+@pytest.fixture(scope='session')
+def tuner_obj(collections_root_dir, test_dataset, training_params, regularizers_specs, tuning_parameters):
     tuner = Tuner(os.path.join(collections_root_dir, test_dataset.name), evaluation_definitions={
         'perplexity': 'per',
         'sparsity-phi-@dc': 'sppd',
@@ -166,30 +204,23 @@ def tuner_obj(collections_root_dir, test_dataset):
     }, verbose=0)
 
     tuning_definition = tdb.initialize()\
-        .nb_topics(10, 12)\
-        .collection_passes(5)\
-        .document_passes(1)\
-        .background_topics_pct(0.2) \
-        .ideology_class_weight(0, 1) \
+        .nb_topics(*training_params['nb_topics'])\
+        .collection_passes(training_params['collection_passes'])\
+        .document_passes(training_params['document_passes'])\
+        .background_topics_pct(training_params['background_topics_pct']) \
+        .ideology_class_weight(*training_params['ideology_class_weight']) \
         .build()
 
-    tuner.active_regularizers = [
-        # 'smooth-phi',
-        # 'smooth-theta',
-        'label-regularization-phi-dom-cls',
-        'decorrelate-phi-dom-def',
-    ]
-    tuner.regularization_specs = {
-        'label-regularization-phi-dom-cls': {'tau': 1e5},
-        'decorrelate-phi-dom-def': {'tau': 1e4}
-    }
+    tuner.active_regularizers = list(regularizers_specs.keys())
+    tuner._default_regularizer_parameters = regularizers_specs
 
-    tuner.tune(tuning_definition,
-               prefix_label='unittest',
-               append_explorables=True,
-               append_static=True,
-               force_overwrite=True,
-               verbose=False)
+    # tuner.tune(tuning_definition,**dict({'prefix_label': TUNE_LABEL_PREFIX}, **tuning_parameters))
+    tuner.tune(tuning_definition, **tuning_parameters)
+               # prefix_label=TUNE_LABEL_PREFIX,
+               # append_explorables=True,
+               # append_static=True,
+               # force_overwrite=True,
+               # verbose=False)
     return tuner
 
 
