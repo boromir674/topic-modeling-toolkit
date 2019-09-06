@@ -19,14 +19,14 @@ class Experiment:
 
 
     MAX_DECIMALS = 2
-    def __init__(self, dataset_dir, cooc_dict):
+    def __init__(self, dataset_dir):
         """
         Encapsulates experimentation by doing topic modeling on a dataset/'collection' in the given patm_root_dir. A 'collection' is a proccessed document collection into BoW format and possibly split into 'train' and 'test' splits.\n
         :param str dataset_dir: the full path to a dataset/collection specific directory
         :param str cooc_dict: the full path to a dataset/collection specific directory
         """
         self._dir = dataset_dir
-        self.cooc_dict = cooc_dict
+        # self.cooc_dict = cooc_dict
         self._loaded_dictionary = None # artm.Dictionary object. Data population happens uppon artm.Artm object creation in model_factory; dictionary.load(bin_dict_path) is called there
         self._topic_model = None
         self.collection_passes = []
@@ -54,6 +54,8 @@ class Experiment:
                 self.trackables[evaluator_definition] = [[], {t_name: [] for t_name in model.domain_topics}]
                 self.failed_top_tokens_coherence[evaluator_definition] = {t_name: [] for t_name in model.domain_topics}
         self.collection_passes = []
+        if not all(x in DYN_COEFS for _, x in model.long_types_n_types):
+            raise KeyError("One of the [{}] 'reg_type' (not unique types!) should be added in the REGULARIZER_TYPE_2_DYNAMIC_PARAMETERS_HASH in the regularizers_factory module".format(', '.join("'{}'".format(x) for _, x in model.long_types_n_types)))
         self.regularizers_dynamic_parameters = {unique_type: {attr: [] for attr in DYN_COEFS[reg_type]} for unique_type, reg_type in model.long_types_n_types}
 
     @property
@@ -62,7 +64,7 @@ class Experiment:
 
     @property
     def model_factory(self):
-        return ModelFactory(self.dictionary, self.cooc_dict)
+        return ModelFactory(self.dictionary)
 
     @property
     def topic_model(self):
@@ -103,6 +105,7 @@ class Experiment:
 
     @property
     def dictionary(self):
+        """This dictionary is passed to Perplexity artm scorer"""
         return self._loaded_dictionary
 
     @dictionary.setter
@@ -183,7 +186,7 @@ class Experiment:
         - document passes\n
         :param str model_label: a unigue identifier of a topic model
         :return: the latest train specification used in the experiment
-        :rtype: patm.modeling.topic_model.TrainSpecs
+        :rtype: patm.modeling.topic_model.TopicModel
         """
         results = self.train_results_handler.load(model_label)
         self._topic_model = self.phi_matrix_handler.load(model_label, results)
@@ -270,7 +273,7 @@ class DegenerationChecker(object):
     #     return self._degen_info
     #
     # def build(self, dict_list):
-    #     self._initialize()
+    #     self._prepare_storing()
     #     for k in self._keys:
     #         self._build_degen_info(k, self._get_struct(dict_list))
     #         self._add_final(k, self._degen_info[k])

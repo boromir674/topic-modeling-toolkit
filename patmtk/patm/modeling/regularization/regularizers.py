@@ -3,7 +3,8 @@ from warnings import warn
 
 import artm
 
-from patm.modeling.parameters import trajectory_builder
+from .trajectory import TrajectoryBuilder
+
 
 import logging
 logger = logging.getLogger(__name__)
@@ -16,19 +17,27 @@ class ArtmRegularizerWrapper(object):
                               'tau': lambda x: '{}_{}'.format(x[0], x[1])}
 
     def __init__(self, parameters_dict, verbose=False):
+        self.trajectory_builder = TrajectoryBuilder()
         self._regularizer = None
         self._alpha_iter_scalar = None
         self._trajectory_lambdas = {}
         self._traj_def = {}
         self._reg_constr_params = {}
         self._params_for_labeling = {}
-
+        self._start = None
         self._name = parameters_dict.pop('name', 'no-name')
         self._long_type = parameters_dict.pop('long-type', 'type-not-found')
 
-        self._start = int(parameters_dict.pop('start', 0))
+        if 'start' in parameters_dict:
+            self._start = parameters_dict['start']
+        elif type(parameters_dict['tau']) == str:
+            try:
+                _ = float(parameters_dict['tau'])
+            except ValueError:
+                self._start = parameters_dict['tau'].split('_')[0]
+                parameters_dict['tau'] = '_'.join(parameters_dict['tau'].split('_')[1:])
+
         for k, v in parameters_dict.items():
-            # print('key:', k, 'val:', v, type(v))
             # in case it is none then parameter it is handled by the default behaviour of artm
             if v is None or type(v) == list or type(v) == artm.dictionary.Dictionary or k == 'class_ids':  # one of topic_names or class_ids or dictionary
                 self._reg_constr_params[k] = v
@@ -41,6 +50,9 @@ class ArtmRegularizerWrapper(object):
                         self._reg_constr_params[k] = vf # case: parameter_name == 'tau'
                     self._params_for_labeling[k] = vf
                 except ValueError:
+                    if self._start is None:
+                        print("INFO Defaulting to activating the regularizer from the 1st iteration")
+                        self._start = 0
                     self._traj_def[k] = self._traj_type2traj_def_creator[k]([self._start, v])  # case: parameter_value is a trajectory definition without the 'start' setting (nb of initial iterations that regularizer stays inactive)
                     self._params_for_labeling[k] = self._traj_def[k]
         self._create_artm_regularizer(dict(self._reg_constr_params, **{'name': self._name}))
@@ -82,7 +94,7 @@ class ArtmRegularizerWrapper(object):
 
     def _create_trajectory(self, name, length):
         _ = self._traj_def[name].split('_')
-        return trajectory_builder.begin_trajectory('tau')\
+        return self.trajectory_builder.begin_trajectory('tau')\
             .deactivate(int(_[0]))\
             .interpolate_to(length - int(_[0]), float(_[3]), interpolation=_[1], start=float(_[2]))\
             .create()

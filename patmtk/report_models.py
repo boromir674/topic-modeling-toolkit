@@ -1,4 +1,4 @@
-#!/usr/bin/python3.5
+#!/usr/bin/env python
 
 import argparse
 from reporting import ModelReporter
@@ -16,9 +16,9 @@ def get_cli_arguments():
 if __name__ == '__main__':
 
     COLUMNS = [
-        # 'nb-topics',
-               # 'collection-passes',
-               # 'document-passes',
+        'nb-topics',
+               'collection-passes',
+               'document-passes',
                # 'total-phi-updates',
                'perplexity',
                'kernel-size',
@@ -29,7 +29,7 @@ if __name__ == '__main__':
                'sparsity-phi',
                'sparsity-theta',
                'background-tokens-ratio',
-               # 'regularizers'
+               'regularizers'
                ]
 
     cli_args = get_cli_arguments()

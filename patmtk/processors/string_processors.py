@@ -28,12 +28,14 @@ def deaccent(a_string):
 
 
 def utf8encode(a_string):
-    return a_string.encode('utf-8')
+    return a_string
+    # assert type(a_string) == str
+    # return a_string.encode('utf-8')
 
 
 def lemmatize(a_string):
     try:
-        return ' '.join(x[0] for x in [str(x).split('/') for x in gen_lemmatize(a_string, stopwords=en_stopwords, min_length=2, max_length=50)])
+        return ' '.join(x[0] for x in [str(x.decode()).split('/') for x in gen_lemmatize(a_string, stopwords=en_stopwords, min_length=2, max_length=50)])
     except TypeError as e:
         raise TypeError("Error: {}. Input {} of type {}".format(e, a_string, type(a_string).__name__))
 

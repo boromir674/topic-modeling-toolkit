@@ -1,12 +1,15 @@
-#!/home/kostas/software_and_libs/anaconda2/bin/python
+#!/usr/bin/env python
 
 import argparse
 import os
 import sys
+import re
+from PyInquirer import prompt
 
 from patm.definitions import COLLECTIONS_DIR_PATH
+from patm.pipe_handler import PipeHandler
+from patm import political_spectrum
 from patm.build_coherence import CoherenceFilesBuilder
-from processors import PipeHandler
 
 
 def get_cl_arguments():
@@ -29,23 +32,145 @@ def get_cl_arguments():
     return parser.parse_args()
 
 
+def ask_discreetization(spectrum, pipe_handler, pool_size=100, prob=0.3, max_generation=100):
+
+    namings = [['liberal', 'centre', 'conservative'],
+               ['liberal', 'centre_liberal', 'centre_conservative', 'conservative'],
+               ['liberal', 'centre_liberal', 'centre', 'centre_conservative', 'conservative'],
+               ['more_liberal', 'liberal', 'centre_liberal', 'centre', 'centre_conservative', 'conservative']]
+
+    questions = [
+        {
+            'type': 'list',  # navigate with arrows through choices
+            'name': 'discreetization-scheme',
+            'message': 'Use a registered discreetization scheme or create a new one.',
+            'choices': ['Classes: [{}] with distribution [{}]'.format(' '.join(scheme.class_names), ' '.join('{:.2f}'.format(x) for x in spectrum.distribution(scheme))) for name, scheme in spectrum]
+                       + ['Create new']
+
+        },
+        {
+            'type': 'list',  # navigate with arrows through choices
+            'name': 'naming-scheme',
+            'message': 'You can pick one of the pre made class names or define your own custom',
+            'choices': ['{}: {}'.format(len(names), ' '.join(names)) for names in namings] + ['Create custom names'],
+            'when': lambda x: x['discreetization-scheme'] == 'Create new',
+        },
+        {
+            'type': 'input',
+            'name': 'custom-class-names',
+            'message': 'Give space separated class names',
+            'when': lambda x: x.get('naming-scheme', None) == 'Create custom names',
+        }
+    ]
+    answers = prompt(questions)
+    if not all(x in answers for x in ['discreetization-scheme']):
+        raise KeyboardInterrupt
+
+    if answers['discreetization-scheme'] == 'Create new':
+        evolution_specs = ask_evolution_specs()
+        print("Evolving discreetization scheme ..")
+        class_names = _class_names(answers.get('custom-class-names', answers['naming-scheme']))
+        spectrum.init_population(class_names, pipe_handler.outlet_ids, pool_size)
+        return spectrum.evolve(int(evolution_specs['nb-generations']), prob=float(evolution_specs['probability']))
+    else:
+        for scheme_name, scheme in spectrum:
+            if ' '.join(scheme.class_names) in answers['discreetization-scheme']:
+                return scheme
+    # return spectrum[answers['discreetization-scheme']]
+
+
+def _class_names(string):
+    return ['{}_Class'.format(x) for x in re.sub(r'\d+:\s+', '', string).split(' ')]
+
+def ask_persist(pol_spctrum):
+    return prompt([{'type': 'confirm',
+                    'name': 'create-dataset',
+                    'message': "Use scheme [{}] with resulting distribution [{}]?".format(' '.join(pol_spctrum.class_names), ', '.join('{:.2f}'.format(x) for x in political_spectrum.class_distribution)),
+                    'default': True}])['create-dataset']
+
+
+def ask_evolution_specs():
+    return prompt([{'type': 'input',
+                    'name': 'nb-generations',
+                    'message': 'Give the number of generations to evolve solution (optimize)',
+                    'default': '50'},
+                    {'type': 'input',
+                     'name': 'probability',
+                     'message': 'Give mutation probability',
+                     'default': '0.35'}])
+
+def what_to_do():
+    return prompt([{
+        'type': 'list',  # navigate with arrows through choices
+        'name': 'to-do',
+        'message': 'How to proceed?',
+        'choices': ['Evolve more', 'Use scheme to persist dataset', 'back'],
+    }])['to-do']
+
+
 if __name__ == '__main__':
     args = get_cl_arguments()
     nb_docs = args.sample
     if nb_docs != 'all':
         nb_docs = int(nb_docs)
-    ph = PipeHandler(COLLECTIONS_DIR_PATH, args.category, sample=nb_docs)
-    ph.pipeline = args.config
-    # ph.create_pipeline(args.config)
-    print('\n', ph.pipeline, '\n')
 
-    uci_dt = ph.preprocess(args.collection, not args.exclude_class_labels_from_vocab)
-    print(uci_dt)
+    ph = PipeHandler()
+    ph.process(args.config, args.category, sample=nb_docs, verbose=True)
+    political_spectrum.datapoint_ids = ph.outlet_ids
 
-    print('\nBuilding coocurences information')
-    coherence_builder = CoherenceFilesBuilder(os.path.join(COLLECTIONS_DIR_PATH, args.collection))
-    coherence_builder.create_files(cooc_window=args.window,
-                                   min_tf=args.min_tf,
-                                   min_df=args.min_df,
-                                   apply_zero_index=False)
-    # ph.write_cooc_information(args.window, args.min_tf, args.min_df)
+    while 1:
+        try:
+            scheme = ask_discreetization(political_spectrum, ph, pool_size=100, prob=0.3, max_generation=100)
+        except KeyboardInterrupt:
+            print("Exiting ..")
+            sys.exit(0)
+        print("Scheme with classes: [{}]".format(' '.join(x for x, _ in scheme)))
+        try:
+            political_spectrum.discreetization_scheme = scheme
+        except ValueError as e:
+            raise ValueError("{}. {}".format(e, type(scheme).__name__))
+
+        print("Scheme [{}] with resulting distribution [{}]".format(' '.join(political_spectrum.class_names), ', '.join('{:.2f}'.format(x) for x in political_spectrum.class_distribution)))
+        print("Bins: {}".format(' '.join('[{}]'.format(', '.join(class_bin) for _, class_bin in scheme))))
+        while 1:
+            answer = what_to_do()
+            if answer == 'back':
+                break
+            if answer == 'Evolve more':
+                evolution_specs = ask_evolution_specs()
+                print("Evolving discreetization scheme ..")
+                scheme = political_spectrum.evolve(int(evolution_specs['nb-generations']), prob=float(evolution_specs['probability']))
+                political_spectrum.discreetization_scheme = scheme
+                print("Scheme [{}] with resulting distribution [{}]".format(' '.join(scheme.class_names),
+                                                                            ', '.join('{:.2f}'.format(x) for x in
+                                                                                      political_spectrum.class_distribution)))
+                print("Bins: {}".format(' '.join('[{}]'.format(', '.join(outlet for outlet in class_bin) for _, class_bin in scheme))))
+            else:
+                uci_dt = ph.persist(os.path.join(COLLECTIONS_DIR_PATH, args.collection),
+                                    political_spectrum.poster_id2ideology_label, political_spectrum.class_names,
+                                    add_class_labels_to_vocab=not args.exclude_class_labels_from_vocab)
+                print(uci_dt)
+                print("Discreetization scheme\n{}".format(political_spectrum.discreetization_scheme))
+
+                # print("Add the below to the DISCREETIZATION_SCHEMES_HASH")
+                # print("[{}]".format())
+                print('\nBuilding coocurences information')
+                coherence_builder = CoherenceFilesBuilder(os.path.join(COLLECTIONS_DIR_PATH, args.collection))
+                coherence_builder.create_files(cooc_window=args.window,
+                                               min_tf=args.min_tf,
+                                               min_df=args.min_df,
+                                               apply_zero_index=False)
+                sys.exit(0)
+
+    # if ask_persist(political_spectrum):
+    #
+    #         break
+    #
+    # print(uci_dt)
+    #
+    # print('\nBuilding coocurences information')
+    # coherence_builder = CoherenceFilesBuilder(os.path.join(COLLECTIONS_DIR_PATH, args.collection))
+    # coherence_builder.create_files(cooc_window=args.window,
+    #                                min_tf=args.min_tf,
+    #                                min_df=args.min_df,
+    #                                apply_zero_index=False)

@@ -13,22 +13,6 @@ _section2encoder = {
         'regularizers': str,
         'scores': str}
 
-def get_standard_evaluation_definitions():
-    """
-    :return:
-    :rtype: OrderedDict
-    """
-    _ = cfg2model_settings(TRAIN_CFG)
-    if 'scores' not in _:
-        raise KeyError("'scores' section is missing from cfg file '{}'.".format(TRAIN_CFG))
-    return cfg2model_settings(TRAIN_CFG)['scores']
-
-def get_standard_regularization_definitions():
-    return OrderedDict([('sparse-phi', 'spp'),
-                        ('smooth-phi', 'smp'),
-                        ('sparse-theta', 'spt'),
-                        ('smooth-theta', 'smt')])
-
 
 def cfg2model_settings(cfg_file):
     """
@@ -48,6 +32,7 @@ def cfg2model_settings(cfg_file):
     return OrderedDict([(section, OrderedDict(
         [(setting_name, _section2encoder[section](value)) for setting_name, value in
          config.items(section) if value])) for section in config.sections()])
+
 
 class GenericTopicNamesBuilder:
     def __init__(self, nb_topics=0, background_topics_pct=0.0):

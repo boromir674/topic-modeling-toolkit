@@ -1,53 +1,31 @@
 import pytest
+import os
+from collections import Counter
+from functools import reduce
+from patm.tuning.tuner import ParametersMixture, LabelingDefinition, RegularizationSpecifications
 
-from patm import Tuner
-from patm.tuning.building import tuner_definition_builder as tdb
-from os import path
-#
-# @pytest.fixture(scope='module')
-# def tuner(collections_root_dir, test_dataset):
-#     return Tuner(path.join(collections_root_dir, test_dataset.name), evaluation_definitions={
-#         'perplexity': 'per',
-#         'sparsity-phi-@dc': 'sppd',
-#         'sparsity-theta': 'spt',
-#         'topic-kernel-0.60': 'tk60',
-#         'topic-kernel-0.80': 'tk80',
-#         'top-tokens-10': 'top10',
-#         'top-tokens-100': 'top100',
-#         'background-tokens-ratio-0.3': 'btr3',
-#         'background-tokens-ratio-0.2': 'btr2'
-#     }, verbose=0)
-#
-# def test_tuner(tuner):
-#
-#     tuning_definition = tdb.initialize()\
-#         .nb_topics(10, 12)\
-#         .collection_passes(5)\
-#         .document_passes(1)\
-#         .background_topics_pct(0.2) \
-#         .ideology_class_weight(0, 1) \
-#         .build()
-#
-#         # .sparse_phi()\
-#         #     .deactivate(8)\
-#         #     .kind('linear')\
-#         #     .start(-1)\
-#         #     .end(-10, -100)\
-#         # .sparse_theta()\
-#         #     .deactivate(10)\
-#         #     .kind('linear')\
-#         #     .start(-1)\
-#         #     .end(-10, -100)\
-#
-#     tuner.active_regularizers = [
-#         # 'smooth-phi',
-#         # 'smooth-theta',
-#         'label-regularization-phi-dom-cls',
-#         'decorrelate-phi-dom-def',
-#     ]
-#     tuner.tune(tuning_definition,
-#                prefix_label='unittest',
-#                append_explorables=True,
-#                append_static=True,
-#                force_overwrite=True,
-#                verbose=False)
+
+def test_tuning(tuner_obj, regularizers_specs, expected_constant_params, expected_explorable_params, expected_labeling_parameters, model_names):
+    assert sorted(list(tuner_obj.constants)) == sorted([x[0] for x in expected_constant_params])
+    assert sorted(tuner_obj.explorables) == sorted([x[0] for x in expected_explorable_params])
+    assert sorted(list(tuner_obj.regularization_specs.types)) == sorted([x[0] for x in regularizers_specs])
+    assert sorted(tuner_obj._labeler.parameters) == sorted(expected_labeling_parameters)
+    assert tuner_obj.regularization_specs == RegularizationSpecifications([
+        ('label-regularization-phi-dom-cls', [('tau', 1e5)]),
+        ('decorrelate-phi-dom-def', [('tau', 1e4)])
+        ])
+
+
+    for m in model_names:
+        assert os.path.isfile(os.path.join(tuner_obj.dataset, 'results', '{}.json'.format(m)))
+        assert os.path.isfile(os.path.join(tuner_obj.dataset, 'models', '{}.phi'.format(m)))
+
+
+def test_parameter_mixture():
+    pm = ParametersMixture([('gg', [1,2,3]), ('a', 1), ('b', [1]), ('c', ['e', 'r'])])
+    assert pm.steady == ['a', 'b']
+    assert pm.explorable == ['gg', 'c']
+
+
+# def test_labeling():
+#     lb = LabelingDefinition()

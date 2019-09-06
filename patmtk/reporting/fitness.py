@@ -96,6 +96,10 @@ class FitnessFunction(object):
         return self._order
 
     def compute(self, individual):
+        """
+        :param list individual: list of values for metrics [prpl, top-tokens-coh-10, ..]
+        :return:
+        """
         try:
             c = [x(individual) for x in self._extr]
         except IndexError as e:

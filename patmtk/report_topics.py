@@ -1,7 +1,6 @@
-#!/usr/bin/python3.5
+#!/usr/bin/env python
 
 import click
-
 from reporting import TopicsHandler
 
 

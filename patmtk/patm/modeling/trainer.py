@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 import os
 import re
-import abc
+
 import artm
 
+from .regularization.trajectory import get_fit_iteration_chunks
 from .model_factory import ModelFactory
-from ..definitions import COLLECTIONS_DIR_PATH
-from patm.modeling.parameters.trajectory import get_fit_iteration_chunks
 
 
 class ModelTrainer(object):
@@ -19,14 +18,13 @@ class ModelTrainer(object):
         self.batch_vectorizer = None
         # self.dictionary = artm.Dictionary()
         self._pmi_key = ''
-        self._dictionary = None
-        self.cooc_dicts = {}  # ppmi: positive pmi (Point-Mutual Information)
+        self.ppmi_dicts = {}  # ppmi: positive pmi (Point-Mutual Information)
         self.observers = []
 
     @property
     def dictionary(self):
         """The dictionary used to compute all coherence related metric"""
-        return self.cooc_dicts[self._pmi_key]['obj']
+        return self.ppmi_dicts[self._pmi_key]['obj']
 
     @dictionary.setter
     def dictionary(self, dictionary_obj):
@@ -34,10 +32,10 @@ class ModelTrainer(object):
         self._pmi_key = self.__search(dictionary_obj)
 
     def __search(self, dictionary_obj):
-        for k, v in self.cooc_dicts.items():
+        for k, v in self.ppmi_dicts.items():
             if v['obj'] == dictionary_obj:
                 return k
-        raise RuntimeError("Dict {} not found in {}".format(dictionary_obj, self.cooc_dicts))
+        raise RuntimeError("Dict {} not found in {}".format(dictionary_obj, self.ppmi_dicts))
 
     def register(self, observer):
         if observer not in self.observers:
@@ -58,7 +56,7 @@ class ModelTrainer(object):
 
     @property
     def model_factory(self):
-        return ModelFactory(self.dictionary, self.cooc_dicts)
+        return ModelFactory(self.dictionary)
 
     def train(self, topic_model, specs, effects=False, cache_theta=False):
         """
@@ -113,7 +111,7 @@ class TrainerFactory(object):
     ideology_flag2data_format = {True: 'vowpal_wabbit', False: 'bow_uci'}
     ideology_flag2batches_dir_name = {True: 'vow-batches', False: 'uci-batches'}
 
-    def create_trainer(self, collection, exploit_ideology_labels=False, force_new_batches=False):
+    def create_trainer(self, collection, exploit_ideology_labels=True, force_new_batches=False):
         """
         Creates an object that can train any topic model on a specific dataset/collection.\n
         :param str collection: the collection dir path which matches the root directory of all the files related to the collection
@@ -145,17 +143,19 @@ class TrainerFactory(object):
         # TODO replace with nested map/lambdas and regex
         for fname in os.listdir(self._root_dir):
             name = os.path.basename(fname)
-            matc = re.match('^ppmi_(\d+)_([td]f)\.txt$', name)
+            matc = re.match(r'^ppmi_(\d+)_([td]f)\.txt$', name)
             if matc:
-                self._mod_tr.cooc_dicts[matc.group(2)] = {'obj': artm.Dictionary(name=name), 'min': int(matc.group(1))}
-                self._mod_tr.cooc_dicts[matc.group(2)]['obj'].gather(data_path=self._root_dir,
+                self._mod_tr.ppmi_dicts[matc.group(2)] = {'obj': artm.Dictionary(name=name), 'min': int(matc.group(1))}
+                self._mod_tr.ppmi_dicts[matc.group(2)]['obj'].gather(data_path=self._root_dir,
                                                                      cooc_file_path=os.path.join(self._root_dir, name),
                                                                      vocab_file_path=vocab,
                                                                      symmetric_cooc_values=True)
                 print("Loaded positive pmi dictionary with min_{} = {} from '{}' text file".format(matc.group(2), matc.group(1), name))
-        if not 'tf' in self._mod_tr.cooc_dicts:
-            raise RuntimeError("Key 'tf' should be in the coocurrences dictionaries hash: Instead these is the hash: [{}]".format('{}: {}'.format(k, v) for k,v in self._mod_tr.cooc_dicts.items()))
-        self._mod_tr.dictionary = self._mod_tr.cooc_dicts['tf']['obj']
+        if not 'tf' in self._mod_tr.ppmi_dicts:
+            raise RuntimeError("Key 'tf' should be in the coocurrences dictionaries hash: Instead these is the hash: [{}]".format('{}: {}'.format(k, v) for k,v in self._mod_tr.ppmi_dicts.items()))
+
+        ##### DECIDE HOW TO COMPUTE PPMI
+        self._mod_tr.dictionary = self._mod_tr.ppmi_dicts['tf']['obj']
 
         # if os.path.exists(bin_dict):
         #     self._mod_tr.dictionary.load(bin_dict)
