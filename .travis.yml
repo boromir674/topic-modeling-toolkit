@@ -1,0 +1,86 @@
+os: linux
+language: python
+
+
+env:
+  global:
+    - LD_PRELOAD=/lib/x86_64-linux-gnu/libSegFault.so
+    - SEGFAULT_SIGNALS=all
+    - TOX_SKIP_MISSING_INTERPRETERS="False"
+    - BIGARTM_PARENT_DIR=$(echo $PWD)
+    - COLLECTIONS_DIR="$(echo $PWD)/collections"
+
+before_install:
+  - mkdir $COLLECTIONS_DIR
+  - python --version
+  - pip --version
+  - uname -a
+  - lsb_release -a
+  - sudo apt-get --yes update
+  - sudo apt-get --yes install git make cmake build-essential libboost-all-dev gfortran libblas-dev liblapack-dev
+  - sudo python -m pip install -U pip
+  - sudo python -m pip install -U setuptools>=40.0.0
+  - python -m pip install -U setuptools>=40.0.0
+  - virtualenv --version
+  - git clone https://github.com/bigartm/bigartm.git
+  - chmod +x .travis/build-n-wheel.sh
+  - chmod +x .travis/select-wheel.sh
+  - python -m pip install tox
+
+
+cache: pip
+script: tox -v
+
+jobs:
+  fail_fast: true
+  include:
+#  - stage: Check
+#    env: TOXENV=clean,check
+  - stage: Build_n_test
+    before_install:
+      - python --version
+      - python -m pip install tox
+    env: TOXENV=clean,check
+  - stage: Build_n_test
+    python: '3.6'
+    env: TOXENV=py36
+    install:
+      - .travis/build-n-wheel.sh 3 6
+      - export BIGARTM_WHEEL=$(.travis/select-wheel.sh 3 6)
+      - export ARTM_SHARED_LIBRARY=/usr/local/lib/libartm.so
+  - stage: Build_n_test
+    python: '2.7'
+    env: TOXENV=py27
+    install:
+      - .travis/build-n-wheel.sh 2 7
+      - export BIGARTM_WHEEL=$(.travis/select-wheel.sh 2 7)
+      - export ARTM_SHARED_LIBRARY=/usr/local/lib/libartm.so
+  - stage: Build_n_test
+    python: '3.6'
+    before_install:
+      - python --version
+      - python -m pip install tox
+    env: TOXENV=quality
+
+  allow_failures:
+    - env: TOXENV=py27
+    - env: TOXENV=quality
+#  allow_failures:
+#    - env: TOXENV=quality
+
+after_failure:
+  - more .tox/log/* | cat
+  - more .tox/*/log/* | cat
+
+#
+#deploy:
+#  provider: script
+#  script: .travis/deploy.sh
+#  on:
+#    all_branches: true
+
+
+#notifications:
+#  email:
+#    on_success: never
+#    on_failure: never
