@@ -1,0 +1,10 @@
+*\.pyc
+\.eggs
+*\.egg-info
+.idea
+\.fuse*
+*\.bak
+*bigartm*
+\.cache*
+\.coverage
+*__pycache__
