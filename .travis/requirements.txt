@@ -1,0 +1,26 @@
+numpy>=1.16.5
+regex==2019.6.8
+attrs==19.1.0
+tqdm==4.32.2
+Click==7.0
+scipy>=1.2.2
+six==1.12.0
+
+matplotlib>=2.2.4
+
+future==0.17.1
+
+in-place==0.4.0
+
+nltk==3.4.4
+
+pandas>=0.24.2
+
+Pattern==3.6
+gensim==3.8.0
+protobuf==3.9.0
+prompt-toolkit==1.0.14
+PyInquirer==1.0.3
+
+# EasyPlot==1.0.0
+# configparser

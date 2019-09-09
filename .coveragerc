@@ -1,0 +1,27 @@
+[paths]
+source =
+   src
+   */site-packages
+
+[run]
+branch = true
+source =
+    topic_modeling_toolkit
+    tests
+parallel = true
+
+[report]
+show_missing = true
+precision = 2
+omit = *migrations*
+# Regexes for lines to exclude from consideration
+exclude_lines =
+    except ImportError
+    raise NotImplementedError
+    pass
+    ABCmeta
+    abstractmethod
+    abstractproperty
+    abstractclassmethod
+    warnings.warn
+    download_callback\(url,\ directory,
