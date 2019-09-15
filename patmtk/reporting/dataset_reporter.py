@@ -50,7 +50,7 @@ class DatasetReporter(object):
             return '{}\n{}\n{}'.format('\n'.join(map(lambda x: self._wrap_color(str(x)), self.load_dts())),
                                        ', '.join(self._extract_files_info()),
                                        'Classes: [{}] with documents distribution [{}]'.format(
-                                           ' '.join(sorted(c.keys())), ' '.join('{:.2f}'.format(c[x]/float(n)) for x in sorted(c.keys()))
+                                           ' '.join(sorted(c.keys())), ' '.join('{:.3f}'.format(c[x]/float(n)) for x in sorted(c.keys()))
                                        ))
 
     def _wrap_color(self, b):
