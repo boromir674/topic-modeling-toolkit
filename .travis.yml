@@ -43,7 +43,7 @@ jobs:
     env: TOXENV=clean,check
   - stage: Build_n_test
     python: '3.6'
-    env: TOXENV=py36
+    env: TOXENV=py36,codecov
     install:
       - .travis/build-n-wheel.sh 3 6
       - export BIGARTM_WHEEL=$(.travis/select-wheel.sh 3 6)

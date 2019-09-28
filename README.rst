@@ -20,15 +20,15 @@ This library aims to automate Topic Modeling research-related activities.
       - | |coverage|
       - | |code_intelligence|
 
-.. |travis| image:: https://travis-ci.org/boromir674/topic-modeling-toolkit.svg?branch=packagify
+.. |travis| image:: https://travis-ci.org/boromir674/topic-modeling-toolkit.svg?branch=dev-release
     :alt: Travis-CI Build Status
     :target: https://travis-ci.org/boromir674/topic-modeling-toolkit
 
-.. |coverage| image:: https://coveralls.io/repos/github/boromir674/topic-modeling-toolkit/badge.svg?branch=packagify
+.. |coverage| image:: https://img.shields.io/codecov/c/github/boromir674/topic-modeling-toolkit/dev-release?style=flat-square
     :alt: Coverage Status
-    :target: https://coveralls.io/github/boromir674/topic-modeling-toolkit?branch=packagify
+    :target: https://codecov.io/gh/boromir674/topic-modeling-toolkit/branch/dev-release
 
-.. |code_intelligence| image:: https://scrutinizer-ci.com/g/boromir674/topic-modeling-toolkit/badges/code-intelligence.svg?b=packagify
+.. |code_intelligence| image:: https://scrutinizer-ci.com/g/boromir674/topic-modeling-toolkit/badges/code-intelligence.svg?b=dev-release
     :alt: Code Intelligence
     :target: https://scrutinizer-ci.com/code-intelligence
 
@@ -52,15 +52,40 @@ Key features of the Library:
 
 Installation
 ------------
-| Please build BigARTM following the instructions `here <https://bigartm.readthedocs.io/en/stable/installation/index.html>`_.
-| Make sure to build it in a way to produce the correct wheel to install as bigartm dependency in your enviroment.
-| After installing Bigartm, the 'bigartm' executable should be in PATH.
-|
-| The code shall be hosted on PyPI, hence it should be installed by
+| The Topic Modeling Toolkit depends on the BigARTM C++ library. Therefore first you should first build and install it
+| either by following the instructions `here <https://bigartm.readthedocs.io/en/stable/installation/index.html>`_ or by using
+| the 'build_artm.sh' script provided. For example, for python3 you can use the following
 
 ::
 
-    $ pip install topic_modeling_toolkit
+    $ git clone https://github.com/boromir674/topic-modeling-toolkit.git
+    $ chmod +x topic-modeling-toolkit/build_artm.sh
+    $ # build and install BigARTM library in /usr/local and create python3 wheel
+    $ topic-modeling-toolkit/build_artm.sh
+    $ ls bigartm/build/python/bigartm*.whl
+
+| Now you should have the 'bigartm' executable in PATH and you can find a built python wheel in 'bigartm/build/python/'
+| You should install the wheel in your environment, for example with command
+
+::
+
+    python -m pip install bigartm/build/python/path-python-wheel
+
+| You can install the package with the following command
+| When the package gets hosted on PyPI, it should be installed
+
+::
+
+    $ cd topic-modeling-toolkit
+    $ pip install .
+
+If the above fails try again including manual installation of dependencies
+
+::
+
+    $ cd topic-modeling-toolkit
+    $ pip install -r requirements.txt
+    $ pip install .
 
 
 Usage
@@ -70,8 +95,8 @@ A sample example is below.
 ::
 
     $ current_dir=$(echo $PWD)
-    $ mkdir datasets-dir
     $ export COLLECTIONS_DIR=$current_dir/datasets-dir
+    $ mkdir $COLLECTIONS_DIR
 
     $ transform posts pipeline.cfg my-dataset
     $ train my-dataset train.cfg plsa-model --save
@@ -82,4 +107,3 @@ Citation
 --------
 
 1. Vorontsov, K. and Potapenko, A. (2015). `Additive regularization of topic models <http://machinelearning.ru/wiki/images/4/47/Voron14mlj.pdf>`_. Machine Learning, 101(1):303–323.
-
