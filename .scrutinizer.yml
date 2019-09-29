@@ -1,0 +1,87 @@
+checks:
+    python:
+        code_rating: true
+        duplicate_code: true
+
+build:
+#    environment:
+#        variables:
+#            BIGARTM_PARENT_DIR:   $(echo $PWD)
+#            COLLECTIONS_DIR: "$(echo $PWD)/collections"
+#        apt_packages:
+#          - make
+#          - cmake
+#          - build-essential
+#          - libboost-all-dev
+#          - gfortran
+#          - libblas-dev
+#          - liblapack-dev
+        # Languages
+    nodes:
+        analysis:
+            project_setup:
+                override:
+                    - 'true'
+            tests:
+                override:
+                    - py-scrutinizer-run
+                    -
+                        command: pylint-run
+                        use_website_config: true
+        tests:
+            tests:
+                override:
+                    - 'true'
+#            environment:
+#                python:
+#                    version: "3.6.0"
+##        variables:
+##            BIGARTM_PARENT_DIR:   $(echo $PWD)
+##            COLLECTIONS_DIR: "$(echo $PWD)/collections"
+#                apt_packages:
+#                  - make
+#                  - cmake
+#                  - build-essential
+#                  - libboost-all-dev
+#                  - gfortran
+#                  - libblas-dev
+#                  - liblapack-dev
+##            requires:
+#                # will only run when my-first-test passes
+##                - node: my-first-test
+#                # will only run when no failure conditions were met in the analysis
+##                - analysis
+#            dependencies:
+#                before:
+#                  - pip install tox
+#                  - export BIGARTM_PARENT_DIR=$(echo $PWD)
+#                  - export COLLECTIONS_DIR="$(echo $PWD)/collections"
+#                  - echo EDW $BIGARTM_PARENT_DIR
+#                  - echo EDW $COLLECTIONS_DIR
+#                  - mkdir $COLLECTIONS_DIR
+#                  - pip install -U setuptools>=40.0.0
+#                  - git clone https://github.com/bigartm/bigartm.git
+#                  - chmod +x .travis/build-n-wheel.sh
+#                  - chmod +x .travis/select-wheel.sh
+#                  - .travis/build-n-wheel.sh 3 6
+#                  - export BIGARTM_WHEEL=$(.travis/select-wheel.sh 3 6)
+#                  - ls $BIGARTM_WHEEL
+#            tests:
+#                before:
+#                    - pip install coverage
+#                override:
+#                    - tox -e clean,check,py36
+#                    -
+#                        command: coverage
+#                        coverage:
+#                            file: .coverage
+#                            config_file: '.coveragerc'
+#                            format: py-cc
+
+
+filter:
+    excluded_paths:
+        - '*/test/*'
+        - '*/build/*'
+    dependency_paths:
+        - 'lib/*'
