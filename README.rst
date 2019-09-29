@@ -17,8 +17,11 @@ This library aims to automate Topic Modeling research-related activities.
 
     * - tests
       - | |travis|
-      - | |coverage|
-      - | |code_intelligence|
+        | |coverage|
+        | |scrutinizer_code_quality|
+        | |code_intelligence|
+    * - package
+      - |version| |python_versions|
 
 .. |travis| image:: https://travis-ci.org/boromir674/topic-modeling-toolkit.svg?branch=dev
     :alt: Travis-CI Build Status
@@ -28,9 +31,21 @@ This library aims to automate Topic Modeling research-related activities.
     :alt: Coverage Status
     :target: https://codecov.io/gh/boromir674/topic-modeling-toolkit/branch/dev
 
+.. |scrutinizer_code_quality| image:: https://scrutinizer-ci.com/g/boromir674/topic-modeling-toolkit/badges/quality-score.png?b=dev
+    :alt: Code Quality
+    :target: https://scrutinizer-ci.com/g/boromir674/topic-modeling-toolkit/?branch=dev
+
 .. |code_intelligence| image:: https://scrutinizer-ci.com/g/boromir674/topic-modeling-toolkit/badges/code-intelligence.svg?b=dev
     :alt: Code Intelligence
     :target: https://scrutinizer-ci.com/code-intelligence
+
+.. |version| image:: https://img.shields.io/pypi/v/topic-modeling-toolkit.svg
+    :alt: PyPI Package latest release
+    :target: https://pypi.org/project/topic-modeling-toolkit
+
+.. |python_versions| image:: https://img.shields.io/pypi/pyversions/topic-modeling-toolkit.svg
+    :alt: Supported versions
+    :target: https://pypi.org/project/topic-modeling-toolkit
 
 
 ========
