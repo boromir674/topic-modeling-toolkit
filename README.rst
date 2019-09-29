@@ -20,15 +20,15 @@ This library aims to automate Topic Modeling research-related activities.
       - | |coverage|
       - | |code_intelligence|
 
-.. |travis| image:: https://travis-ci.org/boromir674/topic-modeling-toolkit.svg?branch=dev-release
+.. |travis| image:: https://travis-ci.org/boromir674/topic-modeling-toolkit.svg?branch=dev
     :alt: Travis-CI Build Status
     :target: https://travis-ci.org/boromir674/topic-modeling-toolkit
 
-.. |coverage| image:: https://img.shields.io/codecov/c/github/boromir674/topic-modeling-toolkit/dev-release?style=flat-square
+.. |coverage| image:: https://img.shields.io/codecov/c/github/boromir674/topic-modeling-toolkit/dev?style=flat-square
     :alt: Coverage Status
-    :target: https://codecov.io/gh/boromir674/topic-modeling-toolkit/branch/dev-release
+    :target: https://codecov.io/gh/boromir674/topic-modeling-toolkit/branch/dev
 
-.. |code_intelligence| image:: https://scrutinizer-ci.com/g/boromir674/topic-modeling-toolkit/badges/code-intelligence.svg?b=dev-release
+.. |code_intelligence| image:: https://scrutinizer-ci.com/g/boromir674/topic-modeling-toolkit/badges/code-intelligence.svg?b=dev
     :alt: Code Intelligence
     :target: https://scrutinizer-ci.com/code-intelligence
 
