@@ -16,6 +16,7 @@ before_install:
   - pip --version
   - uname -a
   - lsb_release -a
+  - sudo apt-add-repository --yes ppa:ubuntu-toolchain-r/test
   - sudo apt-get --yes update
   - sudo apt-get --yes install git make cmake build-essential libboost-all-dev gfortran libblas-dev liblapack-dev
   - sudo python -m pip install -U pip
@@ -26,6 +27,14 @@ before_install:
   - chmod +x .travis/build-n-wheel.sh
   - chmod +x .travis/select-wheel.sh
   - python -m pip install tox
+
+  - sudo apt-get install gcc-4.8 gfortran-4.8 libgomp1 openmpi-bin libopenmpi-dev
+
+  # Use the current stable version (2.1.0)
+  # See http://sourceforge.net/p/pfunit/mailman/message/31811969
+  - git clone --depth 1 --branch pfunit_2.1.0 git://git.code.sf.net/p/pfunit/code pfunit-code
+  - make -C pfunit-code MPI=yes OPENMP=yes
+  - make install -C pfunit-code INSTALL_DIR=../pfunit
 
 
 cache: pip
