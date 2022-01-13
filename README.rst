@@ -1,13 +1,25 @@
 Topic Modeling Toolkit - Python Library
 =========================================================================
 
-This library aims to automate Topic Modeling research-related activities.
+This library aims to automate Topic Modeling research-related activities,
+by providing an easy-to-use cli.
+
+The cli provides commands for operations related to:
 
 * Data preprocessing and dataset computing
 * Model training (with parameter grid-search), evaluating and comparing
 * Graph building
 * Computing KL-divergence between p(c|t) distributions
 * Datasets/models/kl-distances reporting
+
+The source code of this project has been used for developing the novelty model
+in the "Political Spectrum Aware Topic Model" Thesis Project by Konstantinos Lampridis.
+
+The code should also be used in case you would want to reproduce the experimental results reported in the thesis.
+
+The thesis was part of the Artificial Intelligence MSc programme of the University of Amsterdam. 
+
+You can download and read the complete thesis `here <https://scripties.uba.uva.nl/document/676033>`_.
 
 
 .. start-badges
